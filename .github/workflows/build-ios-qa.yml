@@ -1,3 +1,4 @@
+# QA rebuild requested 2026-08-06; app source unchanged.
 name: Build iPhone QA App
 
 on:
