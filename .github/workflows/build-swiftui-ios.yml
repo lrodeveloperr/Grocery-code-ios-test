@@ -39,8 +39,15 @@ jobs:
           plutil -lint GroceryBenefitsTracker/Resources/PrivacyInfo.xcprivacy
           xcodebuild -project GroceryBenefitsTracker.xcodeproj -list
           test "$(git ls-files '*.swift' | wc -l | tr -d ' ')" -ge 8
-          deployment_target="$(xcodebuild -project GroceryBenefitsTracker.xcodeproj -scheme GroceryBenefitsTrackerQA -showBuildSettings | awk '/IPHONEOS_DEPLOYMENT_TARGET/ && !found { value=$3; found=1 } END { print value }')"
-          test "$deployment_target" = "16.4"
+          build_settings="$(xcodebuild \
+            -project GroceryBenefitsTracker.xcodeproj \
+            -scheme GroceryBenefitsTrackerQA \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -showBuildSettings)"
+          deployment_targets="$(awk '$1 == "IPHONEOS_DEPLOYMENT_TARGET" { print $3 }' <<< "$build_settings" | sort -u)"
+          echo "Resolved iOS deployment targets: $deployment_targets"
+          test "$deployment_targets" = "16.4"
           credential_pattern='BEGIN ((RSA|EC|OPENSSH) )?PRIVATE KEY|BEGIN ENCRYPTED'' PRIVATE KEY|IOS''_P12_|MOBILEPROVISION''_BASE64|ca-app-''pub-[0-9]{16}[/~][0-9]+'
           credential_fixtures=(
             '-----BEGIN PRIVATE'' KEY-----'
