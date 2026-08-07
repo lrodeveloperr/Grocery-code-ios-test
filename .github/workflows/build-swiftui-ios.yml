@@ -165,7 +165,7 @@ jobs:
           executable_name="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app_path/Info.plist")"
           executable="$app_path/$executable_name"
           test -x "$executable"
-          lipo -verify_arch arm64 x86_64 "$executable"
+          lipo "$executable" -verify_arch arm64 x86_64
           file "$executable"
           source_commit="$(git rev-parse HEAD)"
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
@@ -199,7 +199,7 @@ jobs:
           extracted_executable="$extracted_app/$extracted_executable_name"
           test -x "$extracted_executable"
           test -f "$extracted_app/PrivacyInfo.xcprivacy"
-          lipo -verify_arch arm64 x86_64 "$extracted_executable"
+          lipo "$extracted_executable" -verify_arch arm64 x86_64
           file "$extracted_executable"
 
       - name: Clean-install and sustain two launches of extracted bundle
