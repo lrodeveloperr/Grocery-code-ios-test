@@ -31,7 +31,7 @@ import APP_HTML from "./src/appHtml";
 
 const LOCAL_APP_ORIGIN = "https://snap-ebt-wic.local/";
 const AD_SLOT_HEIGHT = 50;
-const AD_SLOT_BOTTOM = 86;
+const AD_SLOT_BOTTOM = 66;
 const TEST_ADMOB_APP_ID = "ca-app-pub-3940256099942544~1458002511";
 const TEST_BANNER_ID = "ca-app-pub-3940256099942544/2934735716";
 
