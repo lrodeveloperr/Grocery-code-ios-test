@@ -270,6 +270,7 @@ jobs:
             "$app_root/ios/$SCHEME/Supporting/es-PR.lproj/InfoPlist.strings"
 
           developer_signing='"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";'
+          ad_hoc_signing='"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";'
           distribution_signing='"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution";'
           if [[ "$(grep -Fc "$developer_signing" "$project_path")" != "2" ]]; then
             echo "Expected exactly two frozen iPhone Developer signing identities." >&2
@@ -278,7 +279,7 @@ jobs:
 
           /usr/bin/sed -i '' \
             -e 's/com\.goodusestudios\.snapebtgrocerytracker\.qa/com.lateefrazaqoyetola.snapebtwictracker/g' \
-            -e 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer";/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution";/g' \
+            -e 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer";/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";/g' \
             "$project_path"
 
           grep -Fq 'PRODUCT_BUNDLE_IDENTIFIER = "com.lateefrazaqoyetola.snapebtwictracker";' \
@@ -287,12 +288,16 @@ jobs:
             echo "The obsolete QA bundle ID remains in the Xcode project." >&2
             exit 1
           fi
-          if [[ "$(grep -Fc "$distribution_signing" "$project_path")" != "2" ]]; then
-            echo "The Xcode project was not converted to Apple Distribution signing." >&2
+          if [[ "$(grep -Fc "$ad_hoc_signing" "$project_path")" != "2" ]]; then
+            echo "The Xcode project was not converted to certificate-free archive signing." >&2
             exit 1
           fi
           if grep -Fq "$developer_signing" "$project_path"; then
             echo "A device-based iPhone Developer signing identity remains." >&2
+            exit 1
+          fi
+          if grep -Fq "$distribution_signing" "$project_path"; then
+            echo "A local Apple Distribution signing identity remains." >&2
             exit 1
           fi
 
@@ -358,13 +363,10 @@ jobs:
             -configuration Release \
             -destination "generic/platform=iOS" \
             -archivePath "$archive_path" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$key_path" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_STYLE=Automatic \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
+            CODE_SIGN_IDENTITY="-" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
             MARKETING_VERSION="$MARKETING_VERSION" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             COMPILER_INDEX_STORE_ENABLE=NO \
@@ -374,6 +376,8 @@ jobs:
             -type d -name '*.app' -print -quit)"
           test -n "$app_path"
           codesign --verify --deep --strict --verbose=2 "$app_path"
+          signature_info="$(codesign -dvv "$app_path" 2>&1)"
+          grep -Fq 'Signature=adhoc' <<< "$signature_info"
 
           plist="$app_path/Info.plist"
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist")" == "$IOS_BUNDLE_ID" ]]
