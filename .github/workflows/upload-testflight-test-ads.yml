@@ -269,14 +269,30 @@ jobs:
           grep -Fq 'CFBundleDisplayName = "SNAP-EBT WIC Tracker";' \
             "$app_root/ios/$SCHEME/Supporting/es-PR.lproj/InfoPlist.strings"
 
+          developer_signing='"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";'
+          distribution_signing='"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution";'
+          if [[ "$(grep -Fc "$developer_signing" "$project_path")" != "2" ]]; then
+            echo "Expected exactly two frozen iPhone Developer signing identities." >&2
+            exit 1
+          fi
+
           /usr/bin/sed -i '' \
-            's/com\.goodusestudios\.snapebtgrocerytracker\.qa/com.lateefrazaqoyetola.snapebtwictracker/g' \
+            -e 's/com\.goodusestudios\.snapebtgrocerytracker\.qa/com.lateefrazaqoyetola.snapebtwictracker/g' \
+            -e 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer";/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution";/g' \
             "$project_path"
 
           grep -Fq 'PRODUCT_BUNDLE_IDENTIFIER = "com.lateefrazaqoyetola.snapebtwictracker";' \
             "$project_path"
           if grep -Fq 'com.goodusestudios.snapebtgrocerytracker.qa' "$project_path"; then
             echo "The obsolete QA bundle ID remains in the Xcode project." >&2
+            exit 1
+          fi
+          if [[ "$(grep -Fc "$distribution_signing" "$project_path")" != "2" ]]; then
+            echo "The Xcode project was not converted to Apple Distribution signing." >&2
+            exit 1
+          fi
+          if grep -Fq "$developer_signing" "$project_path"; then
+            echo "A device-based iPhone Developer signing identity remains." >&2
             exit 1
           fi
 
@@ -348,6 +364,7 @@ jobs:
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
             MARKETING_VERSION="$MARKETING_VERSION" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             COMPILER_INDEX_STORE_ENABLE=NO \
