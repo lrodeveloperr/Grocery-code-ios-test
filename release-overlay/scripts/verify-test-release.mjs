@@ -78,7 +78,8 @@ requireText(app, "size={BannerAdSize.BANNER}", "fixed 320x50 banner");
 requireText(app, "const AD_SLOT_BOTTOM = 66", "HTML/native banner alignment");
 requireText(app, "requestNonPersonalizedAdsOnly: true", "non-personalized request");
 requireText(app, "AdsConsent.gatherConsent()", "UMP consent update");
-requireText(app, "if (!consent.canRequestAds)", "consent ad gate");
+requireText(app, "AdsConsent.getConsentInfo()", "cached UMP consent check");
+requireText(app, "startAdsIfAllowed", "shared consent ad gate");
 requireText(app, "await ensureAdsInitialized()", "idempotent SDK initialization");
 requireText(app, "await mobileAds().initialize()", "SDK initialization");
 requireText(app, "adLoadAttempt >= 2", "bounded banner retry");
@@ -92,8 +93,13 @@ requireText(app, "type: \"share-file\"", "native file-share bridge");
 requireText(app, "onShouldStartLoadWithRequest", "external-link bridge");
 requireText(app, "SafeAreaView", "safe-area layout");
 
-if (app.indexOf("AdsConsent.gatherConsent()") > app.indexOf("await mobileAds().initialize()")) {
-  throw new Error("The ad SDK initializes before UMP consent is resolved.");
+const gatherIndex = app.indexOf("AdsConsent.gatherConsent()");
+const sharedGateIndex = app.indexOf("startAdsIfAllowed(reportedCanRequestAds)", gatherIndex);
+if (gatherIndex < 0 || sharedGateIndex < gatherIndex) {
+  throw new Error("The initial UMP update does not gate SDK initialization.");
+}
+if ((app.match(/startAdsIfAllowed\(/g) || []).length < 2) {
+  throw new Error("Every UMP consent path must use the shared initialization gate.");
 }
 
 requireText(
