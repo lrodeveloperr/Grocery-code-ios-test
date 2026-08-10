@@ -79,7 +79,15 @@ requireText(app, "const AD_SLOT_BOTTOM = 66", "HTML/native banner alignment");
 requireText(app, "requestNonPersonalizedAdsOnly: true", "non-personalized request");
 requireText(app, "AdsConsent.gatherConsent()", "UMP consent update");
 requireText(app, "if (!consent.canRequestAds)", "consent ad gate");
+requireText(app, "await ensureAdsInitialized()", "idempotent SDK initialization");
 requireText(app, "await mobileAds().initialize()", "SDK initialization");
+requireText(app, "adLoadAttempt >= 2", "bounded banner retry");
+requireText(
+  app,
+  'webAdState !== "AD_TEMPORARILY_HIDDEN"',
+  "critical-flow banner unmount",
+);
+requireText(app, "{bannerMounted ? (", "native banner lifecycle gate");
 requireText(app, "type: \"share-file\"", "native file-share bridge");
 requireText(app, "onShouldStartLoadWithRequest", "external-link bridge");
 requireText(app, "SafeAreaView", "safe-area layout");
