@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
 const EXPECTED_HTML_SHA256 =
-  "caa7bc987e0dc208d311f305fd4273d5e1bfc79477191d851f1a1243f0643cfa";
+  "d18d77e8c4f7b84d0286885514389798e71d73f378839390fd49e06cbb3165e6";
 const EXPECTED_ICON_SHA256 =
   "83ca4ce7eea1f53ba1891cfa1b736c447f55991aa3730566b0bd374c73ba6fa3";
 const TEST_APP_ID = "ca-app-pub-3940256099942544~1458002511";
@@ -61,6 +61,9 @@ requireText(html, "downloadBlob('snap-ebt-wic-local-recovery.txt',blob)", "recov
 forbidText(html, "openRemoveAdsPurchase", "public test release");
 forbidText(html, "confirm-remove-ads-preview", "public test release");
 forbidText(html, "class=\"remove-ads-row\"", "public test release");
+forbidText(html, "haptic(", "haptic-free interface");
+forbidText(html, 'id="hapticSetting"', "haptic-free settings");
+forbidText(html, "navigator.vibrate", "haptic-free web runtime");
 
 const secondaryStart = html.indexOf("const secondary=[");
 const secondaryEnd = html.indexOf("];", secondaryStart);
@@ -92,6 +95,9 @@ requireText(app, "{bannerMounted ? (", "native banner lifecycle gate");
 requireText(app, "type: \"share-file\"", "native file-share bridge");
 requireText(app, "onShouldStartLoadWithRequest", "external-link bridge");
 requireText(app, "SafeAreaView", "safe-area layout");
+forbidText(app, "Vibration", "haptic-free native wrapper");
+forbidText(app, 'type: "haptic"', "haptic-free native bridge");
+forbidText(app, 'navigator, "vibrate"', "haptic-free native bridge");
 
 const gatherIndex = app.indexOf("AdsConsent.gatherConsent()");
 const sharedGateIndex = app.indexOf("startAdsIfAllowed(reportedCanRequestAds)", gatherIndex);
@@ -145,5 +151,5 @@ if (sha256(iconBytes) !== EXPECTED_ICON_SHA256) {
 }
 
 console.log(
-  `Release checks passed: ${scripts.length} scripts, ${skadIds.length} SKAdNetwork IDs, official fixed-banner test IDs, NPA + UMP gates, file/link bridges.`,
+  `Release checks passed: ${scripts.length} scripts, ${skadIds.length} SKAdNetwork IDs, official fixed-banner test IDs, NPA + UMP gates, file/link bridges, haptics removed.`,
 );
