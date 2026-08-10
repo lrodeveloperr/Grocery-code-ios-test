@@ -207,26 +207,42 @@ export default function App() {
     await adsInitializationRef.current;
   }, []);
 
+  const startAdsIfAllowed = useCallback(
+    async (reportedCanRequestAds = false) => {
+      let canRequestAds = reportedCanRequestAds;
+      try {
+        const currentInfo = await AdsConsent.getConsentInfo();
+        canRequestAds = currentInfo.canRequestAds;
+      } catch {}
+      if (!canRequestAds) return false;
+      await ensureAdsInitialized();
+      return true;
+    },
+    [ensureAdsInitialized],
+  );
+
   useEffect(() => {
     let active = true;
     void (async () => {
+      let reportedCanRequestAds = false;
       try {
         const consent = await AdsConsent.gatherConsent();
-        if (!active) return;
-        if (!consent.canRequestAds) {
-          setConsentState("blocked");
-          return;
-        }
-        await ensureAdsInitialized();
-        if (active) setConsentState("permitted");
+        reportedCanRequestAds = consent.canRequestAds;
+      } catch {}
+      if (!active) return;
+      try {
+        const started = await startAdsIfAllowed(reportedCanRequestAds);
+        if (active) setConsentState(started ? "permitted" : "blocked");
       } catch {
-        if (active) setConsentState("blocked");
+        if (active) {
+          setConsentState("blocked");
+        }
       }
     })();
     return () => {
       active = false;
     };
-  }, [ensureAdsInitialized]);
+  }, [startAdsIfAllowed]);
 
   useEffect(() => {
     if (!adEligible) {
@@ -366,8 +382,8 @@ export default function App() {
         return;
       }
       try {
-        await ensureAdsInitialized();
-        setConsentState("permitted");
+        const started = await startAdsIfAllowed(info.canRequestAds);
+        setConsentState(started ? "permitted" : "blocked");
       } catch {
         setConsentState("blocked");
         Alert.alert(
@@ -381,7 +397,7 @@ export default function App() {
         "No additional advertising privacy form is required on this device right now.",
       );
     }
-  }, [ensureAdsInitialized]);
+  }, [startAdsIfAllowed]);
 
   const onMessage = useCallback(
     (event: WebViewMessageEvent) => {
