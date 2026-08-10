@@ -174,6 +174,8 @@ function parseDataUrl(dataUrl: string) {
 
 export default function App() {
   const webViewRef = useRef<WebViewHandle>(null);
+  const adsInitializationRef = useRef<Promise<void> | null>(null);
+  const previousWebAdStateRef = useRef("AD_LOADING");
   const [webReady, setWebReady] = useState(false);
   const [consentState, setConsentState] =
     useState<ConsentState>("unresolved");
@@ -181,12 +183,29 @@ export default function App() {
   const [nativeAdState, setNativeAdState] =
     useState<NativeAdState>("idle");
   const [webAdState, setWebAdState] = useState("AD_LOADING");
+  const [adLoadAttempt, setAdLoadAttempt] = useState(0);
+  const [bannerInstance, setBannerInstance] = useState(0);
 
   const productionBannerId =
     process.env.EXPO_PUBLIC_IOS_ADMOB_BANNER_ID?.trim() || "";
   const productionAds =
     process.env.EXPO_PUBLIC_AD_PROFILE === "production";
   const bannerUnitId = productionAds ? productionBannerId : TestIds.BANNER;
+
+  const ensureAdsInitialized = useCallback(async () => {
+    if (!adsInitializationRef.current) {
+      adsInitializationRef.current = (async () => {
+        await mobileAds().setRequestConfiguration({
+          maxAdContentRating: MaxAdContentRating.PG,
+        });
+        await mobileAds().initialize();
+      })().catch((error) => {
+        adsInitializationRef.current = null;
+        throw error;
+      });
+    }
+    await adsInitializationRef.current;
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -198,10 +217,7 @@ export default function App() {
           setConsentState("blocked");
           return;
         }
-        await mobileAds().setRequestConfiguration({
-          maxAdContentRating: MaxAdContentRating.PG,
-        });
-        await mobileAds().initialize();
+        await ensureAdsInitialized();
         if (active) setConsentState("permitted");
       } catch {
         if (active) setConsentState("blocked");
@@ -210,15 +226,51 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [ensureAdsInitialized]);
 
   useEffect(() => {
     if (!adEligible) {
       setNativeAdState("idle");
+      setAdLoadAttempt(0);
       return;
     }
     setNativeAdState("loading");
   }, [adEligible]);
+
+  useEffect(() => {
+    if (
+      nativeAdState !== "failed" ||
+      !adEligible ||
+      consentState !== "permitted" ||
+      adLoadAttempt >= 2
+    ) {
+      return;
+    }
+    const retryTimer = setTimeout(
+      () => {
+        setAdLoadAttempt((attempt) => attempt + 1);
+        setBannerInstance((instance) => instance + 1);
+        setNativeAdState("loading");
+      },
+      2000 * 2 ** adLoadAttempt,
+    );
+    return () => clearTimeout(retryTimer);
+  }, [adEligible, adLoadAttempt, consentState, nativeAdState]);
+
+  useEffect(() => {
+    const previous = previousWebAdStateRef.current;
+    previousWebAdStateRef.current = webAdState;
+    if (
+      previous === "AD_TEMPORARILY_HIDDEN" &&
+      webAdState !== "AD_TEMPORARILY_HIDDEN" &&
+      adEligible &&
+      consentState === "permitted"
+    ) {
+      setAdLoadAttempt(0);
+      setBannerInstance((instance) => instance + 1);
+      setNativeAdState("loading");
+    }
+  }, [adEligible, consentState, webAdState]);
 
   const syncAdRuntime = useCallback(() => {
     if (!webReady) return;
@@ -309,14 +361,27 @@ export default function App() {
     try {
       await AdsConsent.showPrivacyOptionsForm();
       const info = await AdsConsent.getConsentInfo();
-      setConsentState(info.canRequestAds ? "permitted" : "blocked");
+      if (!info.canRequestAds) {
+        setConsentState("blocked");
+        return;
+      }
+      try {
+        await ensureAdsInitialized();
+        setConsentState("permitted");
+      } catch {
+        setConsentState("blocked");
+        Alert.alert(
+          "Advertising unavailable",
+          "Advertising could not be initialized. Please try again later.",
+        );
+      }
     } catch {
       Alert.alert(
         "Advertising privacy choices",
         "No additional advertising privacy form is required on this device right now.",
       );
     }
-  }, []);
+  }, [ensureAdsInitialized]);
 
   const onMessage = useCallback(
     (event: WebViewMessageEvent) => {
@@ -385,7 +450,12 @@ export default function App() {
     consentState === "permitted" &&
     adEligible &&
     nativeAdState !== "failed";
-  const bannerVisible = showBanner && webAdState === "AD_LOADED";
+  const bannerMounted =
+    showBanner && webAdState !== "AD_TEMPORARILY_HIDDEN";
+  const bannerVisible =
+    bannerMounted &&
+    nativeAdState === "loaded" &&
+    webAdState === "AD_LOADED";
 
   return (
     <SafeAreaProvider style={styles.root}>
@@ -412,7 +482,7 @@ export default function App() {
           onContentProcessDidTerminate={() => webViewRef.current?.reload()}
           style={styles.webView}
         />
-        {showBanner ? (
+        {bannerMounted ? (
           <View
             pointerEvents={bannerVisible ? "auto" : "none"}
             style={[
@@ -421,10 +491,14 @@ export default function App() {
             ]}
           >
             <BannerAd
+              key={`banner-${bannerInstance}`}
               unitId={bannerUnitId}
               size={BannerAdSize.BANNER}
               requestOptions={{ requestNonPersonalizedAdsOnly: true }}
-              onAdLoaded={() => setNativeAdState("loaded")}
+              onAdLoaded={() => {
+                setAdLoadAttempt(0);
+                setNativeAdState("loaded");
+              }}
               onAdFailedToLoad={() => setNativeAdState("failed")}
             />
           </View>
