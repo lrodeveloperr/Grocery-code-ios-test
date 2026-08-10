@@ -270,8 +270,6 @@ jobs:
             "$app_root/ios/$SCHEME/Supporting/es-PR.lproj/InfoPlist.strings"
 
           developer_signing='"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";'
-          ad_hoc_signing='"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";'
-          distribution_signing='"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution";'
           if [[ "$(grep -Fc "$developer_signing" "$project_path")" != "2" ]]; then
             echo "Expected exactly two frozen iPhone Developer signing identities." >&2
             exit 1
@@ -279,7 +277,7 @@ jobs:
 
           /usr/bin/sed -i '' \
             -e 's/com\.goodusestudios\.snapebtgrocerytracker\.qa/com.lateefrazaqoyetola.snapebtwictracker/g' \
-            -e 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer";/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";/g' \
+            -e '/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer";/d' \
             "$project_path"
 
           grep -Fq 'PRODUCT_BUNDLE_IDENTIFIER = "com.lateefrazaqoyetola.snapebtwictracker";' \
@@ -288,16 +286,8 @@ jobs:
             echo "The obsolete QA bundle ID remains in the Xcode project." >&2
             exit 1
           fi
-          if [[ "$(grep -Fc "$ad_hoc_signing" "$project_path")" != "2" ]]; then
-            echo "The Xcode project was not converted to certificate-free archive signing." >&2
-            exit 1
-          fi
-          if grep -Fq "$developer_signing" "$project_path"; then
-            echo "A device-based iPhone Developer signing identity remains." >&2
-            exit 1
-          fi
-          if grep -Fq "$distribution_signing" "$project_path"; then
-            echo "A local Apple Distribution signing identity remains." >&2
+          if grep -Fq 'CODE_SIGN_IDENTITY' "$project_path"; then
+            echo "An explicit code-signing identity remains in the Xcode project." >&2
             exit 1
           fi
 
