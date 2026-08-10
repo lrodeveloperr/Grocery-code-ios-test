@@ -1,5 +1,4 @@
-import { Buffer } from "buffer";
-import { File, Paths } from "expo-file-system";
+import { Directory, File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -59,6 +58,7 @@ type BridgeMessage =
   | { type: "share-text"; title?: string; text?: string; url?: string }
   | {
       type: "share-file";
+      requestId?: string;
       name?: string;
       mimeType?: string;
       dataUrl?: string;
@@ -74,23 +74,63 @@ const NATIVE_BRIDGE_SCRIPT = String.raw`
     } catch (_) {}
   };
 
+  const pendingFileShares = Object.create(null);
+  let fileShareInFlight = false;
+  window.GBTNativeShareCompleted = function (requestId, ok, message) {
+    const pending = pendingFileShares[String(requestId || "")];
+    if (!pending) return;
+    delete pendingFileShares[String(requestId || "")];
+    window.clearTimeout(pending.timeout);
+    fileShareInFlight = false;
+    if (ok) pending.resolve();
+    else pending.reject(new Error(String(message || "File export failed")));
+  };
+  window.GBTNativeShareFile = function (blob, name, mimeType) {
+    if (!(blob instanceof Blob)) return Promise.reject(new Error("Invalid export file"));
+    if (fileShareInFlight) return Promise.reject(new Error("Another export is already open"));
+    if (blob.size <= 0 || blob.size > 20 * 1024 * 1024) {
+      return Promise.reject(new Error("Export file size is not supported"));
+    }
+    fileShareInFlight = true;
+    const requestId = "share-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+    return new Promise(function (resolve, reject) {
+      const timeout = window.setTimeout(function () {
+        delete pendingFileShares[requestId];
+        fileShareInFlight = false;
+        reject(new Error("The iPhone share sheet did not respond"));
+      }, 120000);
+      pendingFileShares[requestId] = { resolve: resolve, reject: reject, timeout: timeout };
+      const reader = new FileReader();
+      reader.onload = function () {
+        const dataUrl = String(reader.result || "");
+        if (!dataUrl || dataUrl.length > 28 * 1024 * 1024) {
+          window.GBTNativeShareCompleted(requestId, false, "Export file size is not supported");
+          return;
+        }
+        post({
+          type: "share-file",
+          requestId: requestId,
+          name: String(name || "export"),
+          mimeType: String(mimeType || blob.type || "application/octet-stream"),
+          dataUrl: dataUrl
+        });
+      };
+      reader.onerror = function () {
+        window.GBTNativeShareCompleted(requestId, false, "Export file could not be read");
+      };
+      reader.readAsDataURL(blob);
+    });
+  };
+
   const nativeShare = async function (payload) {
     const files = payload && payload.files ? Array.from(payload.files) : [];
     if (files.length) {
       const file = files[0];
-      const dataUrl = await new Promise(function (resolve, reject) {
-        const reader = new FileReader();
-        reader.onload = function () { resolve(String(reader.result || "")); };
-        reader.onerror = function () { reject(reader.error || new Error("File read failed")); };
-        reader.readAsDataURL(file);
-      });
-      post({
-        type: "share-file",
-        name: file.name || "export",
-        mimeType: file.type || "application/octet-stream",
-        dataUrl: dataUrl
-      });
-      return;
+      return window.GBTNativeShareFile(
+        file,
+        file.name || "export",
+        file.type || "application/octet-stream"
+      );
     }
     post({
       type: "share-text",
@@ -123,7 +163,7 @@ const NATIVE_BRIDGE_SCRIPT = String.raw`
 
   let lastEligibility = null;
   let lastPresentation = "";
-  window.setInterval(function () {
+  const publishAdPresentation = function () {
     const runtime = window.GBTAdRuntime;
     if (!runtime || typeof runtime.getLayoutMetrics !== "function") return;
     const metrics = runtime.getLayoutMetrics();
@@ -142,7 +182,10 @@ const NATIVE_BRIDGE_SCRIPT = String.raw`
         eligible: eligible
       });
     }
-  }, 250);
+  };
+  window.addEventListener("gbt-ad-presentation-change", publishAdPresentation);
+  window.setInterval(publishAdPresentation, 250);
+  publishAdPresentation();
 
   post({ type: "bridge-ready" });
 })();
@@ -158,9 +201,41 @@ function sanitizedFileName(value: unknown) {
 }
 
 function parseDataUrl(dataUrl: string) {
+  if (dataUrl.length > 28 * 1024 * 1024) {
+    throw new Error("Export file size is not supported");
+  }
   const separator = dataUrl.indexOf(",");
   if (separator < 0) throw new Error("Invalid file payload");
-  return dataUrl.slice(separator + 1);
+  const header = dataUrl.slice(0, separator);
+  const payload = dataUrl.slice(separator + 1);
+  if (!/;base64$/i.test(header) || !/^[A-Za-z0-9+/]*={0,2}$/.test(payload)) {
+    throw new Error("Invalid base64 file payload");
+  }
+  return payload;
+}
+
+function fileUti(name: string, mimeType?: string) {
+  const extension = name.toLowerCase().split(".").pop();
+  if (extension === "pdf" || mimeType === "application/pdf") {
+    return "com.adobe.pdf";
+  }
+  if (extension === "csv" || mimeType?.startsWith("text/csv")) {
+    return "public.comma-separated-values-text";
+  }
+  if (
+    extension === "xlsx" ||
+    mimeType ===
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  ) {
+    return "org.openxmlformats.spreadsheetml.sheet";
+  }
+  if (extension === "json" || mimeType?.startsWith("application/json")) {
+    return "public.json";
+  }
+  if (extension === "txt" || mimeType?.startsWith("text/plain")) {
+    return "public.plain-text";
+  }
+  return "public.data";
 }
 
 export default function App() {
@@ -318,32 +393,72 @@ export default function App() {
     syncAdRuntime();
   }, [syncAdRuntime]);
 
+  const completeNativeFileShare = useCallback(
+    (requestId: string | undefined, ok: boolean, message = "") => {
+      if (!requestId) return;
+      webViewRef.current?.injectJavaScript(`
+        window.GBTNativeShareCompleted?.(
+          ${JSON.stringify(requestId)},
+          ${ok ? "true" : "false"},
+          ${JSON.stringify(message)}
+        );
+        true;
+      `);
+    },
+    [],
+  );
+
   const shareFile = useCallback(async (message: BridgeMessage) => {
-    if (message.type !== "share-file" || !message.dataUrl) return;
-    const file = new File(Paths.cache, sanitizedFileName(message.name));
+    if (message.type !== "share-file") return;
+    if (!message.dataUrl) {
+      completeNativeFileShare(message.requestId, false, "Export file is missing");
+      return;
+    }
+    const name = sanitizedFileName(message.name);
+    const shareDirectory = new Directory(
+      Paths.cache,
+      "gbt-share",
+      sanitizedFileName(
+        `${message.requestId || "share"}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      ),
+    );
+    const file = new File(shareDirectory, name);
     try {
       const base64 = parseDataUrl(message.dataUrl);
+      shareDirectory.create({ idempotent: true, intermediates: true });
       file.create({ overwrite: true, intermediates: true });
-      file.write(Buffer.from(base64, "base64"));
+      file.write(base64, { encoding: "base64" });
+      if (!file.exists || !file.size) {
+        throw new Error("Export file is empty");
+      }
       if (!(await Sharing.isAvailableAsync())) {
         throw new Error("System sharing is unavailable");
       }
       await Sharing.shareAsync(file.uri, {
-        dialogTitle: sanitizedFileName(message.name),
+        dialogTitle: name,
         mimeType: message.mimeType || "application/octet-stream",
-        UTI: message.mimeType || "public.data",
+        UTI: fileUti(name, message.mimeType),
       });
-    } catch {
+      completeNativeFileShare(message.requestId, true);
+    } catch (error) {
+      console.error("Native file export failed", error);
+      completeNativeFileShare(
+        message.requestId,
+        false,
+        error instanceof Error ? error.message : "Export failed",
+      );
       Alert.alert(
         "Export unavailable",
         "The file could not be opened in the iPhone share sheet. Please try again.",
       );
     } finally {
-      try {
-        file.delete();
-      } catch {}
+      setTimeout(() => {
+        try {
+          shareDirectory.delete();
+        } catch {}
+      }, 15000);
     }
-  }, []);
+  }, [completeNativeFileShare]);
 
   const shareText = useCallback(async (message: BridgeMessage) => {
     if (message.type !== "share-text") return;
@@ -434,9 +549,7 @@ export default function App() {
       const url = request.url || "";
       if (
         url === "about:blank" ||
-        url.startsWith(LOCAL_APP_ORIGIN) ||
-        url.startsWith("blob:") ||
-        url.startsWith("data:")
+        url.startsWith(LOCAL_APP_ORIGIN)
       ) {
         return true;
       }
@@ -468,7 +581,7 @@ export default function App() {
         <NativeWebView
           ref={webViewRef}
           source={source}
-          originWhitelist={["https://*", "about:*", "blob:*", "data:*"]}
+          originWhitelist={["https://*", "about:*"]}
           injectedJavaScript={NATIVE_BRIDGE_SCRIPT}
           javaScriptEnabled
           cacheEnabled

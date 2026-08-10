@@ -1,8 +1,9 @@
-import { createHash } from "node:crypto";
+import { createHash, webcrypto } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import vm from "node:vm";
 
 const EXPECTED_HTML_SHA256 =
-  "d18d77e8c4f7b84d0286885514389798e71d73f378839390fd49e06cbb3165e6";
+  "ce59b204c24737654b708de715c185e7e9eeae488758a8f0d635e5cb26774507";
 const EXPECTED_ICON_SHA256 =
   "83ca4ce7eea1f53ba1891cfa1b736c447f55991aa3730566b0bd374c73ba6fa3";
 const TEST_APP_ID = "ca-app-pub-3940256099942544~1458002511";
@@ -56,8 +57,613 @@ for (const [index, match] of scripts.entries()) {
   }
 }
 
+const sandbox = {
+  console,
+  crypto: webcrypto,
+  TextEncoder,
+  TextDecoder,
+  Uint8Array,
+  Uint32Array,
+  ArrayBuffer,
+  DataView,
+  Intl,
+  Date,
+  Math,
+  JSON,
+  Map,
+  Set,
+  Promise,
+  structuredClone,
+  Blob,
+};
+sandbox.globalThis = sandbox;
+vm.createContext(sandbox);
+vm.runInContext(scripts[0][1], sandbox, { filename: "GBTCore.inline.js" });
+vm.runInContext(scripts[3][1], sandbox, { filename: "GBTRemediation.inline.js" });
+const Core = sandbox.GBTCore;
+const Reports = sandbox.GBTRemediation;
+if (!Core || !Reports) throw new Error("Could not load pure application/report logic.");
+
+const bridgeMatch = app.match(
+  /const NATIVE_BRIDGE_SCRIPT = String\.raw`([\s\S]*?)`;/,
+);
+if (!bridgeMatch) throw new Error("Could not inspect the native share bridge.");
+const bridgeMessages = [];
+class TestFileReader {
+  readAsDataURL(blob) {
+    this.result = `data:${blob.type || "application/octet-stream"};base64,WA==`;
+    queueMicrotask(() => this.onload?.());
+  }
+}
+const bridgeWindow = {
+  ReactNativeWebView: {
+    postMessage(value) {
+      bridgeMessages.push(JSON.parse(value));
+    },
+  },
+  setTimeout,
+  clearTimeout,
+  setInterval: () => 1,
+  addEventListener: () => {},
+  GBTAdRuntime: null,
+};
+bridgeWindow.window = bridgeWindow;
+const bridgeSandbox = {
+  window: bridgeWindow,
+  navigator: {},
+  Blob,
+  FileReader: TestFileReader,
+  console,
+  JSON,
+  Math,
+  Date,
+  Promise,
+  Error,
+  Object,
+  Array,
+  String,
+  Boolean,
+};
+vm.createContext(bridgeSandbox);
+vm.runInContext(bridgeMatch[1], bridgeSandbox, { filename: "native-bridge.js" });
+const firstShare = bridgeWindow.GBTNativeShareFile(
+  new Blob(["first"], { type: "application/pdf" }),
+  "same-name.pdf",
+  "application/pdf",
+);
+await Promise.resolve();
+await Promise.resolve();
+const firstMessage = bridgeMessages.find((message) => message.type === "share-file");
+if (!firstMessage?.requestId) throw new Error("Native share request was not posted.");
+const concurrentError = await bridgeWindow
+  .GBTNativeShareFile(new Blob(["second"]), "same-name.pdf", "application/pdf")
+  .then(() => "", (error) => error.message);
+if (!concurrentError.includes("already open")) {
+  throw new Error("Concurrent native exports were not rejected.");
+}
+bridgeWindow.GBTNativeShareCompleted("stale-request", true);
+const staleStillBlocked = await bridgeWindow
+  .GBTNativeShareFile(new Blob(["stale"]), "same-name.pdf", "application/pdf")
+  .then(() => "", (error) => error.message);
+if (!staleStillBlocked.includes("already open")) {
+  throw new Error("A stale native acknowledgement unlocked the active export.");
+}
+bridgeWindow.GBTNativeShareCompleted(firstMessage.requestId, true);
+await firstShare;
+const secondShare = bridgeWindow.GBTNativeShareFile(
+  new Blob(["second"], { type: "application/pdf" }),
+  "same-name.pdf",
+  "application/pdf",
+);
+await Promise.resolve();
+await Promise.resolve();
+const shareMessages = bridgeMessages.filter((message) => message.type === "share-file");
+const secondMessage = shareMessages.at(-1);
+if (!secondMessage?.requestId || secondMessage.requestId === firstMessage.requestId) {
+  throw new Error("Repeated same-name exports reused a native request ID.");
+}
+bridgeWindow.GBTNativeShareCompleted(secondMessage.requestId, false, "cancelled");
+const failureMessage = await secondShare.then(() => "", (error) => error.message);
+if (failureMessage !== "cancelled") {
+  throw new Error("Native export failure acknowledgement was not propagated.");
+}
+const recoveredShare = bridgeWindow.GBTNativeShareFile(
+  new Blob(["third"], { type: "text/csv" }),
+  "same-name.csv",
+  "text/csv",
+);
+await Promise.resolve();
+await Promise.resolve();
+const recoveredMessage = bridgeMessages.filter((message) => message.type === "share-file").at(-1);
+bridgeWindow.GBTNativeShareCompleted(recoveredMessage.requestId, true);
+await recoveredShare;
+
+const prefixCases = [
+  ["Walmart", "w", true],
+  ["Walmart", "wa", true],
+  ["Walmart", "wal", true],
+  ["Waffles", "WA", true],
+  ["Água", "ag", true],
+  ["Safeway", "wa", false],
+  ["Super Walmart", "wal", false],
+  ["Walmart", "", false],
+];
+for (const [label, query, expected] of prefixCases) {
+  if (Reports.prefixSearchMatch(label, query) !== expected) {
+    throw new Error(`Prefix matching failed for ${JSON.stringify({ label, query })}.`);
+  }
+}
+
+const moneyShortcutCases = [
+  ["12", "00", false, "1200"],
+  ["12", "99", false, "1299"],
+  ["", "99", false, "99"],
+  ["24000", "00", true, "24000"],
+  ["24000", "99", true, "24099"],
+];
+for (const [digits, suffix, replaceExistingCents, expected] of moneyShortcutCases) {
+  const actual = Reports.moneyDigitsWithCentsShortcut(digits, suffix, {
+    replaceExistingCents,
+  });
+  if (actual !== expected) {
+    throw new Error(`Money shortcut failed: ${digits} + .${suffix} = ${actual}.`);
+  }
+}
+const maxMoneyDigits = String(Reports.LIMITS.maxMoneyCents);
+if (Reports.moneyDigitsWithCentsShortcut(maxMoneyDigits, "99") !== maxMoneyDigits) {
+  throw new Error("Money shortcut exceeded the supported maximum.");
+}
+if (Reports.appendMoneyDigit("99999999999", "9") !== "99999999999") {
+  throw new Error("Money digit entry exceeded the supported maximum.");
+}
+const firstCentsShortcut = Reports.moneyDigitsWithCentsShortcut("12", "99");
+const replacedCentsShortcut = Reports.moneyDigitsWithCentsShortcut(
+  firstCentsShortcut,
+  "00",
+  { replaceExistingCents: true },
+);
+if (firstCentsShortcut !== "1299" || replacedCentsShortcut !== "1200") {
+  throw new Error("Repeated cent shortcuts did not replace the current cents.");
+}
+
+const newSnapReconciliation = Reports.reconcileSnap({
+  snapCards: [
+    {
+      id: "new-card",
+      startingBalance: 10000,
+      balance: 10000,
+      transactions: [],
+    },
+  ],
+});
+if (
+  newSnapReconciliation[0]?.calculatedClosingBalance !== 10000 ||
+  newSnapReconciliation[0]?.reconciliationVariance !== 0
+) {
+  throw new Error("A new SNAP card double-counted its opening balance.");
+}
+const snapAdjustmentReconciliation = Reports.reconcileSnap({
+  snapCards: [
+    {
+      id: "adjusted-card",
+      startingBalance: 333333,
+      balance: 212222,
+      transactions: [
+        { date: "2026-08-08", kind: "MANUAL_ADJUSTMENT", deltaCents: -111111 },
+        { date: "2026-08-09", kind: "PURCHASE", deltaCents: -10000 },
+      ],
+    },
+  ],
+});
+const adjustedSnap = snapAdjustmentReconciliation[0];
+if (
+  adjustedSnap?.negativeAdjustments !== 111111 ||
+  adjustedSnap?.purchases !== 10000 ||
+  adjustedSnap?.calculatedClosingBalance !== 212222 ||
+  adjustedSnap?.reconciliationVariance !== 0
+) {
+  throw new Error("SNAP purchase/adjustment reconciliation failed.");
+}
+
+const wicLedgerState = {
+  wicCards: [
+    {
+      id: "wic-ledger-card",
+      allowances: [
+        {
+          id: "wic-ledger-benefit",
+          label: "WIC ledger benefit",
+          unit: "oz",
+          starting: 10,
+          remaining: 7.3,
+          startDate: "2026-08-01",
+          expiryDate: "2026-08-31",
+          transactions: [
+            { date: "2026-08-01", kind: "ISSUANCE", delta: 0.1, unit: "oz" },
+            { date: "2026-08-02", kind: "RELOAD", delta: 0.2, unit: "oz" },
+            { date: "2026-08-03", kind: "MANUAL_ADJUSTMENT", delta: -1, unit: "oz" },
+            { date: "2026-08-04", kind: "PURCHASE", delta: -2, unit: "oz" },
+          ],
+        },
+      ],
+    },
+  ],
+};
+const fullWicReconciliation = Reports.reconcileWic(wicLedgerState)[0];
+const scopedWicReconciliation = Reports.reconcileWic(wicLedgerState, {
+  from: "2026-08-03",
+})[0];
+if (
+  fullWicReconciliation?.additions !== 0.3 ||
+  fullWicReconciliation?.negativeAdjustments !== 1 ||
+  fullWicReconciliation?.redeemedQuantity !== 2 ||
+  fullWicReconciliation?.calculatedRemainingQuantity !== 7.3 ||
+  fullWicReconciliation?.reconciliationVariance !== 0
+) {
+  throw new Error("WIC additions/purchases/adjustments did not reconcile precisely.");
+}
+if (
+  scopedWicReconciliation?.openingQuantity !== 10.3 ||
+  scopedWicReconciliation?.negativeAdjustments !== 1 ||
+  scopedWicReconciliation?.redeemedQuantity !== 2 ||
+  scopedWicReconciliation?.calculatedRemainingQuantity !== 7.3
+) {
+  throw new Error("Date-scoped WIC opening balance did not reconcile.");
+}
+
+const reportState = Core.canonicalState();
+reportState.onboarded = true;
+reportState.settings.language = "en-US";
+reportState.settings.programJurisdiction = Reports.PROGRAM_JURISDICTION.US_SNAP;
+reportState.snapCards = [
+  {
+    id: "snap-sentinel",
+    name: "SNAP source",
+    active: true,
+    balance: 100000,
+    startingBalance: 100000,
+    transactions: [],
+  },
+];
+reportState.wicCards = [
+  {
+    id: "wic-sentinel",
+    name: "WIC source",
+    active: true,
+    transactions: [],
+    allowances: [
+      {
+        id: "wic-benefit-sentinel",
+        label: "Sentinel benefit",
+        unit: "oz",
+        starting: 100,
+        remaining: 26.875,
+        startDate: "2026-08-01",
+        expiryDate: "2026-08-31",
+        active: true,
+        transactions: [],
+      },
+    ],
+  },
+];
+reportState.history = [
+  {
+    id: "transaction-sentinel",
+    status: "COMPLETED",
+    transactionDate: "2026-08-10",
+    createdAt: "2026-08-10T12:00:00Z",
+    recordedAt: "2026-08-10T12:00:00Z",
+    storeDisplayName: "Walmart",
+    programJurisdiction: Reports.PROGRAM_JURISDICTION.US_SNAP,
+    items: [
+      {
+        id: "split-item-sentinel",
+        name: "Water",
+        quantity: 1,
+        quantityRaw: "1",
+        quantityUnit: "each",
+        priceKnown: true,
+        unitPriceCents: 98765,
+        priceEntryMode: "UNIT_PRICE",
+        lineTotalCents: null,
+        category: "beverages",
+        allocations: [
+          { type: "SNAP", amountCents: 60001, cardId: "snap-sentinel" },
+          { type: "CASH", amountCents: 38764 },
+        ],
+      },
+      {
+        id: "wic-item-sentinel",
+        name: "Waffles",
+        quantity: 1,
+        quantityRaw: "1",
+        quantityUnit: "each",
+        priceKnown: true,
+        unitPriceCents: 12345,
+        priceEntryMode: "UNIT_PRICE",
+        lineTotalCents: null,
+        category: "other",
+        allocations: [
+          {
+            type: "WIC",
+            amountCents: 12345,
+            cardId: "wic-sentinel",
+            allowanceId: "wic-benefit-sentinel",
+            quantity: 73.125,
+            unit: "oz",
+            wicBenefitLabel: "Sentinel benefit",
+          },
+        ],
+      },
+    ],
+  },
+];
+
+const reportSnapshot = await Reports.buildReportSnapshot(
+  reportState,
+  { funding: "ALL", includeFullSplitContext: true },
+  { locale: "en-US" },
+);
+const reportCsv = Reports.buildReportCsv(reportSnapshot);
+const reportCsvLines = reportCsv.split(/\r?\n/);
+if (reportCsvLines.length !== 3) {
+  throw new Error(`Item-level CSV expected 2 data rows; found ${reportCsvLines.length - 1}.`);
+}
+if ((reportCsv.match(/987\.65/g) || []).length !== 1) {
+  throw new Error("Split-payment CSV repeated or omitted the item total.");
+}
+const csvHeader = reportCsvLines[0].replace(/^\ufeff/, "").split(",");
+const waterRow = reportCsvLines.find((line) => line.includes(",Water,"))?.split(",");
+if (!waterRow) throw new Error("Split-payment item is missing from CSV.");
+for (const [column, expected] of [
+  ["itemTotalUSD", "987.65"],
+  ["snapUSD", "600.01"],
+  ["cashUSD", "387.64"],
+]) {
+  if (waterRow[csvHeader.indexOf(column)] !== expected) {
+    throw new Error(`CSV ${column} did not reconcile to ${expected}.`);
+  }
+}
+
+const strictSnapSnapshot = await Reports.buildReportSnapshot(
+  reportState,
+  { funding: "SNAP", includeFullSplitContext: false },
+  { locale: "en-US" },
+);
+const fullSplitSnapSnapshot = await Reports.buildReportSnapshot(
+  reportState,
+  { funding: "SNAP", includeFullSplitContext: true },
+  { locale: "en-US" },
+);
+const strictSnapLines = Reports.buildReportCsv(strictSnapSnapshot).split(/\r?\n/);
+const fullSplitSnapLines = Reports.buildReportCsv(fullSplitSnapSnapshot).split(/\r?\n/);
+const strictSnapHeader = strictSnapLines[0].replace(/^\ufeff/, "").split(",");
+const strictWater = strictSnapLines.find((line) => line.includes(",Water,"))?.split(",");
+const fullSplitWater = fullSplitSnapLines.find((line) => line.includes(",Water,"))?.split(",");
+if (!strictWater || !fullSplitWater) {
+  throw new Error("Filtered split-payment CSV item is missing.");
+}
+if (strictWater[strictSnapHeader.indexOf("cashUSD")] !== "") {
+  throw new Error("Strict SNAP CSV leaked out-of-scope Cash context.");
+}
+if (fullSplitWater[strictSnapHeader.indexOf("cashUSD")] !== "387.64") {
+  throw new Error("Full split-context SNAP CSV omitted the Cash remainder.");
+}
+
+const precisionSnapshot = structuredClone(reportSnapshot);
+const sourceWicAllocation = reportSnapshot.allocations.find(
+  (allocation) => allocation.fundingType === "WIC",
+);
+if (!sourceWicAllocation) throw new Error("WIC report precision fixture is missing.");
+precisionSnapshot.allocations = [
+  { ...sourceWicAllocation, amountCents: 6000, wicQuantity: 0.1 },
+  {
+    ...sourceWicAllocation,
+    amountCents: 6345,
+    allowanceId: "wic-benefit-precision-second",
+    wicQuantity: 0.2,
+  },
+];
+precisionSnapshot.splitContextAllocations = structuredClone(precisionSnapshot.allocations);
+precisionSnapshot.wicReconciliations = [fullWicReconciliation];
+const precisionCsvLines = Reports.buildReportCsv(precisionSnapshot).split(/\r?\n/);
+const precisionHeader = precisionCsvLines[0].replace(/^\ufeff/, "").split(",");
+const precisionWicRow = precisionCsvLines.find((line) => line.includes(",Waffles,"))?.split(",");
+if (precisionWicRow?.[precisionHeader.indexOf("wicQuantity")] !== "0.3") {
+  throw new Error("CSV emitted a binary floating-point WIC quantity.");
+}
+const precisionXlsxText = new TextDecoder().decode(
+  Reports.buildReportXlsx(precisionSnapshot),
+);
+if (
+  precisionXlsxText.includes("0.30000000000000004") ||
+  !precisionXlsxText.includes("<v>0.3</v>")
+) {
+  throw new Error("XLSX emitted an imprecise WIC reconciliation quantity.");
+}
+
+const maskedReport = Reports.maskedSnapshot(reportSnapshot);
+if (
+  maskedReport.totals.knownGrocerySpendCents !== "MASKED" ||
+  Object.values(maskedReport.totals.funding).some((value) => value !== "MASKED")
+) {
+  throw new Error("Masked report totals retain unmasked monetary values.");
+}
+for (const key of [
+  "openingBalance",
+  "issuances",
+  "refunds",
+  "positiveAdjustments",
+  "purchases",
+  "negativeAdjustments",
+  "correctionEffects",
+  "calculatedClosingBalance",
+  "recordedClosingBalance",
+  "reconciliationVariance",
+]) {
+  if (maskedReport.snapReconciliations[0]?.[key] !== "MASKED") {
+    throw new Error(`Masked SNAP reconciliation leaked ${key}.`);
+  }
+}
+for (const key of [
+  "openingQuantity",
+  "authorizedStartQuantity",
+  "additions",
+  "restorations",
+  "positiveAdjustments",
+  "redeemedQuantity",
+  "negativeAdjustments",
+  "correctionEffects",
+  "expiredQuantity",
+  "calculatedRemainingQuantity",
+  "recordedRemainingQuantity",
+  "reconciliationVariance",
+]) {
+  if (maskedReport.wicReconciliations[0]?.[key] !== "MASKED") {
+    throw new Error(`Masked WIC reconciliation leaked ${key}.`);
+  }
+}
+const maskedCsv = Reports.buildReportCsv(maskedReport);
+const maskedXlsxBytes = Reports.buildReportXlsx(maskedReport);
+const maskedPdfBytes = Reports.buildReportPdf(maskedReport);
+const maskedXlsxText = new TextDecoder().decode(maskedXlsxBytes);
+const maskedPdfText = new TextDecoder().decode(maskedPdfBytes);
+for (const sentinel of ["987.65", "600.01", "387.64", "123.45", "73.125", "26.875"]) {
+  if ([maskedCsv, maskedXlsxText, maskedPdfText].some((value) => value.includes(sentinel))) {
+    throw new Error(`Masked report leaked sentinel ${sentinel}.`);
+  }
+}
+if (!maskedCsv.includes("MASKED") || !maskedXlsxText.includes("MASKED") || !maskedPdfText.includes("MASKED")) {
+  throw new Error("Masked report formats do not visibly mark protected values.");
+}
+function assertPdfXref(bytes) {
+  const text = new TextDecoder().decode(bytes);
+  const startMatch = /startxref\s+(\d+)\s+%%EOF\s*$/.exec(text);
+  if (!startMatch) throw new Error("PDF startxref marker is missing.");
+  const xrefOffset = Number(startMatch[1]);
+  const xrefText = new TextDecoder().decode(bytes.slice(xrefOffset));
+  const lines = xrefText.split(/\r?\n/);
+  if (lines[0] !== "xref") throw new Error("PDF startxref does not point to xref.");
+  const [, objectCountText] = String(lines[1] || "").split(/\s+/);
+  const objectCount = Number(objectCountText);
+  if (!Number.isSafeInteger(objectCount) || objectCount < 2) {
+    throw new Error("PDF xref object count is invalid.");
+  }
+  for (let objectId = 1; objectId < objectCount; objectId += 1) {
+    const entry = lines[2 + objectId] || "";
+    const objectOffset = Number(entry.slice(0, 10));
+    const objectHeader = new TextDecoder().decode(
+      bytes.slice(objectOffset, objectOffset + 32),
+    );
+    if (!objectHeader.startsWith(`${objectId} 0 obj`)) {
+      throw new Error(`PDF xref entry ${objectId} points to the wrong object.`);
+    }
+  }
+}
+
+function assertZipCentralDirectory(bytes) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let eocd = -1;
+  for (let offset = bytes.length - 22; offset >= Math.max(0, bytes.length - 65557); offset -= 1) {
+    if (view.getUint32(offset, true) === 0x06054b50) {
+      eocd = offset;
+      break;
+    }
+  }
+  if (eocd < 0) throw new Error("XLSX ZIP end-of-central-directory is missing.");
+  const entries = view.getUint16(eocd + 10, true);
+  const centralSize = view.getUint32(eocd + 12, true);
+  const centralOffset = view.getUint32(eocd + 16, true);
+  let cursor = centralOffset;
+  for (let index = 0; index < entries; index += 1) {
+    if (view.getUint32(cursor, true) !== 0x02014b50) {
+      throw new Error(`XLSX central-directory entry ${index} is invalid.`);
+    }
+    const nameLength = view.getUint16(cursor + 28, true);
+    const extraLength = view.getUint16(cursor + 30, true);
+    const commentLength = view.getUint16(cursor + 32, true);
+    const localOffset = view.getUint32(cursor + 42, true);
+    if (view.getUint32(localOffset, true) !== 0x04034b50) {
+      throw new Error(`XLSX local-file entry ${index} is invalid.`);
+    }
+    cursor += 46 + nameLength + extraLength + commentLength;
+  }
+  if (entries < 5 || cursor !== centralOffset + centralSize) {
+    throw new Error("XLSX central-directory size or entry count is invalid.");
+  }
+}
+if (!new TextDecoder().decode(maskedPdfBytes.slice(0, 8)).startsWith("%PDF-1.4")) {
+  throw new Error("Generated PDF signature is invalid.");
+}
+if (maskedXlsxBytes[0] !== 0x50 || maskedXlsxBytes[1] !== 0x4b) {
+  throw new Error("Generated XLSX ZIP signature is invalid.");
+}
+assertPdfXref(maskedPdfBytes);
+assertZipCentralDirectory(maskedXlsxBytes);
+
+const stressReport = structuredClone(reportSnapshot);
+const sourceAllocation = reportSnapshot.allocations[0];
+const sourceItem = reportSnapshot.items[0];
+const sourceTransaction = reportSnapshot.transactions[0];
+stressReport.allocations = Array.from({ length: 1000 }, (_, index) => ({
+  ...sourceAllocation,
+  transactionId: `stress-transaction-${index}`,
+  itemId: `stress-item-${index}`,
+  itemName: `Stress item ${index}`,
+}));
+stressReport.splitContextAllocations = structuredClone(stressReport.allocations);
+stressReport.items = Array.from({ length: 1000 }, (_, index) => ({
+  ...sourceItem,
+  transactionId: `stress-transaction-${index}`,
+  itemId: `stress-item-${index}`,
+  itemName: `Stress item ${index}`,
+}));
+stressReport.transactions = Array.from({ length: 1000 }, (_, index) => ({
+  ...sourceTransaction,
+  transactionId: `stress-transaction-${index}`,
+}));
+stressReport.totals.transactionCount = 1000;
+stressReport.totals.itemCount = 1000;
+stressReport.totals.allocationCount = 1000;
+const stressCsv = Reports.buildReportCsv(stressReport);
+const stressXlsx = Reports.buildReportXlsx(stressReport);
+const stressPdf = Reports.buildReportPdf(stressReport);
+if (stressCsv.split(/\r?\n/).length !== 1001 || stressXlsx.length < 10000 || stressPdf.length < 10000) {
+  throw new Error("1,000-row report stress generation failed.");
+}
+assertPdfXref(stressPdf);
+assertZipCentralDirectory(stressXlsx);
+const oversizedPdf = structuredClone(stressReport);
+oversizedPdf.allocations = Array.from({ length: 2001 }, () => sourceAllocation);
+oversizedPdf.splitContextAllocations = structuredClone(oversizedPdf.allocations);
+let oversizedPdfCode = "";
+try {
+  Reports.buildReportPdf(oversizedPdf);
+} catch (error) {
+  oversizedPdfCode = error?.code || "";
+}
+if (oversizedPdfCode !== Reports.ERROR.PDF_TOO_LARGE) {
+  throw new Error("Oversized PDF did not fail safely with PDF_TOO_LARGE.");
+}
+
 requireText(html, "window.GBTAdRuntime=Object.freeze", "web ad runtime");
 requireText(html, "downloadBlob('snap-ebt-wic-local-recovery.txt',blob)", "recovery export");
+requireText(html, "R.prefixSearchMatch(entry.label,query)", "item prefix-only suggestions");
+requireText(html, "R.prefixSearchMatch(name,query)", "store prefix-only suggestions");
+requireText(html, 'data-action="money-pad-cents" data-cents="00"', "quick .00 money entry");
+requireText(html, 'data-action="money-pad-cents" data-cents="99"', "quick .99 money entry");
+requireText(html, "moneyPadState.centsShortcutApplied", "idempotent cent shortcuts");
+requireText(html, "moneyInputAttributes(a.unit==='$'", "conditional WIC dollar keypad");
+requireText(html, "moneyInputAttributes(true,d.priceEntryMode", "transaction price keypad");
+requireText(html, "input.dispatchEvent(new Event('change',{bubbles:true}))", "money keypad change synchronization");
+requireText(html, "function adPlacementAllowed(){return state.route!=='cards'&&!modalState;}", "Cards and modal ad exclusion");
+requireText(html, "window.dispatchEvent(new Event('gbt-ad-presentation-change'))", "immediate ad-placement bridge");
+requireText(html, "window.GBTNativeShareFile(blob,name", "explicit native report-share bridge");
+requireText(html, "if(window.ReactNativeWebView?.postMessage)throw R.err(R.ERROR.SHARE_FAILED", "native blob-navigation fail-close");
+requireText(html, "MAX_PDF_DETAIL_ROWS=2000", "bounded iPhone PDF generation");
+requireText(html, "if(delta&&!isNew)", "new SNAP opening-balance ledger guard");
+requireText(html, "k==='CHECKOUT'||k==='PURCHASE'", "explicit purchase ledger classification");
+forbidText(html, "errors.push(['itemInput','UNRESOLVED_FUNDING'])", "shop item validation");
 forbidText(html, "openRemoveAdsPurchase", "public test release");
 forbidText(html, "confirm-remove-ads-preview", "public test release");
 forbidText(html, "class=\"remove-ads-row\"", "public test release");
@@ -93,11 +699,23 @@ requireText(
 );
 requireText(app, "{bannerMounted ? (", "native banner lifecycle gate");
 requireText(app, "type: \"share-file\"", "native file-share bridge");
+requireText(app, "requestId?: string", "native file-share acknowledgement ID");
+requireText(app, "window.GBTNativeShareCompleted", "native file-share acknowledgement");
+requireText(app, 'file.write(base64, { encoding: "base64" })', "validated native file write");
+requireText(app, "fileUti(name, message.mimeType)", "native file type mapping");
+requireText(app, "const shareDirectory = new Directory(", "unique native export directory");
+requireText(app, "shareDirectory.delete()", "unique native export cleanup");
+forbidText(app, "new File(Paths.cache, name)", "same-name native export collision");
 requireText(app, "onShouldStartLoadWithRequest", "external-link bridge");
 requireText(app, "SafeAreaView", "safe-area layout");
 forbidText(app, "Vibration", "haptic-free native wrapper");
 forbidText(app, 'type: "haptic"', "haptic-free native bridge");
 forbidText(app, 'navigator, "vibrate"', "haptic-free native bridge");
+forbidText(app, 'url.startsWith("blob:")', "top-level blob navigation");
+forbidText(app, 'url.startsWith("data:")', "top-level data navigation");
+forbidText(app, '"blob:*"', "WebView origin allowlist");
+forbidText(app, '"data:*"', "WebView origin allowlist");
+forbidText(app, "Buffer.from", "native export memory duplication");
 
 const gatherIndex = app.indexOf("AdsConsent.gatherConsent()");
 const sharedGateIndex = app.indexOf("startAdsIfAllowed(reportedCanRequestAds)", gatherIndex);
