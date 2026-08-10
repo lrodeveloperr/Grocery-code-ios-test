@@ -9,7 +9,6 @@ import {
   Share,
   StyleSheet,
   View,
-  Vibration,
 } from "react-native";
 import mobileAds, {
   AdsConsent,
@@ -57,7 +56,6 @@ type BridgeMessage =
       eligible: boolean;
     }
   | { type: "privacy-choices" }
-  | { type: "haptic"; milliseconds?: number }
   | { type: "share-text"; title?: string; text?: string; url?: string }
   | {
       type: "share-file";
@@ -112,13 +110,6 @@ const NATIVE_BRIDGE_SCRIPT = String.raw`
     Object.defineProperty(navigator, "share", {
       configurable: true,
       value: nativeShare
-    });
-    Object.defineProperty(navigator, "vibrate", {
-      configurable: true,
-      value: function (milliseconds) {
-        post({ type: "haptic", milliseconds: Number(milliseconds) || 5 });
-        return true;
-      }
     });
   } catch (_) {}
 
@@ -419,9 +410,6 @@ export default function App() {
           break;
         case "privacy-choices":
           void showPrivacyChoices();
-          break;
-        case "haptic":
-          Vibration.vibrate(Math.min(25, Math.max(1, message.milliseconds || 5)));
           break;
         case "share-file":
           void shareFile(message);
