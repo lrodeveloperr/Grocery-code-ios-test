@@ -1,0 +1,402 @@
+name: Upload TestFlight internal build with test ads
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type UPLOAD TEST ADS to confirm this is an internal-only build
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-testflight-internal-upload
+  cancel-in-progress: false
+
+env:
+  CI: "1"
+  DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+  EXPO_NO_TELEMETRY: "1"
+  EXPO_PUBLIC_AD_PROFILE: test
+  EXPO_PUBLIC_IOS_ADMOB_BANNER_ID: ""
+  EXPO_PUBLIC_BUILD_PROFILE: qa
+  EXPO_PUBLIC_QA_PURCHASES: "0"
+  SOURCE_ZIP: SNAP-EBT-Grocery-Tracker-iOS-QA-Source-v1.0.0.zip
+  SOURCE_ZIP_SHA256: 23d938c18df0e185e54946759a3075ef42ce2a6cbc3a0bff99b3a085387e4fcd
+  SCHEME: SNAPEBTGroceryTrackerQA
+  IOS_BUNDLE_ID: com.lateefrazagoyetola.snapebtwictracker
+  APP_STORE_ID: "6799562282"
+  APPLE_TEAM_ID: 49SQ3XQ68Q
+  MARKETING_VERSION: "1.0"
+  GOOGLE_TEST_APP_ID: ca-app-pub-3940256099942544~1458002511
+  GOOGLE_TEST_BANNER_ID: ca-app-pub-3940256099942544/2934735716
+
+jobs:
+  upload:
+    name: Signed iPhone build to internal TestFlight
+    if: github.ref == 'refs/heads/main'
+    runs-on: macos-26
+    timeout-minutes: 90
+    environment: app-store-internal
+
+    steps:
+      - name: Check out reviewed source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Confirm permanent internal-only test build
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          if [[ "$CONFIRMATION" != "UPLOAD TEST ADS" ]]; then
+            echo "Confirmation did not match UPLOAD TEST ADS." >&2
+            exit 1
+          fi
+          [[ "$IOS_BUNDLE_ID" == "com.lateefrazagoyetola.snapebtwictracker" ]]
+          [[ "$IOS_BUNDLE_ID" != *.qa ]]
+          [[ "$APP_STORE_ID" == "6799562282" ]]
+          [[ "$APPLE_TEAM_ID" == "49SQ3XQ68Q" ]]
+          [[ "$MARKETING_VERSION" == "1.0" ]]
+          [[ "$GITHUB_REF" == "refs/heads/main" ]]
+
+      - name: Verify Apple credentials, app record, and unused build number
+        shell: bash
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          missing=()
+          [[ -n "$ASC_KEY_ID" ]] || missing+=(ASC_KEY_ID)
+          [[ -n "$ASC_ISSUER_ID" ]] || missing+=(ASC_ISSUER_ID)
+          [[ -n "$ASC_PRIVATE_KEY" ]] || missing+=(ASC_PRIVATE_KEY)
+          if (( ${#missing[@]} > 0 )); then
+            echo "Missing app-store-internal environment secrets: ${missing[*]}" >&2
+            exit 1
+          fi
+          [[ "$ASC_KEY_ID" =~ ^[A-Z0-9]{10}$ ]]
+          [[ "$ASC_ISSUER_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]
+
+          key_path="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
+          cleanup() {
+            rm -f "$key_path"
+          }
+          trap cleanup EXIT
+
+          umask 077
+          printf '%s' "$ASC_PRIVATE_KEY" > "$key_path"
+          unset ASC_PRIVATE_KEY
+          chmod 600 "$key_path"
+          grep -Fq -- '-----BEGIN PRIVATE KEY-----' "$key_path"
+          grep -Fq -- '-----END PRIVATE KEY-----' "$key_path"
+
+          jwt="$(ruby release-overlay/scripts/app-store-connect-jwt.rb \
+            "$key_path" "$ASC_KEY_ID" "$ASC_ISSUER_ID")"
+          authorization="Authorization: Bearer $jwt"
+
+          app_response="$RUNNER_TEMP/app-store-app.json"
+          bundle_response="$RUNNER_TEMP/app-store-bundle-id.json"
+          prerelease_response="$RUNNER_TEMP/app-store-prerelease.json"
+          build_page="$RUNNER_TEMP/app-store-build-page.json"
+          build_versions="$RUNNER_TEMP/app-store-build-versions.txt"
+
+          curl --fail-with-body --silent --show-error \
+            -H "$authorization" \
+            "https://api.appstoreconnect.apple.com/v1/apps/$APP_STORE_ID" \
+            -o "$app_response"
+          ruby -rjson -e '
+            data = JSON.parse(File.read(ARGV[0])).fetch("data")
+            abort "Unexpected App Store app ID." unless data.fetch("id") == ENV.fetch("APP_STORE_ID")
+            actual = data.fetch("attributes").fetch("bundleId")
+            abort "App Store bundle ID mismatch: #{actual}" unless actual == ENV.fetch("IOS_BUNDLE_ID")
+          ' "$app_response"
+
+          curl --fail-with-body --silent --show-error --get \
+            -H "$authorization" \
+            --data-urlencode "filter[identifier]=$IOS_BUNDLE_ID" \
+            --data-urlencode 'limit=1' \
+            'https://api.appstoreconnect.apple.com/v1/bundleIds' \
+            -o "$bundle_response"
+          ruby -rjson -e '
+            data = JSON.parse(File.read(ARGV[0])).fetch("data")
+            abort "The API key cannot access the registered bundle ID." if data.empty?
+            actual = data.first.fetch("attributes").fetch("identifier")
+            abort "Registered bundle ID mismatch: #{actual}" unless actual == ENV.fetch("IOS_BUNDLE_ID")
+          ' "$bundle_response"
+
+          curl --fail-with-body --silent --show-error --get \
+            -H "$authorization" \
+            --data-urlencode "filter[app]=$APP_STORE_ID" \
+            --data-urlencode "filter[version]=$MARKETING_VERSION" \
+            --data-urlencode 'filter[platform]=IOS' \
+            --data-urlencode 'limit=1' \
+            'https://api.appstoreconnect.apple.com/v1/preReleaseVersions' \
+            -o "$prerelease_response"
+
+          prerelease_id="$(ruby -rjson -e '
+            data = JSON.parse(File.read(ARGV[0])).fetch("data")
+            abort "Multiple prerelease records unexpectedly matched." if data.length > 1
+            puts(data.empty? ? "" : data.first.fetch("id"))
+          ' "$prerelease_response")"
+
+          : > "$build_versions"
+          if [[ -n "$prerelease_id" ]]; then
+            build_url="https://api.appstoreconnect.apple.com/v1/builds"
+            first_page=1
+            while [[ -n "$build_url" ]]; do
+              if (( first_page )); then
+                curl --fail-with-body --silent --show-error --get \
+                  -H "$authorization" \
+                  --data-urlencode "filter[preReleaseVersion]=$prerelease_id" \
+                  --data-urlencode 'limit=200' \
+                  "$build_url" -o "$build_page"
+                first_page=0
+              else
+                curl --fail-with-body --silent --show-error \
+                  -H "$authorization" "$build_url" -o "$build_page"
+              fi
+              ruby -rjson -e '
+                JSON.parse(File.read(ARGV[0])).fetch("data").each do |build|
+                  puts build.fetch("attributes").fetch("version")
+                end
+              ' "$build_page" >> "$build_versions"
+              build_url="$(ruby -rjson -e '
+                puts JSON.parse(File.read(ARGV[0])).fetch("links").fetch("next", "").to_s
+              ' "$build_page")"
+            done
+          fi
+
+          build_number="$(ruby -e '
+            versions = File.readlines(ARGV[0], chomp: true).reject(&:empty?)
+            parse = lambda do |value|
+              abort "Invalid existing App Store build number: #{value}" unless value.match?(/\A[1-9][0-9]{0,3}(?:\.[0-9]{1,2}){0,2}\z/)
+              value.split(".").map(&:to_i)
+            end
+            if versions.empty?
+              puts "1"
+              exit
+            end
+            latest = versions.max_by { |value| parse.call(value) + [0] * (3 - parse.call(value).length) }
+            parts = parse.call(latest)
+            case parts.length
+            when 1
+              parts[0] += 1
+            when 2
+              if parts[1] < 99
+                parts[1] += 1
+              else
+                parts = [parts[0] + 1]
+              end
+            when 3
+              if parts[2] < 99
+                parts[2] += 1
+              elsif parts[1] < 99
+                parts = [parts[0], parts[1] + 1]
+              else
+                parts = [parts[0] + 1]
+              end
+            end
+            abort "No valid higher Apple build number remains." if parts[0] > 9999
+            puts parts.join(".")
+          ' "$build_versions")"
+          [[ "$build_number" =~ ^[1-9][0-9]{0,3}(\.[0-9]{1,2}){0,2}$ ]]
+          echo "BUILD_NUMBER=$build_number" >> "$GITHUB_ENV"
+
+          unset jwt authorization
+          echo "App Store identity and bundle registration verified; next build is $build_number."
+
+      - name: Assemble and configure the reviewed application
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_sha="$(shasum -a 256 "$SOURCE_ZIP" | awk '{print $1}')"
+          if [[ "$actual_sha" != "$SOURCE_ZIP_SHA256" ]]; then
+            echo "Frozen native source archive digest mismatch." >&2
+            exit 1
+          fi
+
+          extraction_root="$RUNNER_TEMP/latest-ios-source"
+          mkdir -p "$extraction_root"
+          /usr/bin/ditto -x -k "$SOURCE_ZIP" "$extraction_root"
+          app_root="$extraction_root/grocery-benefits-tracker"
+          test -f "$app_root/ios/$SCHEME.xcodeproj/project.pbxproj"
+
+          cp release-overlay/App.tsx "$app_root/App.tsx"
+          cp release-overlay/app.html "$app_root/app.html"
+          cp release-overlay/package.json "$app_root/package.json"
+          cp release-overlay/package-lock.json "$app_root/package-lock.json"
+          cp release-overlay/ios/AppDelegate.swift \
+            "$app_root/ios/$SCHEME/AppDelegate.swift"
+          cp release-overlay/ios/skadnetwork-ids.txt \
+            "$app_root/ios/skadnetwork-ids.txt"
+          cp release-overlay/ios/en.lproj/InfoPlist.strings \
+            "$app_root/ios/$SCHEME/Supporting/en.lproj/InfoPlist.strings"
+          cp release-overlay/ios/es-PR.lproj/InfoPlist.strings \
+            "$app_root/ios/$SCHEME/Supporting/es-PR.lproj/InfoPlist.strings"
+          cp release-overlay/assets/app-icon.png.base64 \
+            "$app_root/assets/app-icon.png.base64"
+          cp release-overlay/scripts/embed-web-app.mjs \
+            "$app_root/scripts/embed-web-app.mjs"
+          cp release-overlay/scripts/configure-ios-test.sh \
+            "$app_root/scripts/configure-ios-test.sh"
+          cp release-overlay/scripts/verify-test-release.mjs \
+            "$app_root/scripts/verify-test-release.mjs"
+
+          cd "$app_root"
+          node scripts/embed-web-app.mjs app.html src/appHtml.ts
+          bash scripts/configure-ios-test.sh "$app_root"
+
+          plist_path="$app_root/ios/$SCHEME/Info.plist"
+          project_path="$app_root/ios/$SCHEME.xcodeproj/project.pbxproj"
+          plist_buddy=/usr/libexec/PlistBuddy
+
+          "$plist_buddy" -c "Set :CFBundleDisplayName SNAP-EBT WIC Tracker" "$plist_path"
+          "$plist_buddy" -c "Set :CFBundleShortVersionString $MARKETING_VERSION" "$plist_path"
+          "$plist_buddy" -c "Set :CFBundleVersion $BUILD_NUMBER" "$plist_path"
+          "$plist_buddy" -c "Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 $IOS_BUNDLE_ID" "$plist_path"
+          /usr/bin/sed -i '' \
+            's/SNAP-EBT & WIC Tracker QA/SNAP-EBT WIC Tracker/g' \
+            "$app_root/ios/$SCHEME/Supporting/en.lproj/InfoPlist.strings" \
+            "$app_root/ios/$SCHEME/Supporting/es-PR.lproj/InfoPlist.strings"
+          grep -Fq 'CFBundleDisplayName = "SNAP-EBT WIC Tracker";' \
+            "$app_root/ios/$SCHEME/Supporting/en.lproj/InfoPlist.strings"
+          grep -Fq 'CFBundleDisplayName = "SNAP-EBT WIC Tracker";' \
+            "$app_root/ios/$SCHEME/Supporting/es-PR.lproj/InfoPlist.strings"
+
+          /usr/bin/sed -i '' \
+            's/com\.goodusestudios\.snapebtgrocerytracker\.qa/com.lateefrazagoyetola.snapebtwictracker/g' \
+            "$project_path"
+
+          grep -Fq 'PRODUCT_BUNDLE_IDENTIFIER = "com.lateefrazagoyetola.snapebtwictracker";' \
+            "$project_path"
+          if grep -Fq 'com.goodusestudios.snapebtgrocerytracker.qa' "$project_path"; then
+            echo "The obsolete QA bundle ID remains in the Xcode project." >&2
+            exit 1
+          fi
+
+          echo "APP_ROOT=$app_root" >> "$GITHUB_ENV"
+
+      - name: Install locked JavaScript dependencies and verify release gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$APP_ROOT"
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          node scripts/verify-test-release.mjs
+
+      - name: Install iOS dependencies
+        shell: bash
+        env:
+          LANG: en_US.UTF-8
+        run: |
+          set -euo pipefail
+          cd "$APP_ROOT/ios"
+          pod install --repo-update
+
+      - name: Sign, validate, and upload internal TestFlight build
+        shell: bash
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          missing=()
+          [[ -n "$ASC_KEY_ID" ]] || missing+=(ASC_KEY_ID)
+          [[ -n "$ASC_ISSUER_ID" ]] || missing+=(ASC_ISSUER_ID)
+          [[ -n "$ASC_PRIVATE_KEY" ]] || missing+=(ASC_PRIVATE_KEY)
+          if (( ${#missing[@]} > 0 )); then
+            echo "Missing encrypted GitHub Actions secrets: ${missing[*]}" >&2
+            exit 1
+          fi
+          [[ "$ASC_KEY_ID" =~ ^[A-Z0-9]{10}$ ]]
+          [[ "$ASC_ISSUER_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]
+
+          key_path="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
+          archive_path="$RUNNER_TEMP/SNAP-EBT-WIC-Tracker.xcarchive"
+          export_path="$RUNNER_TEMP/testflight-upload"
+          export_options="$RUNNER_TEMP/ExportOptions.plist"
+          cleanup() {
+            rm -f "$key_path" "$export_options"
+          }
+          trap cleanup EXIT
+
+          umask 077
+          printf '%s' "$ASC_PRIVATE_KEY" > "$key_path"
+          unset ASC_PRIVATE_KEY
+          chmod 600 "$key_path"
+          grep -Fq -- '-----BEGIN PRIVATE KEY-----' "$key_path"
+          grep -Fq -- '-----END PRIVATE KEY-----' "$key_path"
+
+          set -o pipefail
+          xcodebuild \
+            -workspace "$APP_ROOT/ios/$SCHEME.xcworkspace" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath "$archive_path" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$key_path" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            MARKETING_VERSION="$MARKETING_VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            clean archive | xcbeautify
+
+          app_path="$(find "$archive_path/Products/Applications" -maxdepth 1 \
+            -type d -name '*.app' -print -quit)"
+          test -n "$app_path"
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+
+          plist="$app_path/Info.plist"
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist")" == "$IOS_BUNDLE_ID" ]]
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist")" == "$MARKETING_VERSION" ]]
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")" == "$BUILD_NUMBER" ]]
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :GADApplicationIdentifier' "$plist")" == "$GOOGLE_TEST_APP_ID" ]]
+          grep -aFq "$GOOGLE_TEST_BANNER_ID" "$app_path/main.jsbundle"
+          grep -aFq 'requestNonPersonalizedAdsOnly' "$app_path/main.jsbundle"
+
+          plutil -create xml1 "$export_options"
+          /usr/libexec/PlistBuddy -c 'Add :method string app-store-connect' "$export_options"
+          /usr/libexec/PlistBuddy -c 'Add :destination string upload' "$export_options"
+          /usr/libexec/PlistBuddy -c 'Add :signingStyle string automatic' "$export_options"
+          /usr/libexec/PlistBuddy -c "Add :teamID string $APPLE_TEAM_ID" "$export_options"
+          /usr/libexec/PlistBuddy -c 'Add :manageAppVersionAndBuildNumber bool false' "$export_options"
+          /usr/libexec/PlistBuddy -c 'Add :uploadSymbols bool true' "$export_options"
+          /usr/libexec/PlistBuddy -c 'Add :testFlightInternalTestingOnly bool true' "$export_options"
+
+          mkdir -p "$export_path"
+          xcodebuild \
+            -exportArchive \
+            -archivePath "$archive_path" \
+            -exportPath "$export_path" \
+            -exportOptionsPlist "$export_options" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$key_path" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" | xcbeautify
+
+      - name: Record upload result
+        shell: bash
+        run: |
+          {
+            echo "## Internal TestFlight upload complete"
+            echo
+            echo "- App Store ID: $APP_STORE_ID"
+            echo "- Bundle ID: $IOS_BUNDLE_ID"
+            echo "- Version: $MARKETING_VERSION ($BUILD_NUMBER)"
+            echo "- Ads: official Google test IDs; non-personalized treatment forced"
+            echo "- Distribution: permanently internal TestFlight only"
+            echo
+            echo "Wait for Apple processing, then add this build to an internal tester group."
+          } >> "$GITHUB_STEP_SUMMARY"
