@@ -75,6 +75,7 @@ requireText(app, TEST_BANNER_ID, "native wrapper test banner marker");
 requireText(app, "process.env.EXPO_PUBLIC_AD_PROFILE === \"production\"", "ad profile gate");
 requireText(app, "unitId={bannerUnitId}", "native banner");
 requireText(app, "size={BannerAdSize.BANNER}", "fixed 320x50 banner");
+requireText(app, "const AD_SLOT_BOTTOM = 66", "HTML/native banner alignment");
 requireText(app, "requestNonPersonalizedAdsOnly: true", "non-personalized request");
 requireText(app, "AdsConsent.gatherConsent()", "UMP consent update");
 requireText(app, "if (!consent.canRequestAds)", "consent ad gate");
