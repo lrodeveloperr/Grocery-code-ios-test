@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 
 const EXPECTED_HTML_SHA256 =
-  "ce59b204c24737654b708de715c185e7e9eeae488758a8f0d635e5cb26774507";
+  "2111c3f09c394cde2c42b9c4ef3c7f5ca257a0f07be31ae15a1a5ce5bfaee471";
 const EXPECTED_ICON_SHA256 =
   "83ca4ce7eea1f53ba1891cfa1b736c447f55991aa3730566b0bd374c73ba6fa3";
 const TEST_APP_ID = "ca-app-pub-3940256099942544~1458002511";
