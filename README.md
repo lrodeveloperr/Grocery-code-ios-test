@@ -1,22 +1,30 @@
-# SNAP & EBT Grocery Tracker — iOS QA builds
+# SNAP-EBT & WIC Benefits Tracker — iOS
 
-This private repository builds the preserved `SNAP & EBT Grocery Tracker` version 1.0.0 iOS QA source without an Expo EAS queue.
+This private repository contains the iOS build and release overlay for **SNAP-EBT & WIC Benefits Tracker**.
 
-## Build outputs
+## Current product model
 
-The **Build iPhone QA App** workflow supports:
+- Platform: iPhone/iOS
+- Core app: free and ad-supported
+- Optional purchase: permanent Remove Ads, one-time non-consumable
+- Intended U.S. App Store price: USD $4.99
+- Subscription: none
+- Account or cloud synchronization: none
+- Core SNAP/PAN, WIC, grocery, budget, History, and report records: local to the device
+- Purchase implementation: maintained separately from this documentation update
 
-- `simulator`: an unsigned `.app.zip` compile-check artifact. It is not installable on an iPhone.
-- `signed_ipa`: `SNAP-EBT-Grocery-Tracker-QA-v1.0.0.ipa`, signed for registered iPhones using encrypted repository secrets.
+## Canonical legal pages
 
-The first push automatically starts the Simulator compile check. Read [IOS_SIGNING_SETUP.md](IOS_SIGNING_SETUP.md) before running `signed_ipa`.
+- [Legal and Support Center](https://lrodeveloperr.github.io/snap-wic-benefits-tracker-legal/)
+- [Privacy Policy](https://lrodeveloperr.github.io/snap-wic-benefits-tracker-legal/privacy/)
+- [Terms of Use](https://lrodeveloperr.github.io/snap-wic-benefits-tracker-legal/terms/)
+- [Support](https://lrodeveloperr.github.io/snap-wic-benefits-tracker-legal/support/)
+- [Official Government Sources](https://lrodeveloperr.github.io/snap-wic-benefits-tracker-legal/official-sources/)
 
-## Frozen QA identity
+The active release overlay uses these canonical URLs. The former `SNAP-EBT-Grocery-Tracker` legal site is retired and must not be used for new code or metadata.
 
-- Bundle ID: `com.goodusestudios.snapebtgrocerytracker.qa`
-- Deployment target: iOS 16.4+
-- Ads: Google's official iOS test identifiers
-- Purchases: visibly labelled simulated QA purchases that cannot charge money
-- Source archive SHA-256: `23d938c18df0e185e54946759a3075ef42ce2a6cbc3a0bff99b3a085387e4fcd`
+## Build notes
 
-No Apple certificate, private key, provisioning profile, live advertising identifier, or production secret is stored in this repository.
+The repository retains a frozen QA source archive as a build baseline. Current release files in `release-overlay/` supersede conflicting runtime files from that archive. Do not treat names, simulated-purchase copy, embedded policy text, or legal URLs inside the frozen archive as current release requirements.
+
+No Apple certificate, private key, provisioning profile, live advertising identifier, payment credential, or production secret should be committed to this repository.
