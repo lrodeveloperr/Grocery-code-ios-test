@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Alert,
   Linking,
+  Platform,
   Share,
   StyleSheet,
   View,
@@ -35,6 +36,36 @@ const TEST_BANNER_ID = "ca-app-pub-3940256099942544/2934735716";
 
 type ConsentState = "unresolved" | "permitted" | "blocked";
 type NativeAdState = "idle" | "loading" | "loaded" | "failed";
+type AppLocale = "en-US" | "es-PR";
+
+const NATIVE_COPY = Object.freeze({
+  "en-US": {
+    exportTitle: "Export unavailable",
+    exportMessage:
+      "The file could not be opened in the iPhone share sheet. Please try again.",
+    advertisingTitle: "Advertising unavailable",
+    advertisingMessage:
+      "Advertising could not be initialized. Please try again later.",
+    privacyTitle: "Advertising privacy choices",
+    privacyMessage:
+      "No additional advertising privacy form is required on this device right now.",
+    linkTitle: "Link unavailable",
+    linkMessage: "This secure web page could not be opened.",
+  },
+  "es-PR": {
+    exportTitle: "Exportación no disponible",
+    exportMessage:
+      "No se pudo abrir el archivo en la hoja para compartir del iPhone. Inténtalo de nuevo.",
+    advertisingTitle: "Publicidad no disponible",
+    advertisingMessage:
+      "No se pudo iniciar la publicidad. Inténtalo de nuevo más tarde.",
+    privacyTitle: "Opciones de privacidad de anuncios",
+    privacyMessage:
+      "No se requiere ningún formulario adicional de privacidad de anuncios en este dispositivo en este momento.",
+    linkTitle: "Enlace no disponible",
+    linkMessage: "No se pudo abrir esta página web segura.",
+  },
+});
 
 type WebViewHandle = {
   injectJavaScript: (script: string) => void;
@@ -46,7 +77,8 @@ const NativeWebView = PackageWebView as unknown as React.ForwardRefExoticCompone
 >;
 
 type BridgeMessage =
-  | { type: "bridge-ready" }
+  | { type: "bridge-ready"; locale?: string }
+  | { type: "locale"; locale?: string }
   | { type: "ad-eligibility"; eligible: boolean }
   | {
       type: "ad-presentation";
@@ -74,22 +106,32 @@ const NATIVE_BRIDGE_SCRIPT = String.raw`
     } catch (_) {}
   };
 
+  const bridgeError = function (code, message) {
+    const error = new Error(String(message || "File export failed"));
+    error.code = String(code || "SHARE_FAILED");
+    return error;
+  };
+
   const pendingFileShares = Object.create(null);
   let fileShareInFlight = false;
-  window.GBTNativeShareCompleted = function (requestId, ok, message) {
+  window.GBTNativeShareCompleted = function (requestId, ok, message, code) {
     const pending = pendingFileShares[String(requestId || "")];
     if (!pending) return;
     delete pendingFileShares[String(requestId || "")];
     window.clearTimeout(pending.timeout);
     fileShareInFlight = false;
     if (ok) pending.resolve();
-    else pending.reject(new Error(String(message || "File export failed")));
+    else pending.reject(bridgeError(code || "SHARE_FAILED", message));
   };
   window.GBTNativeShareFile = function (blob, name, mimeType) {
-    if (!(blob instanceof Blob)) return Promise.reject(new Error("Invalid export file"));
-    if (fileShareInFlight) return Promise.reject(new Error("Another export is already open"));
+    if (!(blob instanceof Blob)) {
+      return Promise.reject(bridgeError("SHARE_FAILED", "Invalid export file"));
+    }
+    if (fileShareInFlight) {
+      return Promise.reject(bridgeError("EXPORT_BUSY", "Another export is already open"));
+    }
     if (blob.size <= 0 || blob.size > 20 * 1024 * 1024) {
-      return Promise.reject(new Error("Export file size is not supported"));
+      return Promise.reject(bridgeError("FILE_TOO_LARGE", "Export file size is not supported"));
     }
     fileShareInFlight = true;
     const requestId = "share-" + Date.now() + "-" + Math.random().toString(36).slice(2);
@@ -97,28 +139,47 @@ const NATIVE_BRIDGE_SCRIPT = String.raw`
       const timeout = window.setTimeout(function () {
         delete pendingFileShares[requestId];
         fileShareInFlight = false;
-        reject(new Error("The iPhone share sheet did not respond"));
+        reject(bridgeError("SHARE_FAILED", "The iPhone share sheet did not respond"));
       }, 120000);
       pendingFileShares[requestId] = { resolve: resolve, reject: reject, timeout: timeout };
-      const reader = new FileReader();
-      reader.onload = function () {
-        const dataUrl = String(reader.result || "");
-        if (!dataUrl || dataUrl.length > 28 * 1024 * 1024) {
-          window.GBTNativeShareCompleted(requestId, false, "Export file size is not supported");
-          return;
-        }
-        post({
-          type: "share-file",
-          requestId: requestId,
-          name: String(name || "export"),
-          mimeType: String(mimeType || blob.type || "application/octet-stream"),
-          dataUrl: dataUrl
-        });
-      };
-      reader.onerror = function () {
-        window.GBTNativeShareCompleted(requestId, false, "Export file could not be read");
-      };
-      reader.readAsDataURL(blob);
+      try {
+        const reader = new FileReader();
+        reader.onload = function () {
+          const dataUrl = String(reader.result || "");
+          if (!dataUrl || dataUrl.length > 28 * 1024 * 1024) {
+            window.GBTNativeShareCompleted(
+              requestId,
+              false,
+              "Export file size is not supported",
+              "FILE_TOO_LARGE"
+            );
+            return;
+          }
+          post({
+            type: "share-file",
+            requestId: requestId,
+            name: String(name || "export"),
+            mimeType: String(mimeType || blob.type || "application/octet-stream"),
+            dataUrl: dataUrl
+          });
+        };
+        reader.onerror = function () {
+          window.GBTNativeShareCompleted(
+            requestId,
+            false,
+            "Export file could not be read",
+            "SHARE_FAILED"
+          );
+        };
+        reader.readAsDataURL(blob);
+      } catch (error) {
+        window.GBTNativeShareCompleted(
+          requestId,
+          false,
+          error instanceof Error ? error.message : "Export file could not be read",
+          "SHARE_FAILED"
+        );
+      }
     });
   };
 
@@ -187,7 +248,13 @@ const NATIVE_BRIDGE_SCRIPT = String.raw`
   window.setInterval(publishAdPresentation, 250);
   publishAdPresentation();
 
-  post({ type: "bridge-ready" });
+  const currentLocale = function () {
+    return document.documentElement.lang === "es-PR" ? "es-PR" : "en-US";
+  };
+  window.addEventListener("gbt-locale-change", function () {
+    post({ type: "locale", locale: currentLocale() });
+  });
+  post({ type: "bridge-ready", locale: currentLocale() });
 })();
 true;
 `;
@@ -243,6 +310,7 @@ export default function App() {
   const adsInitializationRef = useRef<Promise<void> | null>(null);
   const previousWebAdStateRef = useRef("AD_LOADING");
   const [webReady, setWebReady] = useState(false);
+  const [appLocale, setAppLocale] = useState<AppLocale>("en-US");
   const [consentState, setConsentState] =
     useState<ConsentState>("unresolved");
   const [adEligible, setAdEligible] = useState(false);
@@ -251,12 +319,24 @@ export default function App() {
   const [webAdState, setWebAdState] = useState("AD_LOADING");
   const [adLoadAttempt, setAdLoadAttempt] = useState(0);
   const [bannerInstance, setBannerInstance] = useState(0);
+  const nativeCopy = NATIVE_COPY[appLocale];
 
-  const productionBannerId =
-    process.env.EXPO_PUBLIC_IOS_ADMOB_BANNER_ID?.trim() || "";
+  const productionBannerId = (Platform.OS === "android"
+    ? process.env.EXPO_PUBLIC_ANDROID_ADMOB_BANNER_ID
+    : process.env.EXPO_PUBLIC_IOS_ADMOB_BANNER_ID
+  )?.trim() || "";
   const productionAds =
     process.env.EXPO_PUBLIC_AD_PROFILE === "production";
   const bannerUnitId = productionAds ? productionBannerId : TestIds.BANNER;
+
+  useEffect(() => {
+    const staleShareDirectory = new Directory(Paths.cache, "gbt-share");
+    try {
+      if (staleShareDirectory.exists) staleShareDirectory.delete();
+    } catch (error) {
+      console.warn("Stale export cleanup failed", error);
+    }
+  }, []);
 
   const ensureAdsInitialized = useCallback(async () => {
     if (!adsInitializationRef.current) {
@@ -447,10 +527,6 @@ export default function App() {
         false,
         error instanceof Error ? error.message : "Export failed",
       );
-      Alert.alert(
-        "Export unavailable",
-        "The file could not be opened in the iPhone share sheet. Please try again.",
-      );
     } finally {
       setTimeout(() => {
         try {
@@ -493,29 +569,41 @@ export default function App() {
       } catch {
         setConsentState("blocked");
         Alert.alert(
-          "Advertising unavailable",
-          "Advertising could not be initialized. Please try again later.",
+          nativeCopy.advertisingTitle,
+          nativeCopy.advertisingMessage,
         );
       }
     } catch {
       Alert.alert(
-        "Advertising privacy choices",
-        "No additional advertising privacy form is required on this device right now.",
+        nativeCopy.privacyTitle,
+        nativeCopy.privacyMessage,
       );
     }
-  }, [startAdsIfAllowed]);
+  }, [nativeCopy, startAdsIfAllowed]);
 
   const onMessage = useCallback(
     (event: WebViewMessageEvent) => {
-      let message: BridgeMessage;
+      let parsed: unknown;
       try {
-        message = JSON.parse(event.nativeEvent.data) as BridgeMessage;
+        parsed = JSON.parse(event.nativeEvent.data) as unknown;
       } catch {
         return;
       }
+      if (
+        typeof parsed !== "object" ||
+        parsed === null ||
+        typeof (parsed as { type?: unknown }).type !== "string"
+      ) {
+        return;
+      }
+      const message = parsed as BridgeMessage;
       switch (message.type) {
         case "bridge-ready":
+          setAppLocale(message.locale === "es-PR" ? "es-PR" : "en-US");
           setWebReady(true);
+          break;
+        case "locale":
+          setAppLocale(message.locale === "es-PR" ? "es-PR" : "en-US");
           break;
         case "ad-eligibility":
           setAdEligible(Boolean(message.eligible));
@@ -540,9 +628,9 @@ export default function App() {
   const openExternalUrl = useCallback((url: string) => {
     if (!/^https:\/\//i.test(url)) return;
     void Linking.openURL(url).catch(() => {
-      Alert.alert("Link unavailable", "This secure web page could not be opened.");
+      Alert.alert(nativeCopy.linkTitle, nativeCopy.linkMessage);
     });
-  }, []);
+  }, [nativeCopy]);
 
   const shouldStartNavigation = useCallback(
     (request: ShouldStartLoadRequest) => {
@@ -631,15 +719,15 @@ export default function App() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#eef6ff",
+    backgroundColor: "#e0eefd",
   },
   safeArea: {
     flex: 1,
-    backgroundColor: "#eef6ff",
+    backgroundColor: "#e0eefd",
   },
   webView: {
     flex: 1,
-    backgroundColor: "#eef6ff",
+    backgroundColor: "#e0eefd",
   },
   bannerOverlay: {
     position: "absolute",

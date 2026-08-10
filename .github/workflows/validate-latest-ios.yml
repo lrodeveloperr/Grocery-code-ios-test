@@ -4,7 +4,9 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - "SNAP-EBT-Grocery-Tracker-iOS-QA-Source-v1.0.0.zip"
       - "release-overlay/**"
+      - ".github/workflows/build-ios-qa.yml"
       - ".github/workflows/validate-latest-ios.yml"
       - ".github/workflows/upload-testflight-test-ads.yml"
   workflow_dispatch:
@@ -27,10 +29,8 @@ jobs:
       EXPO_NO_TELEMETRY: "1"
       EXPO_PUBLIC_AD_PROFILE: test
       EXPO_PUBLIC_IOS_ADMOB_BANNER_ID: ""
-      EXPO_PUBLIC_BUILD_PROFILE: qa
-      EXPO_PUBLIC_QA_PURCHASES: "0"
       SOURCE_ZIP: SNAP-EBT-Grocery-Tracker-iOS-QA-Source-v1.0.0.zip
-      SOURCE_ZIP_SHA256: 23d938c18df0e185e54946759a3075ef42ce2a6cbc3a0bff99b3a085387e4fcd
+      SOURCE_ZIP_SHA256: bd703ca9474667fd46d833f4025bf396e6489ff275f2819213d708320cce2677
 
     steps:
       - name: Check out reviewed source
@@ -48,11 +48,142 @@ jobs:
             exit 1
           fi
 
+          archive_listing="$RUNNER_TEMP/frozen-source-entries.txt"
+          unzip -Z1 "$SOURCE_ZIP" > "$archive_listing"
+          if [[ ! -s "$archive_listing" ]]; then
+            echo "Frozen source archive is empty." >&2
+            exit 1
+          fi
+          if LC_ALL=C grep -Eq '^/|(^|/)\.\.(/|$)' "$archive_listing"; then
+            echo "Frozen source archive contains an unsafe path." >&2
+            exit 1
+          fi
+          unexpected_entries="$(LC_ALL=C grep -Ev '^grocery-benefits-tracker(/|$)' "$archive_listing" || true)"
+          if [[ -n "$unexpected_entries" ]]; then
+            echo "Frozen source archive contains an unexpected top-level entry:" >&2
+            printf '%s\n' "$unexpected_entries" >&2
+            exit 1
+          fi
+          if LC_ALL=C grep -Eq '(^|/)(__MACOSX|\.DS_Store|\._[^/]*)(/|$)|\.svg$' "$archive_listing"; then
+            echo "Frozen source archive contains stale SVG or macOS metadata." >&2
+            exit 1
+          fi
+
           extraction_root="$RUNNER_TEMP/latest-ios-source"
           mkdir -p "$extraction_root"
           /usr/bin/ditto -x -k "$SOURCE_ZIP" "$extraction_root"
           app_root="$extraction_root/grocery-benefits-tracker"
           test -f "$app_root/ios/SNAPEBTGroceryTrackerQA.xcodeproj/project.pbxproj"
+
+          archive_symlink="$(find "$app_root" -type l -print -quit)"
+          if [[ -n "$archive_symlink" ]]; then
+            echo "Frozen source archive contains a symbolic link: $archive_symlink" >&2
+            exit 1
+          fi
+
+          while IFS=' ' read -r expected_sha relative_path; do
+            asset_path="$app_root/$relative_path"
+            if [[ ! -f "$asset_path" ]]; then
+              echo "Frozen source asset is missing: $relative_path" >&2
+              exit 1
+            fi
+            asset_sha="$(shasum -a 256 "$asset_path" | awk '{print $1}')"
+            if [[ "$asset_sha" != "$expected_sha" ]]; then
+              echo "Frozen source asset digest mismatch: $relative_path ($asset_sha)" >&2
+              exit 1
+            fi
+          done <<'ARCHIVE_ASSET_HASHES'
+          9b3898e0fcb36e5b809106ad445b0c6df2743df5486400c23f837687aa811791 App.tsx
+          4396656534aa5d171838c4d71d5f8f0c9e8e5d30cb8889d50fa50c0ce428e0cc app.html
+          c050d626db04b28e8c43601f009ffe68fb8f7672445ba2976546575b6df02932 app.json
+          5adcbe88c2472c9596f64c4e1413b8976fbbc4337b518eda7632e1e997e34759 app.config.js
+          4c3d644cb0c21d2ee9e058f584e745bd758bc15ee819fc5eb0f6fa68b893f102 package.json
+          dfd6cc7b6a1c61ef7a8a4409a2ab0d72d1dbd1dd3645361ba2081dc9c1215d92 package-lock.json
+          1caed274e2ab10a840cb3dd4ad4fb0bfe73e2b97b57fcd39c2a90cfa83822863 scripts/verify-test-release.mjs
+          7d7f7b4567e0d07f5d7c658fec0dc07693263871ba7297eb80c80c85489ff781 src/appHtml.ts
+          f1290c34477ea540105bc74c14b0c2c1c0330bd6355c375c87d86c897df2b628 assets/icon.png
+          188cf8deaa47857bc1fe1d329c05f1a7f0f9bd1a30ecf5d639ff58216ff26849 assets/splash-icon.png
+          bc03268f8abb73de2d51ce85310d7b1a0f990fd3bf8a37ee16418cd4cfee8fa1 assets/splash-ios-icon.png
+          188cf8deaa47857bc1fe1d329c05f1a7f0f9bd1a30ecf5d639ff58216ff26849 assets/android-splash-icon.png
+          188cf8deaa47857bc1fe1d329c05f1a7f0f9bd1a30ecf5d639ff58216ff26849 assets/android-icon-foreground.png
+          09256eb0001160ddca8d7c70c5dc106ce841de6c7798af01a839e80274e6cb05 assets/android-icon-monochrome.png
+          f1290c34477ea540105bc74c14b0c2c1c0330bd6355c375c87d86c897df2b628 ios/SNAPEBTGroceryTrackerQA/Images.xcassets/AppIcon.appiconset/App-Icon-1024x1024@1x.png
+          bc03268f8abb73de2d51ce85310d7b1a0f990fd3bf8a37ee16418cd4cfee8fa1 ios/SNAPEBTGroceryTrackerQA/Images.xcassets/SplashScreenLogo.imageset/image.png
+          1fb439ed990f02073b677b8fed237b1b709ca8e19ff678d2c286a0b065ad2b8c ios/SNAPEBTGroceryTrackerQA/Images.xcassets/SplashScreenLogo.imageset/image@2x.png
+          d95f8bb0941cbf93048fdf27df6eaab28a68476da59340c231f519a8a17ef191 ios/SNAPEBTGroceryTrackerQA/Images.xcassets/SplashScreenLogo.imageset/image@3x.png
+          adfb1fc681404741510a682544c14442e903df471fac775c7ec30086053c035d ios/SNAPEBTGroceryTrackerQA/Images.xcassets/SplashScreenBackground.colorset/Contents.json
+          ARCHIVE_ASSET_HASHES
+
+          if grep -Fq 'BasketIcon' "$app_root/App.tsx" || grep -Fq '🧺' "$app_root/App.tsx"; then
+            echo "Frozen direct-build source contains the retired generic basket brand path." >&2
+            exit 1
+          fi
+          grep -Fq 'import APP_HTML from "./src/appHtml";' "$app_root/App.tsx"
+          grep -Fq 'Platform.OS === "android"' "$app_root/App.tsx"
+
+          APP_CONFIG_PATH="$app_root/app.json" node <<'NODE'
+          const fs = require("node:fs");
+          const expo = JSON.parse(fs.readFileSync(process.env.APP_CONFIG_PATH, "utf8")).expo;
+          const invariant = (condition, message) => {
+            if (!condition) throw new Error(`Frozen app.json brand gate: ${message}`);
+          };
+          invariant(expo.icon === "./assets/icon.png", "top-level icon path changed");
+          invariant(expo.ios?.icon === "./assets/icon.png", "iOS icon path changed");
+          invariant(expo.android?.icon === "./assets/icon.png", "Android legacy icon path changed");
+          invariant(expo.backgroundColor === "#E0EEFD", "background color changed");
+          invariant(expo.primaryColor === "#005BB5", "primary color changed");
+          const plugins = (expo.plugins || []).map((entry) => Array.isArray(entry) ? entry[0] : entry);
+          invariant(!plugins.includes("expo-iap"), "obsolete IAP plugin remains");
+          invariant(!plugins.includes("expo-sqlite"), "unused SQLite plugin remains");
+          invariant(!plugins.includes("./plugins/withLocalOnlyDatabase"), "unused SQLite backup plugin remains");
+          const splashPlugin = (expo.plugins || []).find(
+            (entry) => Array.isArray(entry) && entry[0] === "expo-splash-screen",
+          );
+          invariant(splashPlugin, "expo-splash-screen plugin is missing");
+          const splash = splashPlugin[1] || {};
+          invariant(Object.keys(splash).sort().join(",") === "android,ios", "splash config is not platform-only");
+          const checkSplash = (platform, image) => {
+            const value = splash[platform] || {};
+            invariant(
+              Object.keys(value).sort().join(",") === "backgroundColor,image,imageWidth,resizeMode",
+              `${platform} splash keys changed`,
+            );
+            invariant(value.backgroundColor === "#E0EEFD", `${platform} splash background changed`);
+            invariant(value.image === image, `${platform} splash image changed`);
+            invariant(value.imageWidth === 176, `${platform} splash width changed`);
+            invariant(value.resizeMode === "contain", `${platform} splash resize mode changed`);
+          };
+          checkSplash("ios", "./assets/splash-ios-icon.png");
+          checkSplash("android", "./assets/android-splash-icon.png");
+          const adaptive = expo.android?.adaptiveIcon || {};
+          invariant(adaptive.backgroundColor === "#E0EEFD", "adaptive icon background changed");
+          invariant(adaptive.foregroundImage === "./assets/android-icon-foreground.png", "adaptive foreground changed");
+          invariant(adaptive.monochromeImage === "./assets/android-icon-monochrome.png", "adaptive monochrome changed");
+          NODE
+
+          if LC_ALL=C grep -Ein '#(F3FAF7|DDF4E9|126B50|24313A|36B487)' "$app_root/app.json"; then
+            echo "Frozen app.json contains a retired brand color." >&2
+            exit 1
+          fi
+
+          frozen_hashes="$RUNNER_TEMP/frozen-source-file-hashes.txt"
+          find "$app_root" -type f -exec shasum -a 256 {} \; > "$frozen_hashes"
+          while IFS= read -r retired_sha; do
+            if grep -Fq "$retired_sha" "$frozen_hashes"; then
+              echo "Frozen source archive contains retired artwork: $retired_sha" >&2
+              exit 1
+            fi
+          done <<'RETIRED_ARTWORK_HASHES'
+          0ac5c8f47c5819ae907c64d308f19467d42061d45c8ab06ce5db13a89fbc6d68
+          7c965ba2f75eab91654fffe88d34953cbb5b5b30917d212486b88a7b4ed948c4
+          42ad06ab7d512c7c4422e854945d4169246828866e3d61cd06483cbf48686e6f
+          b2c4e7338969c95b70d71ecb1ed1ac210c39ea310dc5d08a81c8dd9381c9018b
+          29e8cf34bbd6e0dda5d4f53268e2f955397ac35a8b5e8c6c3f1f7afabb4057ee
+          afbfee8f1dbfc226491b9c9bb62e0a009b74819de7c1b137d8c4da9f9ed98a8c
+          0e9f04c4edfac5e8b7b089c8c9c311b4aa99b8985efbb6542e9b908ff69beb72
+          beb5d1a261ee700f37dea82d6fc680166b34f1fe1233730be49a38f70b045685
+          6af5e08e78985f50bbb497c759a1cb9f8bffac2398db93baca81cb98e23501af
+          RETIRED_ARTWORK_HASHES
 
           cp release-overlay/App.tsx "$app_root/App.tsx"
           cp release-overlay/app.html "$app_root/app.html"
@@ -62,12 +193,38 @@ jobs:
             "$app_root/ios/SNAPEBTGroceryTrackerQA/AppDelegate.swift"
           cp release-overlay/ios/skadnetwork-ids.txt \
             "$app_root/ios/skadnetwork-ids.txt"
+          if [[ -s release-overlay/ios/Podfile.lock ]]; then
+            cp release-overlay/ios/Podfile.lock \
+              "$app_root/ios/Podfile.lock"
+          fi
           cp release-overlay/ios/en.lproj/InfoPlist.strings \
             "$app_root/ios/SNAPEBTGroceryTrackerQA/Supporting/en.lproj/InfoPlist.strings"
           cp release-overlay/ios/es-PR.lproj/InfoPlist.strings \
             "$app_root/ios/SNAPEBTGroceryTrackerQA/Supporting/es-PR.lproj/InfoPlist.strings"
           cp release-overlay/assets/app-icon.png.base64 \
             "$app_root/assets/app-icon.png.base64"
+          cp release-overlay/assets/app-icon.png \
+            "$app_root/assets/app-icon.png"
+          cp release-overlay/assets/app-logo-256.png.base64 \
+            "$app_root/assets/app-logo-256.png.base64"
+          cp release-overlay/assets/app-logo-256.png \
+            "$app_root/assets/app-logo-256.png"
+          cp release-overlay/assets/brand-logo-source-1254.png \
+            "$app_root/assets/brand-logo-source-1254.png"
+          cp release-overlay/assets/splash-logo-176.png \
+            "$app_root/assets/splash-logo-176.png"
+          cp release-overlay/assets/splash-logo-352.png \
+            "$app_root/assets/splash-logo-352.png"
+          cp release-overlay/assets/splash-logo-528.png \
+            "$app_root/assets/splash-logo-528.png"
+          cp release-overlay/assets/android-icon-foreground.png \
+            "$app_root/assets/android-icon-foreground.png"
+          cp release-overlay/assets/android-icon-monochrome.png \
+            "$app_root/assets/android-icon-monochrome.png"
+          cp release-overlay/assets/android-splash-icon.png \
+            "$app_root/assets/android-splash-icon.png"
+          cp release-overlay/assets/play-store-icon-512.png \
+            "$app_root/assets/play-store-icon-512.png"
           cp release-overlay/scripts/embed-web-app.mjs \
             "$app_root/scripts/embed-web-app.mjs"
           cp release-overlay/scripts/configure-ios-test.sh \
@@ -98,14 +255,47 @@ jobs:
           node scripts/verify-test-release.mjs
           ruby -c "$GITHUB_WORKSPACE/release-overlay/scripts/app-store-connect-jwt.rb"
 
-      - name: Install locked iOS dependencies
+      - name: Bootstrap or prove locked iOS dependencies
         shell: bash
         env:
           LANG: en_US.UTF-8
         run: |
           set -euo pipefail
           cd "$APP_ROOT/ios"
-          pod install --repo-update
+          installed_cocoapods="$(pod --version)"
+          printf '%s\n' "$installed_cocoapods" | tee "$RUNNER_TEMP/cocoapods-version.txt"
+
+          if [[ -s Podfile.lock ]]; then
+            expected_cocoapods="$(ruby -ne 'puts $1 if $_ =~ /^COCOAPODS:\s*(\S+)/' Podfile.lock)"
+            [[ -n "$expected_cocoapods" ]]
+            if [[ "$installed_cocoapods" != "$expected_cocoapods" ]]; then
+              echo "CocoaPods version mismatch: expected $expected_cocoapods, found $installed_cocoapods" >&2
+              exit 1
+            fi
+            printf '%s\n' locked > "$RUNNER_TEMP/pod-lock-mode.txt"
+          else
+            pod install --repo-update
+            printf '%s\n' bootstrap > "$RUNNER_TEMP/pod-lock-mode.txt"
+          fi
+
+          test -s Podfile.lock
+          pod install --deployment
+          cmp -s Podfile.lock Pods/Manifest.lock
+
+          lock_artifact="$RUNNER_TEMP/pod-lock"
+          mkdir -p "$lock_artifact"
+          cp Podfile.lock "$lock_artifact/Podfile.lock"
+          cp "$RUNNER_TEMP/cocoapods-version.txt" "$lock_artifact/cocoapods-version.txt"
+          cp "$RUNNER_TEMP/pod-lock-mode.txt" "$lock_artifact/pod-lock-mode.txt"
+          shasum -a 256 Podfile.lock > "$lock_artifact/Podfile.lock.sha256"
+
+      - name: Upload generated CocoaPods lock for review
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ios-pod-lock-${{ github.sha }}
+          path: ${{ runner.temp }}/pod-lock/*
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Compile release app for iOS Simulator
         shell: bash
@@ -122,6 +312,35 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             COMPILER_INDEX_STORE_ENABLE=NO \
             clean build | xcbeautify
+
+      - name: Archive release app for generic iPhone (ad hoc only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          device_archive="$RUNNER_TEMP/SNAPEBTGroceryTrackerQA-unsigned.xcarchive"
+          xcodebuild \
+            -workspace "$APP_ROOT/ios/SNAPEBTGroceryTrackerQA.xcworkspace" \
+            -scheme SNAPEBTGroceryTrackerQA \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            -archivePath "$device_archive" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData-device" \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            clean archive | xcbeautify
+
+          device_app="$device_archive/Products/Applications/SNAPEBTGroceryTrackerQA.app"
+          test -d "$device_app"
+          test -f "$device_app/main.jsbundle"
+          /usr/libexec/PlistBuddy -c "Print :GADApplicationIdentifier" \
+            "$device_app/Info.plist" | grep -Fx "ca-app-pub-3940256099942544~1458002511"
 
       - name: Package simulator application
         shell: bash
