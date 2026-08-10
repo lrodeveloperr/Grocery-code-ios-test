@@ -26,7 +26,7 @@ env:
   SOURCE_ZIP: SNAP-EBT-Grocery-Tracker-iOS-QA-Source-v1.0.0.zip
   SOURCE_ZIP_SHA256: 23d938c18df0e185e54946759a3075ef42ce2a6cbc3a0bff99b3a085387e4fcd
   SCHEME: SNAPEBTGroceryTrackerQA
-  IOS_BUNDLE_ID: com.lateefrazagoyetola.snapebtwictracker
+  IOS_BUNDLE_ID: com.lateefrazaqoyetola.snapebtwictracker
   APP_STORE_ID: "6799562282"
   APPLE_TEAM_ID: 49SQ3XQ68Q
   MARKETING_VERSION: "1.0"
@@ -57,7 +57,7 @@ jobs:
             echo "Confirmation did not match UPLOAD TEST ADS." >&2
             exit 1
           fi
-          [[ "$IOS_BUNDLE_ID" == "com.lateefrazagoyetola.snapebtwictracker" ]]
+          [[ "$IOS_BUNDLE_ID" == "com.lateefrazaqoyetola.snapebtwictracker" ]]
           [[ "$IOS_BUNDLE_ID" != *.qa ]]
           [[ "$APP_STORE_ID" == "6799562282" ]]
           [[ "$APPLE_TEAM_ID" == "49SQ3XQ68Q" ]]
@@ -270,10 +270,10 @@ jobs:
             "$app_root/ios/$SCHEME/Supporting/es-PR.lproj/InfoPlist.strings"
 
           /usr/bin/sed -i '' \
-            's/com\.goodusestudios\.snapebtgrocerytracker\.qa/com.lateefrazagoyetola.snapebtwictracker/g' \
+            's/com\.goodusestudios\.snapebtgrocerytracker\.qa/com.lateefrazaqoyetola.snapebtwictracker/g' \
             "$project_path"
 
-          grep -Fq 'PRODUCT_BUNDLE_IDENTIFIER = "com.lateefrazagoyetola.snapebtwictracker";' \
+          grep -Fq 'PRODUCT_BUNDLE_IDENTIFIER = "com.lateefrazaqoyetola.snapebtwictracker";' \
             "$project_path"
           if grep -Fq 'com.goodusestudios.snapebtgrocerytracker.qa' "$project_path"; then
             echo "The obsolete QA bundle ID remains in the Xcode project." >&2
