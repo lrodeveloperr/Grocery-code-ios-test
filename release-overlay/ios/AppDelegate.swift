@@ -31,11 +31,17 @@ class AppDelegate: ExpoAppDelegate {
       launchOptions: launchOptions)
 #endif
 
-    excludeTrackerDatabaseFromBackup()
-    return super.application(
+    let didFinishLaunching = super.application(
       application,
       didFinishLaunchingWithOptions: launchOptions
     )
+
+    excludeWebViewDataFromBackup()
+    DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+      self?.excludeWebViewDataFromBackup()
+    }
+
+    return didFinishLaunching
   }
 
   public override func application(
@@ -70,22 +76,33 @@ class AppDelegate: ExpoAppDelegate {
     configuration.setPublisherFirstPartyIDEnabled(false)
   }
 
-  private func excludeTrackerDatabaseFromBackup() {
-    guard let documentsDirectory = FileManager.default.urls(
-      for: .documentDirectory,
+  private func excludeWebViewDataFromBackup() {
+    let fileManager = FileManager.default
+    guard let libraryDirectory = fileManager.urls(
+      for: .libraryDirectory,
       in: .userDomainMask
     ).first else { return }
-    var sqliteDirectory = documentsDirectory.appendingPathComponent(
-      "SQLite",
-      isDirectory: true
-    )
-    try? FileManager.default.createDirectory(
-      at: sqliteDirectory,
-      withIntermediateDirectories: true
-    )
-    var resourceValues = URLResourceValues()
-    resourceValues.isExcludedFromBackup = true
-    try? sqliteDirectory.setResourceValues(resourceValues)
+
+    let webViewDataLocations = [
+      libraryDirectory.appendingPathComponent("WebKit", isDirectory: true),
+      libraryDirectory.appendingPathComponent(
+        "WebKit/WebsiteData",
+        isDirectory: true
+      ),
+    ]
+
+    for location in webViewDataLocations {
+      var isDirectory: ObjCBool = false
+      guard fileManager.fileExists(
+        atPath: location.path,
+        isDirectory: &isDirectory
+      ), isDirectory.boolValue else { continue }
+
+      var excludedLocation = location
+      var resourceValues = URLResourceValues()
+      resourceValues.isExcludedFromBackup = true
+      try? excludedLocation.setResourceValues(resourceValues)
+    }
   }
 }
 

@@ -6,12 +6,16 @@ target_name="SNAPEBTGroceryTrackerQA"
 plist_path="$app_root/ios/$target_name/Info.plist"
 skad_ids_path="$app_root/ios/skadnetwork-ids.txt"
 icon_b64_path="$app_root/assets/app-icon.png.base64"
+splash_1x_path="$app_root/assets/splash-logo-176.png"
+splash_2x_path="$app_root/assets/splash-logo-352.png"
+splash_3x_path="$app_root/assets/splash-logo-528.png"
 asset_root="$app_root/ios/$target_name/Images.xcassets"
+splash_color_path="$asset_root/SplashScreenBackground.colorset/Contents.json"
 plist_buddy="/usr/libexec/PlistBuddy"
 
 test_app_id="ca-app-pub-3940256099942544~1458002511"
 
-if [[ ! -f "$plist_path" || ! -f "$skad_ids_path" || ! -f "$icon_b64_path" ]]; then
+if [[ ! -f "$plist_path" || ! -f "$skad_ids_path" || ! -f "$icon_b64_path" || ! -f "$splash_1x_path" || ! -f "$splash_2x_path" || ! -f "$splash_3x_path" || ! -f "$splash_color_path" ]]; then
   echo "Required iOS test-release inputs are missing." >&2
   exit 1
 fi
@@ -35,15 +39,23 @@ decoded_icon="$RUNNER_TEMP/snap-ebt-wic-app-icon.png"
 /usr/bin/base64 -D < "$icon_b64_path" > "$decoded_icon"
 /usr/bin/sips -s format png "$decoded_icon" \
   --out "$app_root/assets/icon.png" >/dev/null
-/usr/bin/sips -s format png "$decoded_icon" \
-  --out "$app_root/assets/splash-icon.png" >/dev/null
+install -m 0644 "$splash_1x_path" "$app_root/assets/splash-icon.png"
 /usr/bin/sips -s format png "$decoded_icon" \
   --out "$asset_root/AppIcon.appiconset/App-Icon-1024x1024@1x.png" >/dev/null
-/usr/bin/sips -z 176 176 "$decoded_icon" \
-  --out "$asset_root/SplashScreenLogo.imageset/image.png" >/dev/null
-/usr/bin/sips -z 352 352 "$decoded_icon" \
-  --out "$asset_root/SplashScreenLogo.imageset/image@2x.png" >/dev/null
-/usr/bin/sips -z 528 528 "$decoded_icon" \
-  --out "$asset_root/SplashScreenLogo.imageset/image@3x.png" >/dev/null
+install -m 0644 "$splash_1x_path" "$asset_root/SplashScreenLogo.imageset/image.png"
+install -m 0644 "$splash_2x_path" "$asset_root/SplashScreenLogo.imageset/image@2x.png"
+install -m 0644 "$splash_3x_path" "$asset_root/SplashScreenLogo.imageset/image@3x.png"
 
-echo "Configured official Google test app ID, $skad_index SKAdNetwork IDs, and release artwork."
+node - "$splash_color_path" <<'NODE'
+const fs = require('node:fs');
+const target = process.argv[2];
+const data = JSON.parse(fs.readFileSync(target, 'utf8'));
+for (const entry of data.colors || []) {
+  entry.color = entry.color || {};
+  entry.color['color-space'] = 'srgb';
+  entry.color.components = { alpha: '1.000', red: '0.878431', green: '0.933333', blue: '0.992157' };
+}
+fs.writeFileSync(target, JSON.stringify(data, null, 2) + '\n');
+NODE
+
+echo "Configured official Google test app ID, $skad_index SKAdNetwork IDs, release artwork, and #E0EEFD splash background."
