@@ -1,0 +1,279 @@
+name: Build SwiftUI iPhone QA
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: swiftui-qa-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-build-launch-package:
+    name: Test, build, install, cold-launch, and package
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Validate project inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "arm64"
+          xcode_version_output="$(xcodebuild -version)"
+          xcode_version="${xcode_version_output%%$'\n'*}"
+          test "$xcode_version" = "Xcode 16.4"
+          expected_sha="${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git rev-parse HEAD)" = "$expected_sha"
+          plutil -lint GroceryBenefitsTracker/Resources/Info.plist
+          plutil -lint GroceryBenefitsTracker/Resources/PrivacyInfo.xcprivacy
+          xcodebuild -project GroceryBenefitsTracker.xcodeproj -list
+          test "$(git ls-files '*.swift' | wc -l | tr -d ' ')" -ge 8
+          build_settings="$(xcodebuild \
+            -project GroceryBenefitsTracker.xcodeproj \
+            -scheme GroceryBenefitsTrackerQA \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -showBuildSettings)"
+          deployment_targets="$(awk '$1 == "IPHONEOS_DEPLOYMENT_TARGET" { print $3 }' <<< "$build_settings" | sort -u)"
+          echo "Resolved iOS deployment targets: $deployment_targets"
+          test "$deployment_targets" = "16.4"
+          credential_pattern='BEGIN ((RSA|EC|OPENSSH) )?PRIVATE KEY|BEGIN ENCRYPTED'' PRIVATE KEY|IOS''_P12_|MOBILEPROVISION''_BASE64|ca-app-''pub-[0-9]{16}[/~][0-9]+'
+          credential_fixtures=(
+            '-----BEGIN PRIVATE'' KEY-----'
+            '-----BEGIN ENCRYPTED'' PRIVATE KEY-----'
+            '-----BEGIN OPENSSH'' PRIVATE KEY-----'
+            'IOS''_P12_EXAMPLE'
+            'MOBILEPROVISION''_BASE64_EXAMPLE'
+            'ca-app-''pub-1234567890123456/1234567890'
+            'ca-app-''pub-1234567890123456~1234567890'
+          )
+          for fixture in "${credential_fixtures[@]}"; do
+            if ! grep -Eq "$credential_pattern" <<< "$fixture"; then
+              echo "Credential scanner self-test failed closed." >&2
+              exit 1
+            fi
+          done
+          set +e
+          git grep -nE "$credential_pattern" -- . >/dev/null 2>&1
+          grep_status=$?
+          set -e
+          if [[ $grep_status -eq 0 ]]; then
+            echo "A credential or live-ad-like identifier was found; match content is redacted." >&2
+            exit 1
+          elif [[ $grep_status -ne 1 ]]; then
+            echo "Credential scanning failed closed with status $grep_status; scanner output is redacted." >&2
+            exit "$grep_status"
+          fi
+          set +e
+          python3 - <<'PY'
+          import subprocess
+          import sys
+
+          try:
+              tracked = subprocess.check_output(["git", "ls-files", "-z"]).split(b"\0")
+              suffixes = (b".p12", b".pfx", b".mobileprovision", b".p8", b".key", b".pem", b".jks", b".keystore")
+              blocked = any(
+                  name.lower().endswith(suffixes)
+                  or name.rsplit(b"/", 1)[-1].lower().startswith(b"authkey_")
+                  for name in tracked if name
+              )
+              raise SystemExit(0 if blocked else 1)
+          except Exception:
+              raise SystemExit(2)
+          PY
+          filename_status=$?
+          set -e
+          if [[ $filename_status -eq 0 ]]; then
+            echo "A tracked signing-credential file was found; its name is redacted." >&2
+            exit 1
+          elif [[ $filename_status -ne 1 ]]; then
+            echo "Credential filename scanning failed closed with status $filename_status." >&2
+            exit "$filename_status"
+          fi
+
+      - name: Select and boot an available iPhone simulator
+        id: simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          selection="$(xcrun simctl list devices available -j | python3 -c 'import json,re,sys; d=json.load(sys.stdin); choices=[]; [(choices.append((tuple(map(int,re.findall(r"[0-9]+", runtime.split("iOS-")[-1]))),runtime,x["udid"],x["name"]))) for runtime,xs in d["devices"].items() if ".iOS-" in runtime for x in xs if x.get("isAvailable") and x.get("name", "").startswith("iPhone")]; choices.sort(); print("|".join(map(str,(choices[0][2],choices[0][1],".".join(map(str,choices[0][0]))))) if choices else "")')"
+          simulator_udid="${selection%%|*}"
+          runtime_and_version="${selection#*|}"
+          simulator_runtime="${runtime_and_version%%|*}"
+          simulator_version="${runtime_and_version##*|}"
+          test -n "$simulator_udid"
+          python3 -c 'import sys; parts=tuple(map(int,sys.argv[1].split("."))); raise SystemExit(0 if parts >= (16,4) else 1)' "$simulator_version"
+          echo "udid=$simulator_udid" >> "$GITHUB_OUTPUT"
+          echo "runtime=$simulator_runtime" >> "$GITHUB_OUTPUT"
+          echo "version=$simulator_version" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$simulator_udid" 2>/dev/null || true
+          xcrun simctl bootstatus "$simulator_udid" -b
+
+      - name: Run unit, persistence, export, and UI tests
+        shell: bash
+        env:
+          SIMULATOR_UDID: ${{ steps.simulator.outputs.udid }}
+        run: |
+          set -euo pipefail
+          set -o pipefail
+          xcodebuild \
+            -project GroceryBenefitsTracker.xcodeproj \
+            -scheme GroceryBenefitsTrackerQA \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData-tests" \
+            CODE_SIGNING_ALLOWED=NO \
+            test | tee "$RUNNER_TEMP/xcodebuild-tests.log"
+
+      - name: Build release simulator application
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -o pipefail
+          xcodebuild \
+            -project GroceryBenefitsTracker.xcodeproj \
+            -scheme GroceryBenefitsTrackerQA \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData-release" \
+            CODE_SIGNING_ALLOWED=NO \
+            ARCHS="arm64 x86_64" \
+            ONLY_ACTIVE_ARCH=NO \
+            clean build | tee "$RUNNER_TEMP/xcodebuild-release.log"
+
+      - name: Validate universal application and add provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_path="$RUNNER_TEMP/DerivedData-release/Build/Products/Release-iphonesimulator/GroceryBenefitsTrackerQA.app"
+          test -d "$app_path"
+          bundle_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_path/Info.plist")"
+          test "$bundle_id" = "com.goodusestudios.snapebtgrocerytracker.qa"
+          test -f "$app_path/PrivacyInfo.xcprivacy"
+          executable_name="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app_path/Info.plist")"
+          executable="$app_path/$executable_name"
+          test -x "$executable"
+          lipo "$executable" -verify_arch arm64 x86_64
+          file "$executable"
+          source_commit="$(git rev-parse HEAD)"
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          /usr/libexec/PlistBuddy -c "Add :QASourceCommit string $source_commit" "$app_path/Info.plist"
+          /usr/libexec/PlistBuddy -c "Add :QABuildRunURL string $run_url" "$app_path/Info.plist"
+          /usr/libexec/PlistBuddy -c "Add :QAXcodeVersion string 16.4" "$app_path/Info.plist"
+
+      - name: Package and verify final Appetize bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_path="$RUNNER_TEMP/DerivedData-release/Build/Products/Release-iphonesimulator/GroceryBenefitsTrackerQA.app"
+          mkdir -p artifacts
+          package_name="Grocery-Benefits-Tracker-SwiftUI-QA-v1.0.0-Simulator.app.zip"
+          ditto -c -k --keepParent "$app_path" "artifacts/$package_name"
+          (
+            cd artifacts
+            shasum -a 256 "$package_name" > "$package_name.sha256"
+            shasum -c "$package_name.sha256"
+          )
+          unzip -tq "artifacts/$package_name"
+          verification="$RUNNER_TEMP/package-verification"
+          mkdir -p "$verification"
+          ditto -x -k "artifacts/$package_name" "$verification"
+          test "$(find "$verification" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = "1"
+          extracted_app="$(find "$verification" -mindepth 1 -maxdepth 1 -type d -name '*.app' -print -quit)"
+          test -n "$extracted_app"
+          plutil -lint "$extracted_app/Info.plist"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$extracted_app/Info.plist")" = "com.goodusestudios.snapebtgrocerytracker.qa"
+          extracted_executable_name="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$extracted_app/Info.plist")"
+          extracted_executable="$extracted_app/$extracted_executable_name"
+          test -x "$extracted_executable"
+          test -f "$extracted_app/PrivacyInfo.xcprivacy"
+          lipo "$extracted_executable" -verify_arch arm64 x86_64
+          file "$extracted_executable"
+
+      - name: Clean-install and sustain two launches of extracted bundle
+        shell: bash
+        env:
+          SIMULATOR_UDID: ${{ steps.simulator.outputs.udid }}
+        run: |
+          set -euo pipefail
+          bundle_id="com.goodusestudios.snapebtgrocerytracker.qa"
+          extracted_app="$(find "$RUNNER_TEMP/package-verification" -mindepth 1 -maxdepth 1 -type d -name '*.app' -print -quit)"
+          test -n "$extracted_app"
+          xcrun simctl uninstall "$SIMULATOR_UDID" "$bundle_id" 2>/dev/null || true
+          if xcrun simctl get_app_container "$SIMULATOR_UDID" "$bundle_id" data >/dev/null 2>&1; then
+            echo "The prior app container survived uninstall." >&2
+            exit 1
+          fi
+          xcrun simctl install "$SIMULATOR_UDID" "$extracted_app"
+          xcrun simctl get_app_container "$SIMULATOR_UDID" "$bundle_id" data >/dev/null
+
+          assert_sustained_launch() {
+            local label="$1"
+            local output pid
+            output="$(xcrun simctl launch "$SIMULATOR_UDID" "$bundle_id")"
+            pid="${output##*: }"
+            if [[ ! "$pid" =~ ^[0-9]+$ ]]; then
+              echo "$label did not return a valid process identifier: $output" >&2
+              exit 1
+            fi
+            sleep 8
+            if ! kill -0 "$pid" 2>/dev/null; then
+              echo "$label exited before the eight-second usability gate." >&2
+              xcrun simctl spawn "$SIMULATOR_UDID" log show --last 2m --style compact --predicate 'process == "GroceryBenefitsTrackerQA"' || true
+              exit 1
+            fi
+            test -n "$(ps -p "$pid" -o command=)"
+            screenshot="$RUNNER_TEMP/${label}.png"
+            xcrun simctl io "$SIMULATOR_UDID" screenshot "$screenshot"
+            test "$(stat -f '%z' "$screenshot")" -gt 10000
+            xcrun simctl terminate "$SIMULATOR_UDID" "$bundle_id"
+            for _ in {1..10}; do
+              if ! kill -0 "$pid" 2>/dev/null; then break; fi
+              sleep 0.5
+            done
+            if kill -0 "$pid" 2>/dev/null; then
+              echo "$label did not terminate cleanly." >&2
+              exit 1
+            fi
+          }
+
+          assert_sustained_launch first-launch
+          assert_sustained_launch cold-relaunch
+
+      - name: Upload simulator application without nested archive
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          path: artifacts/Grocery-Benefits-Tracker-SwiftUI-QA-v1.0.0-Simulator.app.zip
+          archive: false
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload checksum without nested archive
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          path: artifacts/Grocery-Benefits-Tracker-SwiftUI-QA-v1.0.0-Simulator.app.zip.sha256
+          archive: false
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Shut down simulator
+        if: always()
+        shell: bash
+        env:
+          SIMULATOR_UDID: ${{ steps.simulator.outputs.udid }}
+        run: |
+          if [[ -n "${SIMULATOR_UDID:-}" ]]; then
+            xcrun simctl shutdown "$SIMULATOR_UDID" 2>/dev/null || true
+          fi

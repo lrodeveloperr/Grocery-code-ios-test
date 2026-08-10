@@ -1,0 +1,256 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		B00000000000000000000001 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000001 /* Models.swift */; };
+		B00000000000000000000002 /* Localizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000002 /* Localizer.swift */; };
+		B00000000000000000000003 /* Persistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000003 /* Persistence.swift */; };
+		B00000000000000000000004 /* TrackerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000004 /* TrackerStore.swift */; };
+		B00000000000000000000005 /* ExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000005 /* ExportService.swift */; };
+		B00000000000000000000006 /* GroceryBenefitsTrackerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000006 /* GroceryBenefitsTrackerApp.swift */; };
+		B00000000000000000000007 /* Views.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000007 /* Views.swift */; };
+		B00000000000000000000008 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000008 /* PrivacyInfo.xcprivacy */; };
+		B00000000000000000000009 /* TrackerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000000A /* TrackerTests.swift */; };
+		B0000000000000000000000A /* GroceryBenefitsTrackerUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000000D /* GroceryBenefitsTrackerUITests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		E00000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F00000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F00000000000000000000002;
+			remoteInfo = GroceryBenefitsTrackerQA;
+		};
+		E00000000000000000000003 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F00000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F00000000000000000000002;
+			remoteInfo = GroceryBenefitsTrackerQA;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		A00000000000000000000001 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		A00000000000000000000002 /* Localizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localizer.swift; sourceTree = "<group>"; };
+		A00000000000000000000003 /* Persistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence.swift; sourceTree = "<group>"; };
+		A00000000000000000000004 /* TrackerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerStore.swift; sourceTree = "<group>"; };
+		A00000000000000000000005 /* ExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportService.swift; sourceTree = "<group>"; };
+		A00000000000000000000006 /* GroceryBenefitsTrackerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroceryBenefitsTrackerApp.swift; sourceTree = "<group>"; };
+		A00000000000000000000007 /* Views.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views.swift; sourceTree = "<group>"; };
+		A00000000000000000000008 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		A00000000000000000000009 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A0000000000000000000000A /* TrackerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackerTests.swift; sourceTree = "<group>"; };
+		A0000000000000000000000B /* GroceryBenefitsTrackerQA.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GroceryBenefitsTrackerQA.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A0000000000000000000000C /* GroceryBenefitsTrackerQATests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GroceryBenefitsTrackerQATests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A0000000000000000000000D /* GroceryBenefitsTrackerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroceryBenefitsTrackerUITests.swift; sourceTree = "<group>"; };
+		A0000000000000000000000E /* GroceryBenefitsTrackerQAUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GroceryBenefitsTrackerQAUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D00000000000000000000001 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		D00000000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		D00000000000000000000007 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		C00000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				C00000000000000000000002 /* GroceryBenefitsTracker */,
+				C00000000000000000000005 /* GroceryBenefitsTrackerTests */,
+				C00000000000000000000007 /* GroceryBenefitsTrackerUITests */,
+				C00000000000000000000006 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		C00000000000000000000002 /* GroceryBenefitsTracker */ = {
+			isa = PBXGroup;
+			children = (
+				C00000000000000000000003 /* App */,
+				C00000000000000000000004 /* Resources */,
+			);
+			path = GroceryBenefitsTracker;
+			sourceTree = "<group>";
+		};
+		C00000000000000000000003 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000006 /* GroceryBenefitsTrackerApp.swift */,
+				A00000000000000000000001 /* Models.swift */,
+				A00000000000000000000002 /* Localizer.swift */,
+				A00000000000000000000003 /* Persistence.swift */,
+				A00000000000000000000004 /* TrackerStore.swift */,
+				A00000000000000000000005 /* ExportService.swift */,
+				A00000000000000000000007 /* Views.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		C00000000000000000000004 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000009 /* Info.plist */,
+				A00000000000000000000008 /* PrivacyInfo.xcprivacy */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		C00000000000000000000005 /* GroceryBenefitsTrackerTests */ = {
+			isa = PBXGroup;
+			children = (A0000000000000000000000A /* TrackerTests.swift */,);
+			path = GroceryBenefitsTrackerTests;
+			sourceTree = "<group>";
+		};
+		C00000000000000000000007 /* GroceryBenefitsTrackerUITests */ = {
+			isa = PBXGroup;
+			children = (A0000000000000000000000D /* GroceryBenefitsTrackerUITests.swift */,);
+			path = GroceryBenefitsTrackerUITests;
+			sourceTree = "<group>";
+		};
+		C00000000000000000000006 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A0000000000000000000000B /* GroceryBenefitsTrackerQA.app */,
+				A0000000000000000000000C /* GroceryBenefitsTrackerQATests.xctest */,
+				A0000000000000000000000E /* GroceryBenefitsTrackerQAUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		F00000000000000000000002 /* GroceryBenefitsTrackerQA */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F00000000000000000000010 /* Build configuration list for PBXNativeTarget */;
+			buildPhases = (
+				D00000000000000000000003 /* Sources */,
+				D00000000000000000000001 /* Frameworks */,
+				D00000000000000000000005 /* Resources */,
+			);
+			buildRules = ();
+			dependencies = ();
+			name = GroceryBenefitsTrackerQA;
+			productName = GroceryBenefitsTrackerQA;
+			productReference = A0000000000000000000000B /* GroceryBenefitsTrackerQA.app */;
+			productType = "com.apple.product-type.application";
+		};
+		F00000000000000000000003 /* GroceryBenefitsTrackerQATests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F00000000000000000000011 /* Build configuration list for PBXNativeTarget */;
+			buildPhases = (
+				D00000000000000000000004 /* Sources */,
+				D00000000000000000000002 /* Frameworks */,
+				D00000000000000000000006 /* Resources */,
+			);
+			buildRules = ();
+			dependencies = (E00000000000000000000002 /* PBXTargetDependency */,);
+			name = GroceryBenefitsTrackerQATests;
+			productName = GroceryBenefitsTrackerQATests;
+			productReference = A0000000000000000000000C /* GroceryBenefitsTrackerQATests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		F00000000000000000000004 /* GroceryBenefitsTrackerQAUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F00000000000000000000012 /* Build configuration list for PBXNativeTarget */;
+			buildPhases = (
+				D00000000000000000000008 /* Sources */,
+				D00000000000000000000007 /* Frameworks */,
+				D00000000000000000000009 /* Resources */,
+			);
+			buildRules = ();
+			dependencies = (E00000000000000000000004 /* PBXTargetDependency */,);
+			name = GroceryBenefitsTrackerQAUITests;
+			productName = GroceryBenefitsTrackerQAUITests;
+			productReference = A0000000000000000000000E /* GroceryBenefitsTrackerQAUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F00000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1640;
+				LastUpgradeCheck = 1640;
+				TargetAttributes = {
+					F00000000000000000000002 = {CreatedOnToolsVersion = 16.4; };
+					F00000000000000000000003 = {CreatedOnToolsVersion = 16.4; TestTargetID = F00000000000000000000002; };
+					F00000000000000000000004 = {CreatedOnToolsVersion = 16.4; TestTargetID = F00000000000000000000002; };
+				};
+			};
+			buildConfigurationList = F0000000000000000000000F /* Build configuration list for PBXProject */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base,);
+			mainGroup = C00000000000000000000001;
+			productRefGroup = C00000000000000000000006 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				F00000000000000000000002 /* GroceryBenefitsTrackerQA */,
+				F00000000000000000000003 /* GroceryBenefitsTrackerQATests */,
+				F00000000000000000000004 /* GroceryBenefitsTrackerQAUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D00000000000000000000005 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (B00000000000000000000008 /* PrivacyInfo.xcprivacy in Resources */,); runOnlyForDeploymentPostprocessing = 0; };
+		D00000000000000000000006 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		D00000000000000000000009 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D00000000000000000000003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B00000000000000000000006 /* GroceryBenefitsTrackerApp.swift in Sources */,
+				B00000000000000000000001 /* Models.swift in Sources */,
+				B00000000000000000000002 /* Localizer.swift in Sources */,
+				B00000000000000000000003 /* Persistence.swift in Sources */,
+				B00000000000000000000004 /* TrackerStore.swift in Sources */,
+				B00000000000000000000005 /* ExportService.swift in Sources */,
+				B00000000000000000000007 /* Views.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D00000000000000000000004 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B00000000000000000000009 /* TrackerTests.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
+		D00000000000000000000008 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B0000000000000000000000A /* GroceryBenefitsTrackerUITests.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		E00000000000000000000002 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = F00000000000000000000002 /* GroceryBenefitsTrackerQA */; targetProxy = E00000000000000000000001 /* PBXContainerItemProxy */; };
+		E00000000000000000000004 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = F00000000000000000000002 /* GroceryBenefitsTrackerQA */; targetProxy = E00000000000000000000003 /* PBXContainerItemProxy */; };
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		F00000000000000000000020 /* Debug project */ = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; ENABLE_STRICT_OBJC_MSGSEND = YES; ENABLE_TESTABILITY = YES; GCC_C_LANGUAGE_STANDARD = gnu17; IPHONEOS_DEPLOYMENT_TARGET = 16.4; SDKROOT = iphoneos; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; SWIFT_VERSION = 5.0; }; name = Debug; };
+		F00000000000000000000021 /* Release project */ = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; ENABLE_NS_ASSERTIONS = NO; ENABLE_STRICT_OBJC_MSGSEND = YES; GCC_C_LANGUAGE_STANDARD = gnu17; IPHONEOS_DEPLOYMENT_TARGET = 16.4; SDKROOT = iphoneos; SWIFT_COMPILATION_MODE = wholemodule; SWIFT_VERSION = 5.0; VALIDATE_PRODUCT = YES; }; name = Release; };
+		F00000000000000000000022 /* Debug app */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; ENABLE_PREVIEWS = YES; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = GroceryBenefitsTracker/Resources/Info.plist; MARKETING_VERSION = 1.0.0; PRODUCT_BUNDLE_IDENTIFIER = com.goodusestudios.snapebtgrocerytracker.qa; PRODUCT_MODULE_NAME = GroceryBenefitsTrackerQA; PRODUCT_NAME = GroceryBenefitsTrackerQA; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SUPPORTS_MACCATALYST = NO; SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)"; SWIFT_EMIT_LOC_STRINGS = YES; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
+		F00000000000000000000023 /* Release app */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; ENABLE_PREVIEWS = YES; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = GroceryBenefitsTracker/Resources/Info.plist; MARKETING_VERSION = 1.0.0; PRODUCT_BUNDLE_IDENTIFIER = com.goodusestudios.snapebtgrocerytracker.qa; PRODUCT_MODULE_NAME = GroceryBenefitsTrackerQA; PRODUCT_NAME = GroceryBenefitsTrackerQA; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SUPPORTS_MACCATALYST = NO; SWIFT_EMIT_LOC_STRINGS = YES; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Release; };
+		F00000000000000000000024 /* Debug tests */ = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 16.4; PRODUCT_BUNDLE_IDENTIFIER = com.goodusestudios.snapebtgrocerytracker.qa.tests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GroceryBenefitsTrackerQA.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/GroceryBenefitsTrackerQA"; }; name = Debug; };
+		F00000000000000000000025 /* Release tests */ = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 16.4; PRODUCT_BUNDLE_IDENTIFIER = com.goodusestudios.snapebtgrocerytracker.qa.tests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GroceryBenefitsTrackerQA.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/GroceryBenefitsTrackerQA"; }; name = Release; };
+		F00000000000000000000026 /* Debug UI tests */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 16.4; PRODUCT_BUNDLE_IDENTIFIER = com.goodusestudios.snapebtgrocerytracker.qa.uitests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; TEST_TARGET_NAME = GroceryBenefitsTrackerQA; }; name = Debug; };
+		F00000000000000000000027 /* Release UI tests */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 16.4; PRODUCT_BUNDLE_IDENTIFIER = com.goodusestudios.snapebtgrocerytracker.qa.uitests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; TEST_TARGET_NAME = GroceryBenefitsTrackerQA; }; name = Release; };
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		F0000000000000000000000F /* Build configuration list for PBXProject */ = {isa = XCConfigurationList; buildConfigurations = (F00000000000000000000020 /* Debug project */, F00000000000000000000021 /* Release project */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		F00000000000000000000010 /* Build configuration list for PBXNativeTarget */ = {isa = XCConfigurationList; buildConfigurations = (F00000000000000000000022 /* Debug app */, F00000000000000000000023 /* Release app */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		F00000000000000000000011 /* Build configuration list for PBXNativeTarget */ = {isa = XCConfigurationList; buildConfigurations = (F00000000000000000000024 /* Debug tests */, F00000000000000000000025 /* Release tests */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		F00000000000000000000012 /* Build configuration list for PBXNativeTarget */ = {isa = XCConfigurationList; buildConfigurations = (F00000000000000000000026 /* Debug UI tests */, F00000000000000000000027 /* Release UI tests */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+/* End XCConfigurationList section */
+	};
+	rootObject = F00000000000000000000001 /* Project object */;
+}
