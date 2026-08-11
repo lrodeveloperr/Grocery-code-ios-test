@@ -386,8 +386,13 @@ jobs:
             -e '/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer";/d' \
             "$project_path"
 
-          grep -Fq 'PRODUCT_BUNDLE_IDENTIFIER = "com.lateefrazaqoyetola.snapebtwictracker";' \
-            "$project_path"
+          bundle_id_pattern='^[[:space:]]*PRODUCT_BUNDLE_IDENTIFIER = ("com\.lateefrazaqoyetola\.snapebtwictracker"|com\.lateefrazaqoyetola\.snapebtwictracker);$'
+          bundle_id_count="$(grep -Ec "$bundle_id_pattern" "$project_path" || true)"
+          if [[ "$bundle_id_count" != "2" ]]; then
+            echo "Expected the App Store bundle ID in exactly two build configurations; found $bundle_id_count." >&2
+            grep -n 'PRODUCT_BUNDLE_IDENTIFIER' "$project_path" >&2 || true
+            exit 1
+          fi
           if grep -Fq 'com.goodusestudios.snapebtgrocerytracker.qa' "$project_path"; then
             echo "The obsolete QA bundle ID remains in the Xcode project." >&2
             exit 1
