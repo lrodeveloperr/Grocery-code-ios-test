@@ -35,6 +35,6 @@ The app never hard-codes US$9.99 in its purchase screen. App Store Connect owns 
 
 StoreKit's verified current entitlement is authoritative. A verified purchase or restore removes the banner immediately; cancellation, pending approval, an unverified transaction, or a failed restore never grants the entitlement. Refund or revocation returns the app to the normal UMP-gated banner path. Clear All Data removes tracker data but does not delete an App Store purchase.
 
-Both release workflows regenerate the npm third-party inventory after installing the reviewed lockfile, then append the final CocoaPods acknowledgements before compilation. The gates require `expo-iap@5.2.4`, `ExpoIap (5.2.4)`, and `openiap (3.1.1)` so the StoreKit implementation cannot ship against stale notices.
+Both release workflows regenerate the npm third-party inventory after installing the reviewed lockfile, then append the final CocoaPods acknowledgements before compilation. The gates require the `expo-iap@5.2.4` npm notice plus the installed `ExpoIap (5.2.4)` and `openiap (3.1.1)` pods, including the native `openiap` acknowledgement, so the StoreKit implementation cannot ship against stale notices.
 
 No Apple certificate, private key, provisioning profile, live advertising identifier, payment credential, or production secret should be committed to this repository.

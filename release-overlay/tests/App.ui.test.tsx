@@ -234,7 +234,7 @@ test("ships one reviewed native non-consumable and no Benefits & Resources direc
   expect(purchaseSource).not.toMatch(/react-native-iap|QA_PURCHASES|subscription/);
   expect(webSource).not.toMatch(/expo-iap|react-native-iap|anonymousReport/);
   expect(iosNoticeSource).toContain("expo-iap@5.2.4");
-  expect(iosNoticeSource).toContain('["ExpoIap", "openiap"]');
+  expect(iosNoticeSource).toContain('["openiap"]');
   expect(iosNoticeSource).toContain(
     "Pods-SNAPEBTGroceryTrackerQA-acknowledgements.markdown",
   );

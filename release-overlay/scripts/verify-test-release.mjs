@@ -1236,7 +1236,7 @@ if (
 for (const noticeGate of [
   "Pods-SNAPEBTGroceryTrackerQA-acknowledgements.markdown",
   'const marker = "iOS CocoaPods acknowledgements (generated from Podfile.lock)";',
-  'for (const component of ["ExpoIap", "openiap"])',
+  'for (const component of ["openiap"])',
   'npmNotices.includes("expo-iap@5.2.4")',
   'writeFileSync(noticePath, combinedNotices)',
   'writeFileSync(\n  sourcePath,',
