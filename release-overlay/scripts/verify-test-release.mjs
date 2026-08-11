@@ -924,7 +924,7 @@ for (const dependency of ["expo-iap", "react-native-iap"]) {
   }
 }
 
-const appConfig = JSON.parse(fs.readFileSync("app.json", "utf8"));
+const appConfig = JSON.parse(await read("app.json"));
 const configuredPlugins = appConfig?.expo?.plugins || [];
 for (const plugin of configuredPlugins) {
   const pluginName = Array.isArray(plugin) ? plugin[0] : plugin;
