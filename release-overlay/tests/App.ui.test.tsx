@@ -45,6 +45,35 @@ test("keeps one non-personalized banner behind StoreKit, legal, and UMP gates", 
   expect(occurrences(nativeSource, "mobileAds().initialize()")).toBe(1);
   expect(occurrences(nativeSource, "<BannerAd")).toBe(1);
   expect(occurrences(nativeSource, "requestNonPersonalizedAdsOnly: true")).toBe(1);
+  expect(nativeSource).toContain('const testAds = adProfile === "test";');
+  expect(nativeSource).toContain(
+    'const productionAds = adProfile === "production";',
+  );
+  expect(nativeSource).toContain(
+    "const adProfileConfigured = testAds || productionAdsConfigured;",
+  );
+  expect(nativeSource).toContain("if (!adProfileConfigured) return false;");
+  expect(nativeSource).not.toContain(
+    "productionAds ? productionBannerId : TestIds.BANNER",
+  );
+  expect(nativeSource).not.toContain(
+    "if (!productionAds) return ensureAdsInitialized();",
+  );
+
+  const sharedAdGate = sourceSection(
+    nativeSource,
+    "  const startAdsIfAllowed =",
+    "  useEffect(() => {",
+  );
+  expect(sharedAdGate).toContain("if (testAds) {");
+  expect(sharedAdGate).toContain("return ensureAdsInitialized();");
+  expect(sharedAdGate).toContain("if (!productionAdsConfigured) return false;");
+  expect(sharedAdGate.indexOf("AdsConsent.getConsentInfo()")).toBeGreaterThan(
+    sharedAdGate.indexOf("if (!productionAdsConfigured) return false;"),
+  );
+  expect(sharedAdGate.indexOf("!canRequestAds")).toBeGreaterThan(
+    sharedAdGate.indexOf("AdsConsent.getConsentInfo()"),
+  );
 
   const consentEffect = sourceSection(
     nativeSource,
@@ -52,6 +81,11 @@ test("keeps one non-personalized banner behind StoreKit, legal, and UMP gates", 
     '  useEffect(() => {\n    if (!adEligible || removeAdsEntitlement !== "not-entitled")',
   );
   expect(consentEffect).toContain("AdsConsent.gatherConsent()");
+  expect(consentEffect).toContain("if (!adProfileConfigured)");
+  expect(consentEffect).toContain("if (testAds)");
+  expect(consentEffect.indexOf("return;")).toBeLessThan(
+    consentEffect.indexOf("AdsConsent.gatherConsent()"),
+  );
   expect(consentEffect).toContain("startAdsIfAllowed(reportedCanRequestAds)");
   expect(consentEffect).toContain('removeAdsEntitlement !== "not-entitled"');
   expect(consentEffect).not.toContain("publisher");
@@ -61,6 +95,7 @@ test("keeps one non-personalized banner behind StoreKit, legal, and UMP gates", 
     "  const showBanner =",
     "  const bannerMounted =",
   );
+  expect(bannerGate).toContain("adProfileConfigured &&");
   expect(bannerGate).toContain("legalReady &&");
   expect(bannerGate).toContain('consentState === "permitted"');
   expect(bannerGate).toContain('removeAdsEntitlement === "not-entitled"');
@@ -81,6 +116,8 @@ test("keeps one non-personalized banner behind StoreKit, legal, and UMP gates", 
   expect(nativeSource).toContain(
     "if (legalReady && privacyChoicesRequired) void showPrivacyChoices();",
   );
+  expect(nativeSource).toContain("if (!productionAds) {");
+  expect(nativeSource).toContain("{testAds ? (");
   expect(webSource).toContain("window.GBTAdvertisingPrivacyOptions=Object.freeze");
   expect(webSource).toContain(
     "advertisingPrivacyChoicesRequired?legalRow('privacy-choices'",
