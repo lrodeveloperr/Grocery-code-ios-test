@@ -1,4 +1,5 @@
 import { Directory, File, Paths } from "expo-file-system";
+import * as Notifications from "expo-notifications";
 import * as Sharing from "expo-sharing";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -32,9 +33,23 @@ const AD_SLOT_HEIGHT = 50;
 const AD_SLOT_BOTTOM = 66;
 const TEST_ADMOB_APP_ID = "ca-app-pub-3940256099942544~1458002511";
 const TEST_BANNER_ID = "ca-app-pub-3940256099942544/2934735716";
+const MAX_SHARE_BYTES = 20 * 1024 * 1024;
+const MAX_SHARE_DATA_URL_CHARS = 28 * 1024 * 1024;
+const NOTIFICATION_OWNER = "snap-ebt-grocery-tracker:local-reminder:v1";
+const NOTIFICATION_IDENTIFIER_PREFIX = "gbt-local-reminder-v1:";
+const MAX_OWNED_REMINDERS = 48;
 
 type ConsentState = "unresolved" | "permitted" | "blocked";
 type NativeAdState = "idle" | "loading" | "loaded" | "failed";
+type ReminderKind = "snap-balance" | "wic-review" | "wic-expiry";
+type ReminderLocale = "en-US" | "es-PR";
+
+type NativeReminderSpec = {
+  id: string;
+  kind: ReminderKind;
+  fireAt: string;
+  locale: ReminderLocale;
+};
 
 type WebViewHandle = {
   injectJavaScript: (script: string) => void;
@@ -62,7 +77,27 @@ type BridgeMessage =
       name?: string;
       mimeType?: string;
       dataUrl?: string;
+    }
+  | {
+      type: "notifications-reconcile";
+      requestId?: string;
+      optedIn?: boolean;
+      requestPermission?: boolean;
+      reminders?: unknown;
     };
+
+Notifications.setNotificationHandler({
+  handleNotification: async (notification) => {
+    const isOwned =
+      notification.request.content.data?.owner === NOTIFICATION_OWNER;
+    return {
+      shouldShowBanner: isOwned,
+      shouldShowList: isOwned,
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+    };
+  },
+});
 
 const NATIVE_BRIDGE_SCRIPT = String.raw`
 (function () {
@@ -73,23 +108,32 @@ const NATIVE_BRIDGE_SCRIPT = String.raw`
       window.ReactNativeWebView.postMessage(JSON.stringify(payload));
     } catch (_) {}
   };
+  const bridgeError = function (code, message) {
+    const error = new Error(String(message || code || "Native operation failed"));
+    error.code = String(code || "NATIVE_OPERATION_FAILED");
+    return error;
+  };
 
   const pendingFileShares = Object.create(null);
   let fileShareInFlight = false;
-  window.GBTNativeShareCompleted = function (requestId, ok, message) {
+  window.GBTNativeShareCompleted = function (requestId, ok, code, message) {
     const pending = pendingFileShares[String(requestId || "")];
     if (!pending) return;
     delete pendingFileShares[String(requestId || "")];
     window.clearTimeout(pending.timeout);
     fileShareInFlight = false;
     if (ok) pending.resolve();
-    else pending.reject(new Error(String(message || "File export failed")));
+    else pending.reject(bridgeError(code || "SHARE_FAILED", message || "File export failed"));
   };
   window.GBTNativeShareFile = function (blob, name, mimeType) {
-    if (!(blob instanceof Blob)) return Promise.reject(new Error("Invalid export file"));
-    if (fileShareInFlight) return Promise.reject(new Error("Another export is already open"));
+    if (!(blob instanceof Blob)) {
+      return Promise.reject(bridgeError("SHARE_INVALID_BLOB", "Invalid export file"));
+    }
+    if (fileShareInFlight) {
+      return Promise.reject(bridgeError("SHARE_BUSY", "Another export is already open"));
+    }
     if (blob.size <= 0 || blob.size > 20 * 1024 * 1024) {
-      return Promise.reject(new Error("Export file size is not supported"));
+      return Promise.reject(bridgeError("SHARE_SIZE_UNSUPPORTED", "Export file size is not supported"));
     }
     fileShareInFlight = true;
     const requestId = "share-" + Date.now() + "-" + Math.random().toString(36).slice(2);
@@ -97,14 +141,19 @@ const NATIVE_BRIDGE_SCRIPT = String.raw`
       const timeout = window.setTimeout(function () {
         delete pendingFileShares[requestId];
         fileShareInFlight = false;
-        reject(new Error("The iPhone share sheet did not respond"));
+        reject(bridgeError("SHARE_TIMEOUT", "The iPhone share sheet did not respond"));
       }, 120000);
       pendingFileShares[requestId] = { resolve: resolve, reject: reject, timeout: timeout };
       const reader = new FileReader();
       reader.onload = function () {
         const dataUrl = String(reader.result || "");
         if (!dataUrl || dataUrl.length > 28 * 1024 * 1024) {
-          window.GBTNativeShareCompleted(requestId, false, "Export file size is not supported");
+          window.GBTNativeShareCompleted(
+            requestId,
+            false,
+            "SHARE_SIZE_UNSUPPORTED",
+            "Export file size is not supported"
+          );
           return;
         }
         post({
@@ -116,9 +165,92 @@ const NATIVE_BRIDGE_SCRIPT = String.raw`
         });
       };
       reader.onerror = function () {
-        window.GBTNativeShareCompleted(requestId, false, "Export file could not be read");
+        window.GBTNativeShareCompleted(
+          requestId,
+          false,
+          "SHARE_READ_FAILED",
+          "Export file could not be read"
+        );
       };
-      reader.readAsDataURL(blob);
+      try {
+        reader.readAsDataURL(blob);
+      } catch (_) {
+        window.GBTNativeShareCompleted(
+          requestId,
+          false,
+          "SHARE_READ_FAILED",
+          "Export file could not be read"
+        );
+      }
+    });
+  };
+
+  const pendingNotificationReconciles = Object.create(null);
+  let notificationReconcileInFlight = false;
+  window.GBTNativeNotificationReconciled = function (
+    requestId,
+    ok,
+    code,
+    scheduledCount,
+    message
+  ) {
+    const pending = pendingNotificationReconciles[String(requestId || "")];
+    if (!pending) return;
+    delete pendingNotificationReconciles[String(requestId || "")];
+    window.clearTimeout(pending.timeout);
+    notificationReconcileInFlight = false;
+    if (ok) {
+      pending.resolve({
+        code: String(code || "NOTIFICATIONS_RECONCILED"),
+        scheduledCount: Number(scheduledCount) || 0
+      });
+    } else {
+      pending.reject(
+        bridgeError(
+          code || "NOTIFICATIONS_FAILED",
+          message || "Reminders could not be scheduled"
+        )
+      );
+    }
+  };
+  window.GBTNativeReconcileNotifications = function (options) {
+    if (
+      !options ||
+      typeof options !== "object" ||
+      typeof options.optedIn !== "boolean" ||
+      !Array.isArray(options.reminders)
+    ) {
+      return Promise.reject(
+        bridgeError("NOTIFICATIONS_INVALID_REQUEST", "Invalid reminder request")
+      );
+    }
+    if (notificationReconcileInFlight) {
+      return Promise.reject(
+        bridgeError("NOTIFICATIONS_BUSY", "Reminder settings are already being saved")
+      );
+    }
+    notificationReconcileInFlight = true;
+    const requestId = "notifications-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+    return new Promise(function (resolve, reject) {
+      const timeout = window.setTimeout(function () {
+        delete pendingNotificationReconciles[requestId];
+        notificationReconcileInFlight = false;
+        reject(
+          bridgeError("NOTIFICATIONS_TIMEOUT", "The iPhone reminder service did not respond")
+        );
+      }, 30000);
+      pendingNotificationReconciles[requestId] = {
+        resolve: resolve,
+        reject: reject,
+        timeout: timeout
+      };
+      post({
+        type: "notifications-reconcile",
+        requestId: requestId,
+        optedIn: options.optedIn === true,
+        requestPermission: options.requestPermission === true,
+        reminders: options.reminders
+      });
     });
   };
 
@@ -192,6 +324,16 @@ const NATIVE_BRIDGE_SCRIPT = String.raw`
 true;
 `;
 
+class NativeBridgeError extends Error {
+  readonly code: string;
+
+  constructor(code: string, message: string) {
+    super(message);
+    this.name = "NativeBridgeError";
+    this.code = code;
+  }
+}
+
 function sanitizedFileName(value: unknown) {
   const name = String(value || "export")
     .replace(/[\\/:*?"<>|\u0000-\u001f]/g, "-")
@@ -201,17 +343,173 @@ function sanitizedFileName(value: unknown) {
 }
 
 function parseDataUrl(dataUrl: string) {
-  if (dataUrl.length > 28 * 1024 * 1024) {
-    throw new Error("Export file size is not supported");
+  if (!dataUrl || dataUrl.length > MAX_SHARE_DATA_URL_CHARS) {
+    throw new NativeBridgeError(
+      "SHARE_SIZE_UNSUPPORTED",
+      "Export file size is not supported",
+    );
   }
   const separator = dataUrl.indexOf(",");
-  if (separator < 0) throw new Error("Invalid file payload");
+  if (separator < 0) {
+    throw new NativeBridgeError(
+      "SHARE_INVALID_DATA_URL",
+      "Invalid file payload",
+    );
+  }
   const header = dataUrl.slice(0, separator);
   const payload = dataUrl.slice(separator + 1);
-  if (!/;base64$/i.test(header) || !/^[A-Za-z0-9+/]*={0,2}$/.test(payload)) {
-    throw new Error("Invalid base64 file payload");
+  if (
+    !/^data:[^,]*;base64$/i.test(header) ||
+    payload.length % 4 !== 0 ||
+    !/^[A-Za-z0-9+/]*={0,2}$/.test(payload)
+  ) {
+    throw new NativeBridgeError(
+      "SHARE_INVALID_BASE64",
+      "Invalid base64 file payload",
+    );
   }
-  return payload;
+  const padding = payload.endsWith("==") ? 2 : payload.endsWith("=") ? 1 : 0;
+  const byteLength = (payload.length / 4) * 3 - padding;
+  if (byteLength <= 0 || byteLength > MAX_SHARE_BYTES) {
+    throw new NativeBridgeError(
+      "SHARE_SIZE_UNSUPPORTED",
+      "Export file size is not supported",
+    );
+  }
+  return { payload, byteLength };
+}
+
+function nativeBridgeFailure(
+  error: unknown,
+  fallbackCode: string,
+  fallbackMessage: string,
+) {
+  return error instanceof NativeBridgeError
+    ? error
+    : new NativeBridgeError(fallbackCode, fallbackMessage);
+}
+
+function notificationIdentifier(id: string) {
+  return `${NOTIFICATION_IDENTIFIER_PREFIX}${id}`;
+}
+
+function normalizeReminderSpecs(value: unknown): NativeReminderSpec[] {
+  if (!Array.isArray(value)) {
+    throw new NativeBridgeError(
+      "NOTIFICATIONS_INVALID_REQUEST",
+      "Reminder list is invalid",
+    );
+  }
+  if (value.length > MAX_OWNED_REMINDERS) {
+    throw new NativeBridgeError(
+      "NOTIFICATIONS_TOO_MANY",
+      `No more than ${MAX_OWNED_REMINDERS} local reminders can be scheduled`,
+    );
+  }
+
+  const now = Date.now();
+  const latest = now + 370 * 24 * 60 * 60 * 1000;
+  const seen = new Set<string>();
+  return value.map((candidate, index) => {
+    if (!candidate || typeof candidate !== "object") {
+      throw new NativeBridgeError(
+        "NOTIFICATIONS_INVALID_REMINDER",
+        `Reminder ${index + 1} is invalid`,
+      );
+    }
+    const record = candidate as Record<string, unknown>;
+    const id = typeof record.id === "string" ? record.id.trim() : "";
+    const kind = record.kind;
+    const fireAt =
+      typeof record.fireAt === "string" ? record.fireAt.trim() : "";
+    const locale = record.locale;
+    if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/.test(id) || seen.has(id)) {
+      throw new NativeBridgeError(
+        "NOTIFICATIONS_INVALID_REMINDER_ID",
+        `Reminder ${index + 1} has an invalid or duplicate identifier`,
+      );
+    }
+    if (
+      kind !== "snap-balance" &&
+      kind !== "wic-review" &&
+      kind !== "wic-expiry"
+    ) {
+      throw new NativeBridgeError(
+        "NOTIFICATIONS_INVALID_KIND",
+        `Reminder ${index + 1} has an unsupported type`,
+      );
+    }
+    if (locale !== "en-US" && locale !== "es-PR") {
+      throw new NativeBridgeError(
+        "NOTIFICATIONS_INVALID_LOCALE",
+        `Reminder ${index + 1} has an unsupported locale`,
+      );
+    }
+    if (!/^\d{4}-\d{2}-\d{2}T.+(?:Z|[+-]\d{2}:\d{2})$/.test(fireAt)) {
+      throw new NativeBridgeError(
+        "NOTIFICATIONS_INVALID_DATE",
+        `Reminder ${index + 1} must include a time zone`,
+      );
+    }
+    const fireAtMs = Date.parse(fireAt);
+    if (!Number.isFinite(fireAtMs) || fireAtMs <= now + 30_000 || fireAtMs > latest) {
+      throw new NativeBridgeError(
+        "NOTIFICATIONS_INVALID_DATE",
+        `Reminder ${index + 1} is outside the supported scheduling window`,
+      );
+    }
+    seen.add(id);
+    return { id, kind, fireAt: new Date(fireAtMs).toISOString(), locale };
+  });
+}
+
+function notificationCopy(kind: ReminderKind, locale: ReminderLocale) {
+  if (locale === "es-PR") {
+    if (kind === "snap-balance") {
+      return {
+        title: "Recordatorio de SNAP",
+        body: "Abre la aplicación para revisar tu saldo guardado en este dispositivo.",
+      };
+    }
+    return kind === "wic-review"
+      ? {
+          title: "Recordatorio de WIC",
+          body: "Abre la aplicación para revisar tus beneficios mensuales de WIC.",
+        }
+      : {
+          title: "Beneficios de WIC por vencer",
+          body: "Abre la aplicación para revisar los beneficios que vencen pronto.",
+        };
+  }
+  if (kind === "snap-balance") {
+    return {
+      title: "SNAP reminder",
+      body: "Open the app to review the balance stored on this device.",
+    };
+  }
+  return kind === "wic-review"
+    ? {
+        title: "WIC reminder",
+        body: "Open the app to review your monthly WIC benefits.",
+      }
+    : {
+        title: "WIC benefits expiring soon",
+        body: "Open the app to review benefits that are nearing expiration.",
+      };
+}
+
+function isOwnedNotification(request: Notifications.NotificationRequest) {
+  return request.content.data?.owner === NOTIFICATION_OWNER;
+}
+
+function notificationsAllowed(
+  permission: Notifications.NotificationPermissionsStatus,
+) {
+  return (
+    permission.granted ||
+    permission.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL ||
+    permission.ios?.status === Notifications.IosAuthorizationStatus.EPHEMERAL
+  );
 }
 
 function fileUti(name: string, mimeType?: string) {
@@ -257,6 +555,13 @@ export default function App() {
   const productionAds =
     process.env.EXPO_PUBLIC_AD_PROFILE === "production";
   const bannerUnitId = productionAds ? productionBannerId : TestIds.BANNER;
+
+  useEffect(() => {
+    void Promise.allSettled([
+      Notifications.setAutoServerRegistrationEnabledAsync(false),
+      Notifications.unregisterForNotificationsAsync(),
+    ]);
+  }, []);
 
   const ensureAdsInitialized = useCallback(async () => {
     if (!adsInitializationRef.current) {
@@ -394,12 +699,18 @@ export default function App() {
   }, [syncAdRuntime]);
 
   const completeNativeFileShare = useCallback(
-    (requestId: string | undefined, ok: boolean, message = "") => {
+    (
+      requestId: string | undefined,
+      ok: boolean,
+      code: string,
+      message = "",
+    ) => {
       if (!requestId) return;
       webViewRef.current?.injectJavaScript(`
         window.GBTNativeShareCompleted?.(
           ${JSON.stringify(requestId)},
           ${ok ? "true" : "false"},
+          ${JSON.stringify(code)},
           ${JSON.stringify(message)}
         );
         true;
@@ -411,7 +722,12 @@ export default function App() {
   const shareFile = useCallback(async (message: BridgeMessage) => {
     if (message.type !== "share-file") return;
     if (!message.dataUrl) {
-      completeNativeFileShare(message.requestId, false, "Export file is missing");
+      completeNativeFileShare(
+        message.requestId,
+        false,
+        "SHARE_MISSING_PAYLOAD",
+        "Export file is missing",
+      );
       return;
     }
     const name = sanitizedFileName(message.name);
@@ -424,28 +740,40 @@ export default function App() {
     );
     const file = new File(shareDirectory, name);
     try {
-      const base64 = parseDataUrl(message.dataUrl);
+      const { payload: base64, byteLength } = parseDataUrl(message.dataUrl);
       shareDirectory.create({ idempotent: true, intermediates: true });
       file.create({ overwrite: true, intermediates: true });
       file.write(base64, { encoding: "base64" });
-      if (!file.exists || !file.size) {
-        throw new Error("Export file is empty");
+      if (!file.exists || Number(file.size) !== byteLength) {
+        throw new NativeBridgeError(
+          "SHARE_WRITE_FAILED",
+          "Export file could not be prepared",
+        );
       }
       if (!(await Sharing.isAvailableAsync())) {
-        throw new Error("System sharing is unavailable");
+        throw new NativeBridgeError(
+          "SHARE_UNAVAILABLE",
+          "System sharing is unavailable",
+        );
       }
       await Sharing.shareAsync(file.uri, {
         dialogTitle: name,
         mimeType: message.mimeType || "application/octet-stream",
         UTI: fileUti(name, message.mimeType),
       });
-      completeNativeFileShare(message.requestId, true);
+      completeNativeFileShare(message.requestId, true, "SHARE_COMPLETED");
     } catch (error) {
       console.error("Native file export failed", error);
+      const failure = nativeBridgeFailure(
+        error,
+        "SHARE_FAILED",
+        "Export failed",
+      );
       completeNativeFileShare(
         message.requestId,
         false,
-        error instanceof Error ? error.message : "Export failed",
+        failure.code,
+        failure.message,
       );
       Alert.alert(
         "Export unavailable",
@@ -459,6 +787,152 @@ export default function App() {
       }, 15000);
     }
   }, [completeNativeFileShare]);
+
+  const completeNativeNotificationReconcile = useCallback(
+    (
+      requestId: string | undefined,
+      ok: boolean,
+      code: string,
+      scheduledCount: number,
+      message = "",
+    ) => {
+      if (!requestId) return;
+      webViewRef.current?.injectJavaScript(`
+        window.GBTNativeNotificationReconciled?.(
+          ${JSON.stringify(requestId)},
+          ${ok ? "true" : "false"},
+          ${JSON.stringify(code)},
+          ${Math.max(0, Math.trunc(scheduledCount))},
+          ${JSON.stringify(message)}
+        );
+        true;
+      `);
+    },
+    [],
+  );
+
+  const reconcileNotifications = useCallback(
+    async (message: BridgeMessage) => {
+      if (message.type !== "notifications-reconcile") return;
+
+      const cancelOwnedReminders = async (keep = new Set<string>()) => {
+        const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+        await Promise.all(
+          scheduled
+            .filter(
+              (request) =>
+                isOwnedNotification(request) && !keep.has(request.identifier),
+            )
+            .map((request) =>
+              Notifications.cancelScheduledNotificationAsync(request.identifier),
+            ),
+        );
+      };
+
+      try {
+        if (typeof message.optedIn !== "boolean") {
+          throw new NativeBridgeError(
+            "NOTIFICATIONS_INVALID_REQUEST",
+            "Reminder opt-in state is missing",
+          );
+        }
+        if (!message.optedIn) {
+          await cancelOwnedReminders();
+          completeNativeNotificationReconcile(
+            message.requestId,
+            true,
+            "NOTIFICATIONS_DISABLED",
+            0,
+          );
+          return;
+        }
+
+        const reminders = normalizeReminderSpecs(message.reminders);
+        if (!reminders.length) {
+          await cancelOwnedReminders();
+          completeNativeNotificationReconcile(
+            message.requestId,
+            true,
+            "NOTIFICATIONS_CLEARED",
+            0,
+          );
+          return;
+        }
+
+        let permission = await Notifications.getPermissionsAsync();
+        if (
+          !notificationsAllowed(permission) &&
+          message.requestPermission === true &&
+          permission.canAskAgain
+        ) {
+          permission = await Notifications.requestPermissionsAsync({
+            ios: {
+              allowAlert: true,
+              allowBadge: false,
+              allowSound: false,
+            },
+          });
+        }
+        if (!notificationsAllowed(permission)) {
+          throw new NativeBridgeError(
+            permission.canAskAgain && message.requestPermission !== true
+              ? "NOTIFICATIONS_PERMISSION_REQUIRED"
+              : "NOTIFICATIONS_PERMISSION_DENIED",
+            permission.canAskAgain && message.requestPermission !== true
+              ? "Notification permission requires a direct opt-in action"
+              : "Notification permission was not granted",
+          );
+        }
+
+        const desiredIdentifiers = new Set(
+          reminders.map((reminder) => notificationIdentifier(reminder.id)),
+        );
+        for (const reminder of reminders) {
+          const copy = notificationCopy(reminder.kind, reminder.locale);
+          await Notifications.scheduleNotificationAsync({
+            identifier: notificationIdentifier(reminder.id),
+            content: {
+              ...copy,
+              sound: false,
+              data: {
+                owner: NOTIFICATION_OWNER,
+                reminderId: reminder.id,
+                reminderKind: reminder.kind,
+                fireAt: reminder.fireAt,
+                schemaVersion: 1,
+              },
+            },
+            trigger: {
+              type: Notifications.SchedulableTriggerInputTypes.DATE,
+              date: new Date(reminder.fireAt),
+            },
+          });
+        }
+        await cancelOwnedReminders(desiredIdentifiers);
+        completeNativeNotificationReconcile(
+          message.requestId,
+          true,
+          "NOTIFICATIONS_RECONCILED",
+          reminders.length,
+        );
+      } catch (error) {
+        console.error("Native reminder reconciliation failed", error);
+        const failure = nativeBridgeFailure(
+          error,
+          "NOTIFICATIONS_FAILED",
+          "Reminders could not be scheduled",
+        );
+        completeNativeNotificationReconcile(
+          message.requestId,
+          false,
+          failure.code,
+          0,
+          failure.message,
+        );
+      }
+    },
+    [completeNativeNotificationReconcile],
+  );
 
   const shareText = useCallback(async (message: BridgeMessage) => {
     if (message.type !== "share-text") return;
@@ -513,6 +987,9 @@ export default function App() {
       } catch {
         return;
       }
+      if (!message || typeof message !== "object" || !("type" in message)) {
+        return;
+      }
       switch (message.type) {
         case "bridge-ready":
           setWebReady(true);
@@ -532,9 +1009,12 @@ export default function App() {
         case "share-text":
           void shareText(message);
           break;
+        case "notifications-reconcile":
+          void reconcileNotifications(message);
+          break;
       }
     },
-    [shareFile, shareText, showPrivacyChoices],
+    [reconcileNotifications, shareFile, shareText, showPrivacyChoices],
   );
 
   const openExternalUrl = useCallback((url: string) => {
