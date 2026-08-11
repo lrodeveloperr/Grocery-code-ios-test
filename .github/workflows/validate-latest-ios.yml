@@ -68,6 +68,8 @@ jobs:
             "$app_root/ios/SNAPEBTGroceryTrackerQA/Supporting/es-PR.lproj/InfoPlist.strings"
           cp release-overlay/assets/app-icon.png.base64 \
             "$app_root/assets/app-icon.png.base64"
+          cp release-overlay/assets/brand-logo-ui.png \
+            "$app_root/assets/brand-logo-ui.png"
           cp release-overlay/scripts/embed-web-app.mjs \
             "$app_root/scripts/embed-web-app.mjs"
           cp release-overlay/scripts/configure-ios-test.sh \
@@ -147,3 +149,4 @@ jobs:
           path: ${{ runner.temp }}/artifact/*
           if-no-files-found: error
           retention-days: 7
+
