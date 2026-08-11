@@ -17,7 +17,7 @@ import type {
   PurchaseIOS,
 } from "expo-iap";
 
-export const REMOVE_ADS_PRODUCT_ID = "remove_ads_forever";
+export const REMOVE_ADS_PRODUCT_ID = "remove_ads_lifetime";
 
 export type RemoveAdsProduct = {
   displayName: string;

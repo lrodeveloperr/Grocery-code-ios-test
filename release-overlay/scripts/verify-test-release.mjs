@@ -1118,7 +1118,7 @@ for (const obsoletePurchasePath of [
 }
 requireText(
   purchase,
-  'export const REMOVE_ADS_PRODUCT_ID = "remove_ads_forever";',
+  'export const REMOVE_ADS_PRODUCT_ID = "remove_ads_lifetime";',
   "reviewed non-consumable product ID",
 );
 requireText(purchase, "currentEntitlementIOS(REMOVE_ADS_PRODUCT_ID)", "StoreKit current entitlement");

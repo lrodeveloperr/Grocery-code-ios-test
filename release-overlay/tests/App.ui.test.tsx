@@ -115,7 +115,7 @@ test("keeps one non-personalized banner behind StoreKit, legal, and UMP gates", 
   expect(nativeSource).toContain("isRemoveAdsAlreadyOwned(error)");
   expect(nativeSource).toContain("onLoadStart={() => setWebReady(false)}");
   expect(purchaseSource).toContain(
-    'export const REMOVE_ADS_PRODUCT_ID = "remove_ads_forever";',
+    'export const REMOVE_ADS_PRODUCT_ID = "remove_ads_lifetime";',
   );
   expect(purchaseSource).toContain("currentEntitlementIOS(REMOVE_ADS_PRODUCT_ID)");
   expect(purchaseSource).toContain(

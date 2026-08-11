@@ -27,7 +27,7 @@ env:
   SCHEME: SNAPEBTGroceryTrackerQA
   IOS_BUNDLE_ID: com.lateefrazaqoyetola.snapebtwictracker
   APP_STORE_ID: "6799562282"
-  REMOVE_ADS_PRODUCT_ID: remove_ads_forever
+  REMOVE_ADS_PRODUCT_ID: remove_ads_lifetime
   REMOVE_ADS_US_PRICE: "9.99"
   APPLE_TEAM_ID: 49SQ3XQ68Q
   MARKETING_VERSION: "1.0"
