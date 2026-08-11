@@ -241,6 +241,8 @@ jobs:
             "$app_root/ios/$SCHEME/Supporting/es-PR.lproj/InfoPlist.strings"
           cp release-overlay/assets/app-icon.png.base64 \
             "$app_root/assets/app-icon.png.base64"
+          cp release-overlay/assets/brand-logo-ui.png \
+            "$app_root/assets/brand-logo-ui.png"
           cp release-overlay/scripts/embed-web-app.mjs \
             "$app_root/scripts/embed-web-app.mjs"
           cp release-overlay/scripts/configure-ios-test.sh \
@@ -411,3 +413,4 @@ jobs:
             echo
             echo "Wait for Apple processing, then add this build to an internal tester group."
           } >> "$GITHUB_STEP_SUMMARY"
+
