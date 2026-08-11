@@ -7,6 +7,10 @@ on:
         description: Type UPLOAD TEST ADS to confirm this is an internal-only build
         required: true
         type: string
+      expected_build_number:
+        description: Enter the exact App Store build number approved by the owner
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -52,10 +56,15 @@ jobs:
         shell: bash
         env:
           CONFIRMATION: ${{ inputs.confirmation }}
+          EXPECTED_BUILD_NUMBER: ${{ inputs.expected_build_number }}
         run: |
           set -euo pipefail
           if [[ "$CONFIRMATION" != "UPLOAD TEST ADS" ]]; then
             echo "Confirmation did not match UPLOAD TEST ADS." >&2
+            exit 1
+          fi
+          if [[ ! "$EXPECTED_BUILD_NUMBER" =~ ^[1-9][0-9]{0,3}(\.[0-9]{1,2}){0,2}$ ]]; then
+            echo "The owner-approved build number is invalid." >&2
             exit 1
           fi
           [[ "$IOS_BUNDLE_ID" == "com.lateefrazaqoyetola.snapebtwictracker" ]]
@@ -71,6 +80,7 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+          EXPECTED_BUILD_NUMBER: ${{ inputs.expected_build_number }}
         run: |
           set -euo pipefail
           missing=()
@@ -297,6 +307,10 @@ jobs:
             puts parts.join(".")
           ' "$build_versions")"
           [[ "$build_number" =~ ^[1-9][0-9]{0,3}(\.[0-9]{1,2}){0,2}$ ]]
+          if [[ "$build_number" != "$EXPECTED_BUILD_NUMBER" ]]; then
+            echo "App Store next build is $build_number, but the owner authorized only build $EXPECTED_BUILD_NUMBER." >&2
+            exit 1
+          fi
           echo "BUILD_NUMBER=$build_number" >> "$GITHUB_ENV"
 
           unset jwt authorization
@@ -529,6 +543,7 @@ jobs:
             echo "- App Store ID: $APP_STORE_ID"
             echo "- Bundle ID: $IOS_BUNDLE_ID"
             echo "- Version: $MARKETING_VERSION ($BUILD_NUMBER)"
+            echo "- Owner-authorized build: $BUILD_NUMBER"
             echo "- Ads: official Google test IDs; non-personalized treatment forced"
             echo "- Distribution: permanently internal TestFlight only"
             echo

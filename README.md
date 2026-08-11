@@ -44,3 +44,5 @@ No Apple certificate, private key, provisioning profile, live advertising identi
 ## Revenue protection gate
 
 Any change affecting advertising, ad identifiers, pricing, in-app purchases, subscriptions, paid entitlements, restore behavior, or another monetization path must receive explicit approval from two independent adversarial reviewers before merge or upload. Either reviewer can block the release. Reviews must test revenue-loss and unintended-free-access paths, while release validation should be batched to avoid unnecessary paid CI or service usage.
+
+Every workflow run that can consume billable runner time or paid external services requires the owner's explicit approval for that exact run. A retry or rerun requires fresh approval. TestFlight uploads must also compare the owner-authorized build number with App Store Connect's calculated next build and stop before compilation if they differ.
