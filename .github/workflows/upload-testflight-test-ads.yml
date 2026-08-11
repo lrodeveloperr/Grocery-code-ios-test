@@ -152,8 +152,12 @@ jobs:
             type = attributes.fetch("inAppPurchaseType")
             abort "Remove Ads must be NON_CONSUMABLE; found #{type}." unless type == "NON_CONSUMABLE"
             state = attributes.fetch("state")
-            allowed = %w[READY_TO_SUBMIT WAITING_FOR_REVIEW IN_REVIEW PENDING_BINARY_APPROVAL APPROVED]
-            abort "Remove Ads is not release-ready: #{state}" unless allowed.include?(state)
+            if state == "MISSING_METADATA"
+              warn "::warning::Remove Ads metadata is incomplete. Continuing this internal TestFlight upload, but purchase testing remains blocked until the metadata is complete and the Paid Apps Agreement is Active."
+            else
+              allowed = %w[READY_TO_SUBMIT WAITING_FOR_REVIEW IN_REVIEW PENDING_BINARY_APPROVAL APPROVED]
+              abort "Remove Ads is not release-ready: #{state}" unless allowed.include?(state)
+            end
             puts purchase.fetch("id")
           ' "$iap_response")"
           [[ -n "$iap_id" ]]
