@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 
 const EXPECTED_HTML_SHA256 =
-  "2111c3f09c394cde2c42b9c4ef3c7f5ca257a0f07be31ae15a1a5ce5bfaee471";
+  "1a6ecf376b5f21080ce0dfa87dc23cd29997420f3f6ece78aeb5bbb1ebe232d0";
 const EXPECTED_ICON_SHA256 =
   "83ca4ce7eea1f53ba1891cfa1b736c447f55991aa3730566b0bd374c73ba6fa3";
 const TEST_APP_ID = "ca-app-pub-3940256099942544~1458002511";
@@ -561,6 +561,39 @@ function assertPdfXref(bytes) {
   }
 }
 
+function assertTaggedPdfAccessibility(bytes) {
+  const text = new TextDecoder().decode(bytes);
+  for (const marker of [
+    "/MarkInfo << /Marked true /Suspects false >>",
+    "/StructTreeRoot",
+    "/ParentTree",
+    "/StructParents",
+    "/MCID",
+    "/Artifact BMC",
+    "/ToUnicode",
+    "/Title",
+    "/S /Document",
+    "/S /H1",
+    "/S /H2",
+    "/S /P",
+    "/S /Table",
+    "/S /TR",
+    "/S /TH",
+    "/S /TD",
+  ]) {
+    if (!text.includes(marker)) throw new Error(`Tagged PDF is missing ${marker}.`);
+  }
+  const pageCount = (text.match(/\/Type \/Page\b/g) || []).length;
+  const structParentCount = (text.match(/\/StructParents\s+\d+/g) || []).length;
+  const fontUnicodeCount = (text.match(/\/ToUnicode\s+\d+\s+0\s+R/g) || []).length;
+  if (!pageCount || structParentCount !== pageCount) {
+    throw new Error("Tagged PDF does not map every page into the ParentTree.");
+  }
+  if (fontUnicodeCount !== 2) {
+    throw new Error("Tagged PDF fonts do not both expose a ToUnicode map.");
+  }
+}
+
 function assertZipCentralDirectory(bytes) {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let eocd = -1;
@@ -599,6 +632,7 @@ if (maskedXlsxBytes[0] !== 0x50 || maskedXlsxBytes[1] !== 0x4b) {
   throw new Error("Generated XLSX ZIP signature is invalid.");
 }
 assertPdfXref(maskedPdfBytes);
+assertTaggedPdfAccessibility(maskedPdfBytes);
 assertZipCentralDirectory(maskedXlsxBytes);
 
 const stressReport = structuredClone(reportSnapshot);
@@ -632,6 +666,7 @@ if (stressCsv.split(/\r?\n/).length !== 1001 || stressXlsx.length < 10000 || str
   throw new Error("1,000-row report stress generation failed.");
 }
 assertPdfXref(stressPdf);
+assertTaggedPdfAccessibility(stressPdf);
 assertZipCentralDirectory(stressXlsx);
 const oversizedPdf = structuredClone(stressReport);
 oversizedPdf.allocations = Array.from({ length: 2001 }, () => sourceAllocation);
@@ -659,6 +694,11 @@ requireText(html, "input.dispatchEvent(new Event('change',{bubbles:true}))", "mo
 requireText(html, "function adPlacementAllowed(){return state.route!=='cards'&&!modalState;}", "Cards and modal ad exclusion");
 requireText(html, "window.dispatchEvent(new Event('gbt-ad-presentation-change'))", "immediate ad-placement bridge");
 requireText(html, "window.GBTNativeShareFile(blob,name", "explicit native report-share bridge");
+requireText(html, "SNAP_ITEM_NOT_ELIGIBLE", "SNAP/PAN eligibility checkout guard");
+requireText(html, "buildHistoryBackupParts", "multipart History backup");
+requireText(html, "Payment Allocations", "allocation-detail spreadsheet export");
+requireText(html, "window.GBTNativeReconcileNotifications", "local reminder bridge");
+forbidText(html, "USDA/FNA", "agency attribution");
 requireText(html, "if(window.ReactNativeWebView?.postMessage)throw R.err(R.ERROR.SHARE_FAILED", "native blob-navigation fail-close");
 requireText(html, "MAX_PDF_DETAIL_ROWS=2000", "bounded iPhone PDF generation");
 requireText(html, "if(delta&&!isNew)", "new SNAP opening-balance ledger guard");
@@ -699,6 +739,9 @@ requireText(
 );
 requireText(app, "{bannerMounted ? (", "native banner lifecycle gate");
 requireText(app, "type: \"share-file\"", "native file-share bridge");
+requireText(app, "type: \"notifications-reconcile\"", "native notification bridge");
+requireText(app, "NOTIFICATIONS_RECONCILED", "native notification acknowledgement");
+requireText(app, 'type ReminderKind = "snap-balance" | "wic-review" | "wic-expiry"', "bounded local reminder kinds");
 requireText(app, "requestId?: string", "native file-share acknowledgement ID");
 requireText(app, "window.GBTNativeShareCompleted", "native file-share acknowledgement");
 requireText(app, 'file.write(base64, { encoding: "base64" })', "validated native file write");
@@ -759,8 +802,14 @@ if (parsedPackage.dependencies?.["react-native-webview"] !== "14.0.1") {
 if (parsedPackage.dependencies?.["react-native-google-mobile-ads"] !== "16.4.0") {
   throw new Error("react-native-google-mobile-ads must stay pinned to 16.4.0.");
 }
+if (parsedPackage.dependencies?.["expo-notifications"] !== "~57.0.10") {
+  throw new Error("expo-notifications must stay compatible with Expo 57.");
+}
 if (parsedLock.packages?.["node_modules/react-native-google-mobile-ads"]?.version !== "16.4.0") {
   throw new Error("The lockfile does not pin react-native-google-mobile-ads 16.4.0.");
+}
+if (parsedLock.packages?.["node_modules/expo-notifications"]?.version !== "57.0.10") {
+  throw new Error("The lockfile does not pin expo-notifications 57.0.10.");
 }
 
 const iconBytes = Buffer.from(iconBase64.replace(/\s/g, ""), "base64");
@@ -769,5 +818,5 @@ if (sha256(iconBytes) !== EXPECTED_ICON_SHA256) {
 }
 
 console.log(
-  `Release checks passed: ${scripts.length} scripts, ${skadIds.length} SKAdNetwork IDs, official fixed-banner test IDs, NPA + UMP gates, file/link bridges, haptics removed.`,
+  `Release checks passed: ${scripts.length} scripts, ${skadIds.length} SKAdNetwork IDs, official fixed-banner test IDs, NPA + UMP gates, file/link/reminder bridges, haptics removed.`,
 );
