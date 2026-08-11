@@ -49,8 +49,9 @@ import type {
 const LOCAL_APP_ORIGIN = "https://snap-ebt-wic.local/";
 const AD_SLOT_HEIGHT = 50;
 const AD_SLOT_BOTTOM = 66;
-const TEST_ADMOB_APP_ID = "ca-app-pub-3940256099942544~1458002511";
-const TEST_BANNER_ID = "ca-app-pub-3940256099942544/2934735716";
+const GOOGLE_DEMO_PUBLISHER_ID = "3940256099942544";
+const STOREKIT_CONNECTION_RETRY_DELAYS_MS = [0, 1000, 3000] as const;
+const STOREKIT_ENTITLEMENT_RETRY_DELAYS_MS = [0, 500, 2000] as const;
 const MAX_SHARE_BYTES = 20 * 1024 * 1024;
 const MAX_SHARE_DATA_URL_CHARS = 28 * 1024 * 1024;
 const NOTIFICATION_OWNER = "snap-ebt-grocery-tracker:local-reminder:v1";
@@ -126,6 +127,25 @@ type BridgeMessage =
       reminders?: unknown;
     }
   | { type: "clear-app-data"; requestId?: string };
+
+function waitFor(milliseconds: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function hasMatchingProductionAdMobIdentifiers(
+  approvedPublisherId: string,
+  appId: string,
+  bannerId: string,
+) {
+  const appMatch = /^ca-app-pub-(\d{16})~\d{10}$/.exec(appId);
+  const bannerMatch = /^ca-app-pub-(\d{16})\/\d{10}$/.exec(bannerId);
+  return Boolean(
+    /^\d{16}$/.test(approvedPublisherId) &&
+      approvedPublisherId !== GOOGLE_DEMO_PUBLISHER_ID &&
+      appMatch?.[1] === approvedPublisherId &&
+      bannerMatch?.[1] === approvedPublisherId,
+  );
+}
 
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
@@ -682,9 +702,26 @@ export default function App() {
 
   const productionBannerId =
     process.env.EXPO_PUBLIC_IOS_ADMOB_BANNER_ID?.trim() || "";
-  const productionAds =
-    process.env.EXPO_PUBLIC_AD_PROFILE === "production";
-  const bannerUnitId = productionAds ? productionBannerId : TestIds.BANNER;
+  const productionAppId =
+    process.env.EXPO_PUBLIC_IOS_ADMOB_APP_ID?.trim() || "";
+  const approvedPublisherId =
+    process.env.EXPO_PUBLIC_ADMOB_PUBLISHER_ID?.trim() || "";
+  const adProfile = process.env.EXPO_PUBLIC_AD_PROFILE?.trim() || "";
+  const testAds = adProfile === "test";
+  const productionAds = adProfile === "production";
+  const productionAdsConfigured =
+    productionAds &&
+    hasMatchingProductionAdMobIdentifiers(
+      approvedPublisherId,
+      productionAppId,
+      productionBannerId,
+    );
+  const adProfileConfigured = testAds || productionAdsConfigured;
+  const bannerUnitId = testAds
+    ? TestIds.BANNER
+    : productionAdsConfigured
+      ? productionBannerId
+      : "";
 
   useEffect(() => {
     try {
@@ -754,18 +791,20 @@ export default function App() {
   const reconcileRemoveAdsEntitlement = useCallback(() => {
     const reconciliation = removeAdsReconcileQueueRef.current.then(
       async (): Promise<boolean | null> => {
-        try {
-          const result = await readVerifiedRemoveAdsEntitlement();
-          applyRemoveAdsEntitlementState(
-            result.entitled ? "entitled" : "not-entitled",
-          );
-          return result.entitled;
-        } catch {
-          applyRemoveAdsEntitlementState(
-            removeAdsEntitledRef.current ? "entitled" : "unknown",
-          );
-          return null;
+        for (const delay of STOREKIT_ENTITLEMENT_RETRY_DELAYS_MS) {
+          if (delay > 0) await waitFor(delay);
+          try {
+            const result = await readVerifiedRemoveAdsEntitlement();
+            applyRemoveAdsEntitlementState(
+              result.entitled ? "entitled" : "not-entitled",
+            );
+            return result.entitled;
+          } catch {}
         }
+        applyRemoveAdsEntitlementState(
+          removeAdsEntitledRef.current ? "entitled" : "unknown",
+        );
+        return null;
       },
     );
     removeAdsReconcileQueueRef.current = reconciliation.then(() => undefined);
@@ -868,55 +907,81 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
-    let appStateSubscription: { remove: () => void } | null = null;
-    void (async () => {
-      try {
-        const connection = await connectRemoveAdsStore({
-          onPurchaseUpdated: (purchase) => {
-            if (active) {
-              const action = removeAdsActionRef.current;
-              const purchaseAction =
-                action?.kind === "purchase" ? action : null;
-              void deliverRemoveAdsPurchase(purchase, purchaseAction).catch((error) => {
-                console.warn("StoreKit purchase update failed", error);
-              });
-            }
-          },
-          onPurchaseError: (error) => {
-            const action = removeAdsActionRef.current;
-            if (active && action?.kind === "purchase") {
-              void settleRemoveAdsPurchaseError(error, action);
-            }
-          },
-        });
-        if (!active) {
-          connection.close();
-          return;
-        }
-        removeAdsStoreRef.current = connection;
-        setRemoveAdsStoreReady(true);
-        appStateSubscription = AppState.addEventListener("change", (state) => {
-          if (active && state === "active") {
-            void reconcileRemoveAdsEntitlement();
-          }
-        });
-        await Promise.all([
-          reconcileRemoveAdsEntitlement(),
-          refreshRemoveAdsProduct(),
-        ]);
-      } catch (error) {
-        console.warn("StoreKit Remove Ads setup is unavailable", error);
+    let connectionTask: Promise<void> | null = null;
+    const listeners = {
+      onPurchaseUpdated: (
+        purchase: Parameters<typeof isRemoveAdsPurchaseEvent>[0],
+      ) => {
         if (active) {
-          setRemoveAdsStoreReady(false);
-          applyRemoveAdsEntitlementState("unknown");
-          setRemoveAdsProduct(null);
-          setRemoveAdsProductState("unavailable");
+          const action = removeAdsActionRef.current;
+          const purchaseAction = action?.kind === "purchase" ? action : null;
+          void deliverRemoveAdsPurchase(purchase, purchaseAction).catch(
+            (error) => {
+              console.warn("StoreKit purchase update failed", error);
+            },
+          );
+        }
+      },
+      onPurchaseError: (error: unknown) => {
+        const action = removeAdsActionRef.current;
+        if (active && action?.kind === "purchase") {
+          void settleRemoveAdsPurchaseError(error, action);
+        }
+      },
+    };
+    const connectWithRetry = async () => {
+      for (const delay of STOREKIT_CONNECTION_RETRY_DELAYS_MS) {
+        if (!active || removeAdsStoreRef.current) return;
+        if (delay > 0) await waitFor(delay);
+        if (!active || removeAdsStoreRef.current) return;
+        try {
+          const connection = await connectRemoveAdsStore(listeners);
+          if (!active) {
+            connection.close();
+            return;
+          }
+          removeAdsStoreRef.current = connection;
+          setRemoveAdsStoreReady(true);
+          await Promise.all([
+            reconcileRemoveAdsEntitlement(),
+            refreshRemoveAdsProduct(),
+          ]);
+          return;
+        } catch (error) {
+          console.warn("StoreKit Remove Ads setup is unavailable", error);
+          if (active) {
+            setRemoveAdsStoreReady(false);
+            applyRemoveAdsEntitlementState("unknown");
+            setRemoveAdsProduct(null);
+            setRemoveAdsProductState("unavailable");
+          }
         }
       }
-    })();
+    };
+    const ensureStoreConnection = () => {
+      if (removeAdsStoreRef.current) {
+        return Promise.all([
+          reconcileRemoveAdsEntitlement(),
+          refreshRemoveAdsProduct(),
+        ]).then(() => undefined);
+      }
+      if (!connectionTask) {
+        connectionTask = connectWithRetry().finally(() => {
+          connectionTask = null;
+        });
+      }
+      return connectionTask;
+    };
+    const appStateSubscription = AppState.addEventListener(
+      "change",
+      (state) => {
+        if (active && state === "active") void ensureStoreConnection();
+      },
+    );
+    void ensureStoreConnection();
     return () => {
       active = false;
-      appStateSubscription?.remove();
+      appStateSubscription.remove();
       removeAdsStoreRef.current?.close();
       removeAdsStoreRef.current = null;
     };
@@ -932,6 +997,7 @@ export default function App() {
 
   const ensureAdsInitialized = useCallback(async () => {
     if (removeAdsEntitlementRef.current !== "not-entitled") return false;
+    if (!adProfileConfigured) return false;
     if (!adsInitializationRef.current) {
       adsInitializationRef.current = (async () => {
         await mobileAds().setRequestConfiguration({
@@ -954,29 +1020,39 @@ export default function App() {
       initialized &&
       removeAdsEntitlementRef.current === "not-entitled"
     );
-  }, []);
+  }, [adProfileConfigured]);
 
   const startAdsIfAllowed = useCallback(
-    async (reportedCanRequestAds = false) => {
+    async () => {
       if (removeAdsEntitlementRef.current !== "not-entitled") return false;
-      let canRequestAds = reportedCanRequestAds;
+      // Google's demo app ID cannot be linked to this publisher's UMP
+      // messages. Internal builds use only Google's fixed demo banner, so
+      // initialize that test inventory directly. Production builds continue
+      // to fail closed behind the publisher-owned UMP consent state.
+      if (testAds) {
+        setPrivacyChoicesRequired(false);
+        return ensureAdsInitialized();
+      }
+      if (!productionAdsConfigured) return false;
+      let currentInfo;
       try {
-        const currentInfo = await AdsConsent.getConsentInfo();
+        currentInfo = await AdsConsent.getConsentInfo();
         setPrivacyChoicesRequired(
           currentInfo.privacyOptionsRequirementStatus ===
             AdsConsentPrivacyOptionsRequirementStatus.REQUIRED,
         );
-        canRequestAds = currentInfo.canRequestAds;
-      } catch {}
+      } catch {
+        return false;
+      }
       if (
-        !canRequestAds ||
+        !currentInfo.canRequestAds ||
         removeAdsEntitlementRef.current !== "not-entitled"
       ) {
         return false;
       }
       return ensureAdsInitialized();
     },
-    [ensureAdsInitialized],
+    [ensureAdsInitialized, productionAdsConfigured, testAds],
   );
 
   useEffect(() => {
@@ -989,10 +1065,21 @@ export default function App() {
     }
     let active = true;
     void (async () => {
-      let reportedCanRequestAds = false;
+      if (!adProfileConfigured) {
+        setConsentState("blocked");
+        return;
+      }
+      if (testAds) {
+        try {
+          const started = await startAdsIfAllowed();
+          if (active) setConsentState(started ? "permitted" : "blocked");
+        } catch {
+          if (active) setConsentState("blocked");
+        }
+        return;
+      }
       try {
         const consent = await AdsConsent.gatherConsent();
-        reportedCanRequestAds = consent.canRequestAds;
         if (active) {
           setPrivacyChoicesRequired(
             consent.privacyOptionsRequirementStatus ===
@@ -1002,7 +1089,7 @@ export default function App() {
       } catch {}
       if (!active) return;
       try {
-        const started = await startAdsIfAllowed(reportedCanRequestAds);
+        const started = await startAdsIfAllowed();
         if (active) {
           setConsentState(
             started || removeAdsEntitlementRef.current !== "not-entitled"
@@ -1025,7 +1112,10 @@ export default function App() {
     };
   }, [
     consentState,
+    adProfileConfigured,
     legalReady,
+    productionAds,
+    testAds,
     removeAdsEntitlement,
     startAdsIfAllowed,
   ]);
@@ -1039,7 +1129,7 @@ export default function App() {
       return;
     }
     let active = true;
-    void startAdsIfAllowed(true)
+    void startAdsIfAllowed()
       .then((started) => {
         if (
           active &&
@@ -1513,6 +1603,10 @@ export default function App() {
   }, []);
 
   const showPrivacyChoices = useCallback(async () => {
+    if (!productionAdsConfigured) {
+      setPrivacyChoicesRequired(false);
+      return;
+    }
     try {
       await AdsConsent.showPrivacyOptionsForm();
       const info = await AdsConsent.getConsentInfo();
@@ -1529,7 +1623,7 @@ export default function App() {
         return;
       }
       try {
-        const started = await startAdsIfAllowed(info.canRequestAds);
+        const started = await startAdsIfAllowed();
         setConsentState(
           started || removeAdsEntitlementRef.current !== "not-entitled"
             ? "permitted"
@@ -1547,12 +1641,13 @@ export default function App() {
         }
       }
     } catch {
+      setConsentState("blocked");
       Alert.alert(
         "Advertising privacy choices",
         "No additional advertising privacy form is required on this device right now.",
       );
     }
-  }, [startAdsIfAllowed]);
+  }, [productionAdsConfigured, startAdsIfAllowed]);
 
   const beginRemoveAdsPurchase = useCallback(async () => {
     if (removeAdsEntitlementRef.current === "entitled") {
@@ -1711,6 +1806,7 @@ export default function App() {
     [],
   );
   const showBanner =
+    adProfileConfigured &&
     removeAdsEntitlement === "not-entitled" &&
     legalReady &&
     consentState === "permitted" &&
@@ -1771,7 +1867,7 @@ export default function App() {
             />
           </View>
         ) : null}
-        {!productionAds ? (
+        {testAds ? (
           <View accessibilityElementsHidden style={styles.testMarker} />
         ) : null}
       </SafeAreaView>
@@ -1811,9 +1907,4 @@ const styles = StyleSheet.create({
     height: 1,
     opacity: 0,
   },
-});
-
-export const RELEASE_TEST_IDENTIFIERS = Object.freeze({
-  appId: TEST_ADMOB_APP_ID,
-  bannerId: TEST_BANNER_ID,
 });
