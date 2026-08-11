@@ -49,8 +49,6 @@ import type {
 const LOCAL_APP_ORIGIN = "https://snap-ebt-wic.local/";
 const AD_SLOT_HEIGHT = 50;
 const AD_SLOT_BOTTOM = 66;
-const TEST_ADMOB_APP_ID = "ca-app-pub-3940256099942544~1458002511";
-const TEST_BANNER_ID = "ca-app-pub-3940256099942544/2934735716";
 const MAX_SHARE_BYTES = 20 * 1024 * 1024;
 const MAX_SHARE_DATA_URL_CHARS = 28 * 1024 * 1024;
 const NOTIFICATION_OWNER = "snap-ebt-grocery-tracker:local-reminder:v1";
@@ -682,9 +680,17 @@ export default function App() {
 
   const productionBannerId =
     process.env.EXPO_PUBLIC_IOS_ADMOB_BANNER_ID?.trim() || "";
-  const productionAds =
-    process.env.EXPO_PUBLIC_AD_PROFILE === "production";
-  const bannerUnitId = productionAds ? productionBannerId : TestIds.BANNER;
+  const adProfile = process.env.EXPO_PUBLIC_AD_PROFILE?.trim() || "";
+  const testAds = adProfile === "test";
+  const productionAds = adProfile === "production";
+  const productionAdsConfigured =
+    productionAds && productionBannerId.length > 0;
+  const adProfileConfigured = testAds || productionAdsConfigured;
+  const bannerUnitId = testAds
+    ? TestIds.BANNER
+    : productionAds
+      ? productionBannerId
+      : "";
 
   useEffect(() => {
     try {
@@ -932,6 +938,7 @@ export default function App() {
 
   const ensureAdsInitialized = useCallback(async () => {
     if (removeAdsEntitlementRef.current !== "not-entitled") return false;
+    if (!adProfileConfigured) return false;
     if (!adsInitializationRef.current) {
       adsInitializationRef.current = (async () => {
         await mobileAds().setRequestConfiguration({
@@ -954,11 +961,20 @@ export default function App() {
       initialized &&
       removeAdsEntitlementRef.current === "not-entitled"
     );
-  }, []);
+  }, [adProfileConfigured]);
 
   const startAdsIfAllowed = useCallback(
     async (reportedCanRequestAds = false) => {
       if (removeAdsEntitlementRef.current !== "not-entitled") return false;
+      // Google's demo app ID cannot be linked to this publisher's UMP
+      // messages. Internal builds use only Google's fixed demo banner, so
+      // initialize that test inventory directly. Production builds continue
+      // to fail closed behind the publisher-owned UMP consent state.
+      if (testAds) {
+        setPrivacyChoicesRequired(false);
+        return ensureAdsInitialized();
+      }
+      if (!productionAdsConfigured) return false;
       let canRequestAds = reportedCanRequestAds;
       try {
         const currentInfo = await AdsConsent.getConsentInfo();
@@ -976,7 +992,7 @@ export default function App() {
       }
       return ensureAdsInitialized();
     },
-    [ensureAdsInitialized],
+    [ensureAdsInitialized, productionAdsConfigured, testAds],
   );
 
   useEffect(() => {
@@ -989,6 +1005,19 @@ export default function App() {
     }
     let active = true;
     void (async () => {
+      if (!adProfileConfigured) {
+        setConsentState("blocked");
+        return;
+      }
+      if (testAds) {
+        try {
+          const started = await startAdsIfAllowed(true);
+          if (active) setConsentState(started ? "permitted" : "blocked");
+        } catch {
+          if (active) setConsentState("blocked");
+        }
+        return;
+      }
       let reportedCanRequestAds = false;
       try {
         const consent = await AdsConsent.gatherConsent();
@@ -1025,7 +1054,10 @@ export default function App() {
     };
   }, [
     consentState,
+    adProfileConfigured,
     legalReady,
+    productionAds,
+    testAds,
     removeAdsEntitlement,
     startAdsIfAllowed,
   ]);
@@ -1513,6 +1545,10 @@ export default function App() {
   }, []);
 
   const showPrivacyChoices = useCallback(async () => {
+    if (!productionAds) {
+      setPrivacyChoicesRequired(false);
+      return;
+    }
     try {
       await AdsConsent.showPrivacyOptionsForm();
       const info = await AdsConsent.getConsentInfo();
@@ -1552,7 +1588,7 @@ export default function App() {
         "No additional advertising privacy form is required on this device right now.",
       );
     }
-  }, [startAdsIfAllowed]);
+  }, [productionAds, startAdsIfAllowed]);
 
   const beginRemoveAdsPurchase = useCallback(async () => {
     if (removeAdsEntitlementRef.current === "entitled") {
@@ -1711,6 +1747,7 @@ export default function App() {
     [],
   );
   const showBanner =
+    adProfileConfigured &&
     removeAdsEntitlement === "not-entitled" &&
     legalReady &&
     consentState === "permitted" &&
@@ -1771,7 +1808,7 @@ export default function App() {
             />
           </View>
         ) : null}
-        {!productionAds ? (
+        {testAds ? (
           <View accessibilityElementsHidden style={styles.testMarker} />
         ) : null}
       </SafeAreaView>
@@ -1811,9 +1848,4 @@ const styles = StyleSheet.create({
     height: 1,
     opacity: 0,
   },
-});
-
-export const RELEASE_TEST_IDENTIFIERS = Object.freeze({
-  appId: TEST_ADMOB_APP_ID,
-  bannerId: TEST_BANNER_ID,
 });
