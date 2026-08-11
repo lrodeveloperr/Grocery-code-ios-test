@@ -141,14 +141,14 @@ const concurrentError = await bridgeWindow
 if (!concurrentError.includes("already open")) {
   throw new Error("Concurrent native exports were not rejected.");
 }
-bridgeWindow.GBTNativeShareCompleted("stale-request", true);
+bridgeWindow.GBTNativeShareCompleted("stale-request", true, "SHARE_COMPLETED", "");
 const staleStillBlocked = await bridgeWindow
   .GBTNativeShareFile(new Blob(["stale"]), "same-name.pdf", "application/pdf")
   .then(() => "", (error) => error.message);
 if (!staleStillBlocked.includes("already open")) {
   throw new Error("A stale native acknowledgement unlocked the active export.");
 }
-bridgeWindow.GBTNativeShareCompleted(firstMessage.requestId, true);
+bridgeWindow.GBTNativeShareCompleted(firstMessage.requestId, true, "SHARE_COMPLETED", "");
 await firstShare;
 const secondShare = bridgeWindow.GBTNativeShareFile(
   new Blob(["second"], { type: "application/pdf" }),
@@ -162,9 +162,17 @@ const secondMessage = shareMessages.at(-1);
 if (!secondMessage?.requestId || secondMessage.requestId === firstMessage.requestId) {
   throw new Error("Repeated same-name exports reused a native request ID.");
 }
-bridgeWindow.GBTNativeShareCompleted(secondMessage.requestId, false, "cancelled");
-const failureMessage = await secondShare.then(() => "", (error) => error.message);
-if (failureMessage !== "cancelled") {
+bridgeWindow.GBTNativeShareCompleted(
+  secondMessage.requestId,
+  false,
+  "SHARE_CANCELLED",
+  "cancelled",
+);
+const shareFailure = await secondShare.then(
+  () => ({ code: "", message: "" }),
+  (error) => ({ code: error.code, message: error.message }),
+);
+if (shareFailure.code !== "SHARE_CANCELLED" || shareFailure.message !== "cancelled") {
   throw new Error("Native export failure acknowledgement was not propagated.");
 }
 const recoveredShare = bridgeWindow.GBTNativeShareFile(
@@ -175,7 +183,12 @@ const recoveredShare = bridgeWindow.GBTNativeShareFile(
 await Promise.resolve();
 await Promise.resolve();
 const recoveredMessage = bridgeMessages.filter((message) => message.type === "share-file").at(-1);
-bridgeWindow.GBTNativeShareCompleted(recoveredMessage.requestId, true);
+bridgeWindow.GBTNativeShareCompleted(
+  recoveredMessage.requestId,
+  true,
+  "SHARE_COMPLETED",
+  "",
+);
 await recoveredShare;
 
 const prefixCases = [
