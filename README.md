@@ -6,12 +6,13 @@ This private repository contains the iOS build and release overlay for **SNAP-EB
 
 - Platform: iPhone/iOS
 - Core app: free and ad-supported
-- Optional purchase: permanent Remove Ads, one-time non-consumable
-- Intended U.S. App Store price: USD $4.99
+- Advertising: one fixed, non-personalized banner when Google UMP permits an ad request
+- General ad-disable control: none in the free release
+- Privacy choices: shown only when required by Google UMP; they change advertising data treatment, not banner visibility
+- Remove Ads purchase: not included in this TestFlight release
 - Subscription: none
 - Account or cloud synchronization: none
 - Core SNAP/PAN, WIC, grocery, budget, History, and report records: local to the device
-- Purchase implementation: maintained separately from this documentation update
 
 ## Canonical legal pages
 
@@ -25,6 +26,6 @@ The active release overlay uses these canonical URLs. The former `SNAP-EBT-Groce
 
 ## Build notes
 
-The repository retains a frozen QA source archive as a build baseline. Current release files in `release-overlay/` supersede conflicting runtime files from that archive. Do not treat names, simulated-purchase copy, embedded policy text, or legal URLs inside the frozen archive as current release requirements.
+The repository retains a frozen QA source archive as a build baseline. Current release files in `release-overlay/` supersede conflicting runtime files from that archive. Every release or QA artifact must apply the active overlay and pass `release-overlay/scripts/verify-test-release.mjs`; archived optional-ad controls, simulated-purchase copy, embedded policy text, and legal URLs are not current release requirements.
 
 No Apple certificate, private key, provisioning profile, live advertising identifier, payment credential, or production secret should be committed to this repository.

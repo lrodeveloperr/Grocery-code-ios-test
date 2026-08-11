@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import mobileAds, {
   AdsConsent,
+  AdsConsentPrivacyOptionsRequirementStatus,
   BannerAd,
   BannerAdSize,
   MaxAdContentRating,
@@ -63,7 +64,6 @@ const NativeWebView = PackageWebView as unknown as React.ForwardRefExoticCompone
 type BridgeMessage =
   | { type: "bridge-ready" }
   | { type: "legal-ready"; ready: boolean }
-  | { type: "publisher-ad-choice"; allowed: boolean }
   | { type: "ad-eligibility"; eligible: boolean }
   | {
       type: "ad-presentation";
@@ -614,7 +614,7 @@ export default function App() {
   const previousWebAdStateRef = useRef("AD_LOADING");
   const [webReady, setWebReady] = useState(false);
   const [legalReady, setLegalReady] = useState(false);
-  const [publisherAdsAllowed, setPublisherAdsAllowed] = useState(false);
+  const [privacyChoicesRequired, setPrivacyChoicesRequired] = useState(false);
   const [consentState, setConsentState] =
     useState<ConsentState>("unresolved");
   const [adEligible, setAdEligible] = useState(false);
@@ -662,6 +662,10 @@ export default function App() {
       let canRequestAds = reportedCanRequestAds;
       try {
         const currentInfo = await AdsConsent.getConsentInfo();
+        setPrivacyChoicesRequired(
+          currentInfo.privacyOptionsRequirementStatus ===
+            AdsConsentPrivacyOptionsRequirementStatus.REQUIRED,
+        );
         canRequestAds = currentInfo.canRequestAds;
       } catch {}
       if (!canRequestAds) return false;
@@ -672,17 +676,19 @@ export default function App() {
   );
 
   useEffect(() => {
-    if (
-      !legalReady ||
-      !publisherAdsAllowed ||
-      consentState !== "unresolved"
-    ) return;
+    if (!legalReady || consentState !== "unresolved") return;
     let active = true;
     void (async () => {
       let reportedCanRequestAds = false;
       try {
         const consent = await AdsConsent.gatherConsent();
         reportedCanRequestAds = consent.canRequestAds;
+        if (active) {
+          setPrivacyChoicesRequired(
+            consent.privacyOptionsRequirementStatus ===
+              AdsConsentPrivacyOptionsRequirementStatus.REQUIRED,
+          );
+        }
       } catch {}
       if (!active) return;
       try {
@@ -697,7 +703,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [consentState, legalReady, publisherAdsAllowed, startAdsIfAllowed]);
+  }, [consentState, legalReady, startAdsIfAllowed]);
 
   useEffect(() => {
     if (!adEligible) {
@@ -711,7 +717,6 @@ export default function App() {
   useEffect(() => {
     if (
       nativeAdState !== "failed" ||
-      !publisherAdsAllowed ||
       !adEligible ||
       consentState !== "permitted" ||
       adLoadAttempt >= 2
@@ -727,7 +732,7 @@ export default function App() {
       2000 * 2 ** adLoadAttempt,
     );
     return () => clearTimeout(retryTimer);
-  }, [adEligible, adLoadAttempt, consentState, nativeAdState, publisherAdsAllowed]);
+  }, [adEligible, adLoadAttempt, consentState, nativeAdState]);
 
   useEffect(() => {
     const previous = previousWebAdStateRef.current;
@@ -735,7 +740,6 @@ export default function App() {
     if (
       previous === "AD_TEMPORARILY_HIDDEN" &&
       webAdState !== "AD_TEMPORARILY_HIDDEN" &&
-      publisherAdsAllowed &&
       adEligible &&
       consentState === "permitted"
     ) {
@@ -743,18 +747,18 @@ export default function App() {
       setBannerInstance((instance) => instance + 1);
       setNativeAdState("loading");
     }
-  }, [adEligible, consentState, publisherAdsAllowed, webAdState]);
+  }, [adEligible, consentState, webAdState]);
 
   const syncAdRuntime = useCallback(() => {
     if (!webReady) return;
     const consent =
-      publisherAdsAllowed && consentState === "permitted"
+      consentState === "permitted"
         ? "REQUEST_PERMITTED"
-        : publisherAdsAllowed && consentState === "blocked"
+        : consentState === "blocked"
           ? "REQUEST_BLOCKED"
           : "UNRESOLVED";
     const state =
-      !publisherAdsAllowed || consentState === "blocked" || !adEligible
+      consentState === "blocked" || !adEligible
         ? "AD_DISABLED"
         : nativeAdState === "loaded"
           ? "AD_LOADED"
@@ -777,13 +781,24 @@ export default function App() {
     adEligible,
     consentState,
     nativeAdState,
-    publisherAdsAllowed,
     webReady,
   ]);
 
   useEffect(() => {
     syncAdRuntime();
   }, [syncAdRuntime]);
+
+  const syncAdvertisingPrivacyOptions = useCallback(() => {
+    if (!webReady) return;
+    webViewRef.current?.injectJavaScript(`
+      window.GBTAdvertisingPrivacyOptions?.setRequired(${privacyChoicesRequired});
+      true;
+    `);
+  }, [privacyChoicesRequired, webReady]);
+
+  useEffect(() => {
+    syncAdvertisingPrivacyOptions();
+  }, [syncAdvertisingPrivacyOptions]);
 
   const completeNativeFileShare = useCallback(
     (
@@ -1080,6 +1095,10 @@ export default function App() {
     try {
       await AdsConsent.showPrivacyOptionsForm();
       const info = await AdsConsent.getConsentInfo();
+      setPrivacyChoicesRequired(
+        info.privacyOptionsRequirementStatus ===
+          AdsConsentPrivacyOptionsRequirementStatus.REQUIRED,
+      );
       if (!info.canRequestAds) {
         setConsentState("blocked");
         return;
@@ -1120,16 +1139,6 @@ export default function App() {
         case "legal-ready":
           setLegalReady(Boolean(message.ready));
           break;
-        case "publisher-ad-choice": {
-          const allowed = Boolean(message.allowed);
-          setPublisherAdsAllowed(allowed);
-          if (!allowed) {
-            setConsentState("unresolved");
-            setNativeAdState("idle");
-            setAdLoadAttempt(0);
-          }
-          break;
-        }
         case "ad-eligibility":
           setAdEligible(Boolean(message.eligible));
           break;
@@ -1137,7 +1146,7 @@ export default function App() {
           setWebAdState(message.state);
           break;
         case "privacy-choices":
-          if (legalReady && publisherAdsAllowed) void showPrivacyChoices();
+          if (legalReady && privacyChoicesRequired) void showPrivacyChoices();
           break;
         case "share-file":
           void shareFile(message);
@@ -1153,7 +1162,7 @@ export default function App() {
           break;
       }
     },
-    [clearNativeAppData, legalReady, publisherAdsAllowed, reconcileNotifications, shareFile, shareText, showPrivacyChoices],
+    [clearNativeAppData, legalReady, privacyChoicesRequired, reconcileNotifications, shareFile, shareText, showPrivacyChoices],
   );
 
   const openExternalUrl = useCallback((url: string) => {
@@ -1184,7 +1193,6 @@ export default function App() {
   );
   const showBanner =
     legalReady &&
-    publisherAdsAllowed &&
     consentState === "permitted" &&
     adEligible &&
     nativeAdState !== "failed";
@@ -1265,8 +1273,8 @@ const styles = StyleSheet.create({
   },
   bannerOverlay: {
     position: "absolute",
-    left: 10,
-    right: 10,
+    left: 0,
+    right: 0,
     bottom: AD_SLOT_BOTTOM,
     height: AD_SLOT_HEIGHT,
     alignItems: "center",

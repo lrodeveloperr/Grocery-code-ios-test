@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 
 const EXPECTED_HTML_SHA256 =
-  "e233e8ebaf0b33c11ca4705ac304b64707b7df2023de039c8f69df8079ab245f";
+  "2576d5c9edbd38c9051b3a8963eac889ac10173e437408221bb31740f9c0b730";
 const EXPECTED_ICON_SHA256 =
   "a2893e96e83fed237c7063747c1f41c10c30ea85e3911149c13b02bfa861f808";
 const EXPECTED_BRAND_LOGO_SHA256 =
@@ -127,6 +127,44 @@ vm.runInContext(scripts[3][1], sandbox, { filename: "GBTRemediation.inline.js" }
 const Core = sandbox.GBTCore;
 const Reports = sandbox.GBTRemediation;
 if (!Core || !Reports) throw new Error("Could not load pure application/report logic.");
+
+const legacyAdState = Core.canonicalState();
+const legacyAdOn = Core.clone(legacyAdState);
+const legacyAdOff = Core.clone(legacyAdState);
+legacyAdOn.settings.advertisingConsent = {
+  allowed: true,
+  disclosureVersion: "legacy",
+  updatedAt: "2026-08-11T00:00:00.000Z",
+};
+legacyAdOff.settings.advertisingConsent = {
+  allowed: false,
+  disclosureVersion: "legacy",
+  updatedAt: "2026-08-11T00:00:00.000Z",
+};
+const normalizedLegacyAdOn = Core.normalizeState(legacyAdOn);
+const normalizedLegacyAdOff = Core.normalizeState(legacyAdOff);
+if (
+  Object.prototype.hasOwnProperty.call(normalizedLegacyAdOn.settings, "advertisingConsent") ||
+  Object.prototype.hasOwnProperty.call(normalizedLegacyAdOff.settings, "advertisingConsent") ||
+  JSON.stringify(normalizedLegacyAdOn.settings) !== JSON.stringify(normalizedLegacyAdOff.settings)
+) {
+  throw new Error("Legacy publisher ad choices still influence normalized state.");
+}
+const legacyOnboardingDraft = Core.clone(legacyAdState);
+legacyOnboardingDraft.entryDrafts = {
+  shop: null,
+  onboarding: { advertisingAllowed: false },
+  cash: null,
+};
+const normalizedLegacyDraft = Reports.migrateStateForRemediation(legacyOnboardingDraft);
+if (
+  Object.prototype.hasOwnProperty.call(
+    normalizedLegacyDraft.entryDrafts.onboarding,
+    "advertisingAllowed",
+  )
+) {
+  throw new Error("Legacy onboarding ad choice survived migration.");
+}
 
 const bridgeMatch = app.match(
   /const NATIVE_BRIDGE_SCRIPT = String\.raw`([\s\S]*?)`;/,
@@ -756,17 +794,52 @@ requireText(html, "buildHistoryBackupParts", "multipart History backup");
 requireText(html, "Payment Allocations", "allocation-detail spreadsheet export");
 requireText(html, "window.GBTNativeReconcileNotifications", "local reminder bridge");
 requireText(html, "const TERMS_VERSION='2026-08-11';", "versioned Terms acceptance");
-requireText(html, "const AD_DISCLOSURE_VERSION='2026-08-11';", "versioned advertising disclosure");
 requireText(html, 'id="onAgeConfirmed" type="checkbox"', "separate adult confirmation");
 requireText(html, 'id="onTermsAccepted" type="checkbox"', "separate Terms and Privacy confirmation");
-requireText(html, 'id="onAdvertisingAllowed" type="checkbox"', "separate optional publisher advertising choice");
 requireText(html, "if(step==='legal'&&(!d.ageConfirmed||!d.termsAccepted))", "mandatory first-run legal gate");
 requireText(html, "next.settings.legalAcceptance=makeLegalAcceptance()", "persisted legal acceptance");
-requireText(html, "next.settings.advertisingConsent=makeAdvertisingConsent(d.advertisingAllowed===true)", "persisted publisher advertising choice");
-requireText(html, "disclosureVersion:AD_DISCLOSURE_VERSION,updatedAt:new Date().toISOString()", "accountable publisher advertising record");
-requireText(html, "function confirmPublisherAdvertisingChoice()", "later publisher advertising confirmation");
-requireText(html, "<p>${tr('onboarding.advertisingChoice')}</p>", "full later publisher advertising disclosure");
-requireText(html, "e.target.checked=false;confirmPublisherAdvertisingChoice()", "publisher advertising opt-in confirmation gate");
+requireText(html, "tr('onboarding.advertisingNotice')", "non-interactive first-run ad disclosure");
+requireText(html, "tr('legal.adSupportedBody')", "static legal advertising disclosure");
+requireText(
+  html,
+  "advertisingPrivacyChoicesRequired?legalRow('privacy-choices'",
+  "UMP-required privacy choices row",
+);
+requireText(html, "delete out.settings.advertisingConsent;", "legacy ad preference removal");
+requireText(
+  html,
+  "delete s.entryDrafts.onboarding.advertisingAllowed;",
+  "legacy onboarding ad preference removal",
+);
+requireText(
+  html,
+  "function criticalAdFlowActive(){return drawerOpen||!adPlacementAllowed()",
+  "drawer-open banner suppression",
+);
+for (const obsolete of [
+  "AD_DISCLOSURE_VERSION",
+  "makeAdvertisingConsent",
+  "publisherAdsAllowed",
+  "normalizeAdvertisingConsent",
+  "onAdvertisingAllowed",
+  "advertisingPermissionSetting",
+  "savePublisherAdvertisingChoice",
+  "confirmPublisherAdvertisingChoice",
+  "confirm-publisher-ads",
+  "privacyChoicesAdsOff",
+  "onboarding.advertisingChoice",
+  "publisher-ad-choice",
+  "ADS_REMOVED",
+  "ads-removed",
+]) {
+  forbidText(html, obsolete, "obsolete free ad-off path");
+}
+if ((html.split("advertisingConsent").length - 1) !== 1) {
+  throw new Error("advertisingConsent must remain only as a migration deletion.");
+}
+if ((html.split("advertisingAllowed").length - 1) !== 2) {
+  throw new Error("advertisingAllowed must remain only in migration deletions.");
+}
 requireText(html, "renderTermsReaccept()", "material Terms reacceptance gate");
 requireText(html, "window.GBTNativeClearAppData", "acknowledged native Clear All bridge");
 requireText(html, "localStorage.removeItem(key);if(localStorage.getItem(key)!==null)return false;", "verified legacy tracker deletion");
@@ -792,8 +865,8 @@ requireText(
   "ad-aware Help scrolling",
 );
 for (const [label, value, expectedOccurrences] of [
-  ["English disclosure", "Independent local-first tracker. No account, profile, or publisher-operated analytics or telemetry. Core tracker data is stored in the app on this device and is not uploaded to an operator-controlled server; exports and device backups are explained in the Privacy Policy. If you allow limited, non-personalized ads, Google may process device and advertising data as explained in the Privacy Policy. The app never asks for an EBT/WIC PIN or connects to a government benefit account.", 2],
-  ["Puerto Rico Spanish disclosure", "Rastreador independiente y local. No requiere cuenta ni perfil y no contiene analítica o telemetría operada por el editor. Los datos principales del rastreador se almacenan en la aplicación en este dispositivo y no se cargan a un servidor controlado por el operador; las exportaciones y copias de seguridad se explican en la Política de Privacidad. Si permites anuncios limitados y no personalizados, Google puede procesar datos del dispositivo y de publicidad según se explica en la Política de Privacidad. La aplicación nunca solicita un PIN de EBT/WIC ni se conecta a una cuenta gubernamental de beneficios.", 2],
+  ["English disclosure", "Independent local-first tracker. No account, profile, or publisher-operated analytics or telemetry. Core tracker data is stored in the app on this device and is not uploaded to an operator-controlled server; exports and device backups are explained in the Privacy Policy. The free app displays a limited number of non-personalized banner ads. Google may process device and advertising data as explained in the Privacy Policy. The app never asks for an EBT/WIC PIN or connects to a government benefit account.", 2],
+  ["Puerto Rico Spanish disclosure", "Rastreador independiente y local. No requiere cuenta ni perfil y no contiene analítica o telemetría operada por el editor. Los datos principales del rastreador se almacenan en la aplicación en este dispositivo y no se cargan a un servidor controlado por el operador; las exportaciones y copias de seguridad se explican en la Política de Privacidad. La aplicación gratuita muestra una cantidad limitada de anuncios de banner no personalizados. Google puede procesar datos del dispositivo y de publicidad según se explica en la Política de Privacidad. La aplicación nunca solicita un PIN de EBT/WIC ni se conecta a una cuenta gubernamental de beneficios.", 2],
   ["English Privacy supplement", "Locally entered balances, benefits, grocery items, budgets, and History are not sent as ad parameters.", 2],
   ["Puerto Rico Spanish Privacy supplement", "No hay cuenta ni perfil. Los saldos, beneficios, artículos, presupuestos e Historial introducidos localmente no se envían como parámetros publicitarios.", 2],
   ["English independence copy", "Independent app—not affiliated with or endorsed by USDA/FNS, Puerto Rico ADSEF, any SNAP/PAN or WIC agency, retailer, or card issuer. It does not provide official balances, eligibility decisions, retailer acceptance, or product authorization. Official sources control.", 3],
@@ -842,11 +915,30 @@ requireText(app, "requestNonPersonalizedAdsOnly: true", "non-personalized reques
 requireText(app, "AdsConsent.gatherConsent()", "UMP consent update");
 requireText(app, "AdsConsent.getConsentInfo()", "cached UMP consent check");
 requireText(app, 'type: "legal-ready"; ready: boolean', "native legal-readiness bridge");
-requireText(app, 'type: "publisher-ad-choice"; allowed: boolean', "publisher advertising bridge");
-requireText(app, '!publisherAdsAllowed ||', "publisher-choice UMP block");
-requireText(app, 'if (legalReady && publisherAdsAllowed) void showPrivacyChoices();', "privacy-choice legal and publisher gate");
+requireText(app, 'if (legalReady && privacyChoicesRequired) void showPrivacyChoices();', "UMP-required privacy-choice gate");
 requireText(app, "const showBanner =\n    legalReady &&", "banner legal gate");
-requireText(app, "legalReady &&\n    publisherAdsAllowed &&", "banner publisher-choice gate");
+requireText(app, 'consentState === "permitted"', "banner UMP gate");
+requireText(
+  app,
+  "AdsConsentPrivacyOptionsRequirementStatus.REQUIRED",
+  "UMP privacy-options requirement status",
+);
+for (const obsolete of ["publisherAdsAllowed", "setPublisherAdsAllowed", "publisher-ad-choice"]) {
+  forbidText(app, obsolete, "obsolete native free ad-off path");
+}
+if ((app.match(/<BannerAd\b/g) || []).length !== 1) {
+  throw new Error("The release must render exactly one fixed banner component.");
+}
+if ((app.match(/requestNonPersonalizedAdsOnly: true/g) || []).length !== 1) {
+  throw new Error("The release must make exactly one non-personalized banner request.");
+}
+requireText(app, "left: 0,\n    right: 0,", "unclipped 320-point banner host");
+for (const unsupportedFormat of ["InterstitialAd", "RewardedAd", "RewardedInterstitialAd", "AppOpenAd"]) {
+  forbidText(app, unsupportedFormat, "unsupported ad format");
+}
+forbidText(app, "AppTrackingTransparency", "tracking-free wrapper");
+forbidText(app, "requestTrackingAuthorization", "tracking-free wrapper");
+forbidText(app, "ATTrackingManager", "tracking-free wrapper");
 requireText(app, "startAdsIfAllowed", "shared consent ad gate");
 requireText(app, "await ensureAdsInitialized()", "idempotent SDK initialization");
 requireText(app, "await mobileAds().initialize()", "SDK initialization");
@@ -893,14 +985,13 @@ if (
   gatherIndex < 0 ||
   gatherEffectIndex < 0 ||
   !gatherGateSource.includes("!legalReady") ||
-  !gatherGateSource.includes("!publisherAdsAllowed") ||
   !gatherGateSource.includes('consentState !== "unresolved"') ||
   sharedGateIndex < gatherIndex
 ) {
   throw new Error("The initial UMP update does not gate SDK initialization.");
 }
 if ((app.match(/AdsConsent\.gatherConsent\(\)/g) || []).length !== 1) {
-  throw new Error("UMP gathering must have one publisher-gated entry point.");
+  throw new Error("UMP gathering must have one legal-gated entry point.");
 }
 if ((app.match(/startAdsIfAllowed\(/g) || []).length < 2) {
   throw new Error("Every UMP consent path must use the shared initialization gate.");
@@ -922,7 +1013,7 @@ if (delegate.indexOf("configureAdvertisingPrivacy()") > delegate.indexOf("factor
 
 requireText(plist, TEST_APP_ID, "Info.plist test app ID");
 if (!/<key>GADDelayAppMeasurementInit<\/key>\s*<true\s*\/>/.test(plist)) {
-  throw new Error("Info.plist must delay Google app measurement until publisher advertising is enabled.");
+  throw new Error("Info.plist must delay Google app measurement until UMP permits ad requests.");
 }
 requireText(plist, "<key>SKAdNetworkItems</key>", "Info.plist SKAdNetwork list");
 forbidText(plist, "NSUserTrackingUsageDescription", "non-tracking test build");
