@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 
 const EXPECTED_HTML_SHA256 =
-  "875d52cb6773cd4a29def9d0f444e4d821334de15f5ed0985c4928f8fbd9d120";
+  "e233e8ebaf0b33c11ca4705ac304b64707b7df2023de039c8f69df8079ab245f";
 const EXPECTED_ICON_SHA256 =
   "a2893e96e83fed237c7063747c1f41c10c30ea85e3911149c13b02bfa861f808";
 const EXPECTED_BRAND_LOGO_SHA256 =
@@ -773,6 +773,36 @@ requireText(html, "localStorage.removeItem(key);if(localStorage.getItem(key)!==n
 requireText(html, "await reconcileNativeReminders()", "Clear All failure reminder rollback");
 requireText(html, "surviving temporary export-cache copies", "Clear All native-cache boundary");
 requireText(html, "Masking hides financial amounts and WIC quantities only.", "masked-report scope warning");
+const helpStart = html.indexOf("function renderHelp(){");
+const helpEnd = html.indexOf("\n\nfunction initialOnboardingDraft", helpStart);
+if (helpStart < 0 || helpEnd <= helpStart) {
+  throw new Error("Help renderer boundaries are missing.");
+}
+const helpSource = html.slice(helpStart, helpEnd);
+requireText(helpSource, 'id="helpDisclaimer"', "Help disclosure destination");
+if ((helpSource.split("tr('app.disclaimer')").length - 1) !== 1) {
+  throw new Error("Help must render the canonical disclosure exactly once.");
+}
+forbidText(html, 'id="drawerDisclaimer"', "ad-adjacent drawer disclosure");
+forbidText(html, "el('drawerDisclaimer')", "drawer disclosure locale binding");
+forbidText(html, ".drawer-note{", "obsolete drawer disclosure styling");
+requireText(
+  html,
+  ".main{padding-bottom:calc(var(--ad-nav-height) + var(--ad-visible-height) + var(--ad-visible-separator-height) + var(--ad-content-gap))!important}",
+  "ad-aware Help scrolling",
+);
+for (const [label, value] of [
+  ["English disclosure", "Independent local-first tracker. No account, profile, or publisher-operated analytics or telemetry. Core tracker data is stored in the app on this device and is not uploaded to an operator-controlled server; exports and device backups are explained in the Privacy Policy. If you allow limited, non-personalized ads, Google may process device and advertising data as explained in the Privacy Policy. The app never asks for an EBT/WIC PIN or connects to a government benefit account."],
+  ["Puerto Rico Spanish disclosure", "Rastreador independiente y local. No requiere cuenta ni perfil y no contiene analítica o telemetría operada por el editor. Los datos principales del rastreador se almacenan en la aplicación en este dispositivo y no se cargan a un servidor controlado por el operador; las exportaciones y copias de seguridad se explican en la Política de Privacidad. Si permites anuncios limitados y no personalizados, Google puede procesar datos del dispositivo y de publicidad según se explica en la Política de Privacidad. La aplicación nunca solicita un PIN de EBT/WIC ni se conecta a una cuenta gubernamental de beneficios."],
+  ["English Privacy supplement", "Locally entered balances, benefits, grocery items, budgets, and History are not sent as ad parameters."],
+  ["Puerto Rico Spanish Privacy supplement", "No hay cuenta ni perfil. Los saldos, beneficios, artículos, presupuestos e Historial introducidos localmente no se envían como parámetros publicitarios."],
+  ["English independence copy", "Independent app—not affiliated with or endorsed by USDA/FNS, Puerto Rico ADSEF, any SNAP/PAN or WIC agency, retailer, or card issuer. It does not provide official balances, eligibility decisions, retailer acceptance, or product authorization. Official sources control."],
+  ["Puerto Rico Spanish independence copy", "Aplicación independiente: no está afiliada ni respaldada por USDA/FNS, ADSEF de Puerto Rico, una agencia de SNAP/PAN o WIC, un comercio ni un emisor de tarjeta. No ofrece saldos oficiales, decisiones de elegibilidad, aceptación de comercios ni autorización de productos. Prevalecen las fuentes oficiales."],
+]) {
+  if ((html.split(value).length - 1) !== 2) {
+    throw new Error(`${label} must remain synchronized across both catalogs.`);
+  }
+}
 requireText(html, "No account, profile, or publisher-operated analytics or telemetry.", "qualified local-first disclosure");
 forbidText(html, "anonymousReport", "overbroad report anonymity claim");
 forbidText(html, "Anonymous report", "overbroad report anonymity claim");
