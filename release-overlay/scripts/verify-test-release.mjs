@@ -3,13 +3,16 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 
 const EXPECTED_HTML_SHA256 =
-  "1a6ecf376b5f21080ce0dfa87dc23cd29997420f3f6ece78aeb5bbb1ebe232d0";
+  "ea16d0b85d2af1acaf7eb7815a29c754b65a325946ee4848f880323a7b89cfc9";
 const EXPECTED_ICON_SHA256 =
-  "83ca4ce7eea1f53ba1891cfa1b736c447f55991aa3730566b0bd374c73ba6fa3";
+  "88b51e4aa77faa69e6d25d97ef39aa9a764056c9649dba6f7cc030c7277af40a";
+const EXPECTED_BRAND_LOGO_SHA256 =
+  "f4ad148082f99f49b0efa98fca831894d8a27a1e92b9548e287c3fe1b9fa4d51";
 const TEST_APP_ID = "ca-app-pub-3940256099942544~1458002511";
 const TEST_BANNER_ID = "ca-app-pub-3940256099942544/2934735716";
 
 const read = (path) => readFile(path, "utf8");
+const readBytes = (path) => readFile(path);
 const sha256 = (value) =>
   createHash("sha256").update(value).digest("hex");
 
@@ -25,7 +28,7 @@ function forbidText(haystack, needle, label) {
   }
 }
 
-const [html, app, delegate, plist, embedded, packageJson, packageLock, skadText, iconBase64] =
+const [html, app, delegate, plist, embedded, packageJson, packageLock, skadText, iconBase64, brandLogo] =
   await Promise.all([
     read("app.html"),
     read("App.tsx"),
@@ -36,6 +39,7 @@ const [html, app, delegate, plist, embedded, packageJson, packageLock, skadText,
     read("package-lock.json"),
     read("ios/skadnetwork-ids.txt"),
     read("assets/app-icon.png.base64"),
+    readBytes("assets/brand-logo-ui.png"),
   ]);
 
 if (sha256(html) !== EXPECTED_HTML_SHA256) {
@@ -46,6 +50,25 @@ requireText(
   `export const APP_HTML_SHA256 = "${EXPECTED_HTML_SHA256}";`,
   "embedded source",
 );
+requireText(html, 'ICONS.brandLogo=`<img src="assets/brand-logo-ui.png"', "brand logo source");
+requireText(html, '${ICONS.brandLogo}', "onboarding brand logo");
+requireText(
+  html,
+  ".drawer{width:min(88vw,360px);background:#f7f7fa;box-shadow:none;",
+  "closed drawer shadow",
+);
+requireText(
+  html,
+  ".drawer.open{box-shadow:20px 0 60px rgba(0,0,0,.18)}",
+  "open drawer shadow",
+);
+if ((html.match(/assets\/brand-logo-ui\.png/g) || []).length !== 1) {
+  throw new Error("The canonical web app must reference the brand logo exactly once.");
+}
+if ((embedded.match(/data:image\/png;base64,/g) || []).length !== 1) {
+  throw new Error("The native embedded app must inline the reviewed brand logo exactly once.");
+}
+forbidText(embedded, "assets/brand-logo-ui.png", "native embedded brand logo");
 
 const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)];
 if (scripts.length < 2) throw new Error("Expected multiple inline application scripts.");
@@ -828,6 +851,9 @@ if (parsedLock.packages?.["node_modules/expo-notifications"]?.version !== "57.0.
 const iconBytes = Buffer.from(iconBase64.replace(/\s/g, ""), "base64");
 if (sha256(iconBytes) !== EXPECTED_ICON_SHA256) {
   throw new Error("The reviewed App Store icon digest changed.");
+}
+if (sha256(brandLogo) !== EXPECTED_BRAND_LOGO_SHA256) {
+  throw new Error("The reviewed in-app brand logo digest changed.");
 }
 
 console.log(
