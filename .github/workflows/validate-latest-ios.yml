@@ -68,12 +68,23 @@ jobs:
             "$app_root/ios/SNAPEBTGroceryTrackerQA/Supporting/es-PR.lproj/InfoPlist.strings"
           cp release-overlay/assets/app-icon.png.base64 \
             "$app_root/assets/app-icon.png.base64"
+          cp release-overlay/assets/brand-logo-ui.png \
+            "$app_root/assets/brand-logo-ui.png"
+          cp release-overlay/assets/brand-logo-master.jpeg \
+            "$app_root/assets/brand-logo-master.jpeg"
           cp release-overlay/scripts/embed-web-app.mjs \
             "$app_root/scripts/embed-web-app.mjs"
           cp release-overlay/scripts/configure-ios-test.sh \
             "$app_root/scripts/configure-ios-test.sh"
           cp release-overlay/scripts/verify-test-release.mjs \
             "$app_root/scripts/verify-test-release.mjs"
+          test -d "$app_root/tests"
+          cp release-overlay/tests/App.ui.test.tsx \
+            "$app_root/tests/App.ui.test.tsx"
+
+          test -d "$app_root/src"
+          rm -f "$app_root/src/billing.ts"
+          test ! -e "$app_root/src/billing.ts"
 
           cd "$app_root"
           node scripts/embed-web-app.mjs app.html src/appHtml.ts
@@ -95,6 +106,8 @@ jobs:
           set -euo pipefail
           cd "$APP_ROOT"
           npm run typecheck
+          npm run test:logic
+          npm run test:ui
           node scripts/verify-test-release.mjs
           ruby -c "$GITHUB_WORKSPACE/release-overlay/scripts/app-store-connect-jwt.rb"
 
@@ -139,6 +152,8 @@ jobs:
           shasum -a 256 "$artifact_zip" > "$artifact_zip.sha256"
           /usr/libexec/PlistBuddy -c "Print :GADApplicationIdentifier" \
             "$app_path/Info.plist" | grep -Fx "ca-app-pub-3940256099942544~1458002511"
+          /usr/libexec/PlistBuddy -c "Print :GADDelayAppMeasurementInit" \
+            "$app_path/Info.plist" | grep -Fx "true"
 
       - name: Upload simulator application
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

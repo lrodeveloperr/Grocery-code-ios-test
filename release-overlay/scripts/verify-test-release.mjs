@@ -3,13 +3,18 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 
 const EXPECTED_HTML_SHA256 =
-  "1a6ecf376b5f21080ce0dfa87dc23cd29997420f3f6ece78aeb5bbb1ebe232d0";
+  "875d52cb6773cd4a29def9d0f444e4d821334de15f5ed0985c4928f8fbd9d120";
 const EXPECTED_ICON_SHA256 =
-  "83ca4ce7eea1f53ba1891cfa1b736c447f55991aa3730566b0bd374c73ba6fa3";
+  "a2893e96e83fed237c7063747c1f41c10c30ea85e3911149c13b02bfa861f808";
+const EXPECTED_BRAND_LOGO_SHA256 =
+  "a2893e96e83fed237c7063747c1f41c10c30ea85e3911149c13b02bfa861f808";
+const EXPECTED_BRAND_MASTER_SHA256 =
+  "6dc4daf09634cf419056c20be1ccbcfb3af9694a66909d579194100a1e740ff0";
 const TEST_APP_ID = "ca-app-pub-3940256099942544~1458002511";
 const TEST_BANNER_ID = "ca-app-pub-3940256099942544/2934735716";
 
 const read = (path) => readFile(path, "utf8");
+const readBytes = (path) => readFile(path);
 const sha256 = (value) =>
   createHash("sha256").update(value).digest("hex");
 
@@ -25,7 +30,7 @@ function forbidText(haystack, needle, label) {
   }
 }
 
-const [html, app, delegate, plist, embedded, packageJson, packageLock, skadText, iconBase64] =
+const [html, app, delegate, plist, embedded, packageJson, packageLock, skadText, iconBase64, brandLogo, brandMaster] =
   await Promise.all([
     read("app.html"),
     read("App.tsx"),
@@ -36,6 +41,8 @@ const [html, app, delegate, plist, embedded, packageJson, packageLock, skadText,
     read("package-lock.json"),
     read("ios/skadnetwork-ids.txt"),
     read("assets/app-icon.png.base64"),
+    readBytes("assets/brand-logo-ui.png"),
+    readBytes("assets/brand-logo-master.jpeg"),
   ]);
 
 if (sha256(html) !== EXPECTED_HTML_SHA256) {
@@ -46,6 +53,43 @@ requireText(
   `export const APP_HTML_SHA256 = "${EXPECTED_HTML_SHA256}";`,
   "embedded source",
 );
+requireText(html, '<div class="drawer-logo"><img src="assets/brand-logo-ui.png"', "brand logo source");
+requireText(html, '${ICONS.brandLogo}', "onboarding brand logo");
+requireText(html, "ICONS.brandLogo=brandLogoMount?brandLogoMount.innerHTML:'';", "brand logo reuse");
+requireText(
+  html,
+  ".drawer{width:min(88vw,360px);background:#f7f7fa;box-shadow:none;",
+  "closed drawer shadow",
+);
+requireText(
+  html,
+  ".drawer.open{box-shadow:20px 0 60px rgba(0,0,0,.18)}",
+  "open drawer shadow",
+);
+requireText(
+  html,
+  ".drawer-shade{background:transparent;visibility:hidden;backdrop-filter:none;-webkit-backdrop-filter:none}",
+  "closed drawer shade compositor hardening",
+);
+requireText(
+  app,
+  "automaticallyAdjustContentInsets={false}",
+  "WebView inset hardening",
+);
+if ((app.match(/backgroundColor: "#f2f2f7"/g) || []).length !== 3) {
+  throw new Error("Native root, safe-area, and WebView backgrounds must match the web surface.");
+}
+if ((html.match(/assets\/brand-logo-ui\.png/g) || []).length !== 1) {
+  throw new Error("The canonical web app must reference the brand logo exactly once.");
+}
+if ((embedded.match(/data:image\/png;base64,/g) || []).length !== 1) {
+  throw new Error("The native embedded app must inline the reviewed brand logo exactly once.");
+}
+forbidText(embedded, "assets/brand-logo-ui.png", "native embedded brand logo");
+for (const fingerprint of ["M15 28" + "h34l-4 25H19z", "#ffd" + "66e", "#f39" + "a47", "drawApp" + "BasketLogo"]) {
+  forbidText(html, fingerprint, "legacy colorful basket branding");
+  forbidText(embedded, fingerprint, "embedded legacy colorful basket branding");
+}
 
 const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)];
 if (scripts.length < 2) throw new Error("Expected multiple inline application scripts.");
@@ -711,6 +755,32 @@ requireText(html, "SNAP_ITEM_NOT_ELIGIBLE", "SNAP/PAN eligibility checkout guard
 requireText(html, "buildHistoryBackupParts", "multipart History backup");
 requireText(html, "Payment Allocations", "allocation-detail spreadsheet export");
 requireText(html, "window.GBTNativeReconcileNotifications", "local reminder bridge");
+requireText(html, "const TERMS_VERSION='2026-08-11';", "versioned Terms acceptance");
+requireText(html, "const AD_DISCLOSURE_VERSION='2026-08-11';", "versioned advertising disclosure");
+requireText(html, 'id="onAgeConfirmed" type="checkbox"', "separate adult confirmation");
+requireText(html, 'id="onTermsAccepted" type="checkbox"', "separate Terms and Privacy confirmation");
+requireText(html, 'id="onAdvertisingAllowed" type="checkbox"', "separate optional publisher advertising choice");
+requireText(html, "if(step==='legal'&&(!d.ageConfirmed||!d.termsAccepted))", "mandatory first-run legal gate");
+requireText(html, "next.settings.legalAcceptance=makeLegalAcceptance()", "persisted legal acceptance");
+requireText(html, "next.settings.advertisingConsent=makeAdvertisingConsent(d.advertisingAllowed===true)", "persisted publisher advertising choice");
+requireText(html, "disclosureVersion:AD_DISCLOSURE_VERSION,updatedAt:new Date().toISOString()", "accountable publisher advertising record");
+requireText(html, "function confirmPublisherAdvertisingChoice()", "later publisher advertising confirmation");
+requireText(html, "<p>${tr('onboarding.advertisingChoice')}</p>", "full later publisher advertising disclosure");
+requireText(html, "e.target.checked=false;confirmPublisherAdvertisingChoice()", "publisher advertising opt-in confirmation gate");
+requireText(html, "renderTermsReaccept()", "material Terms reacceptance gate");
+requireText(html, "window.GBTNativeClearAppData", "acknowledged native Clear All bridge");
+requireText(html, "localStorage.removeItem(key);if(localStorage.getItem(key)!==null)return false;", "verified legacy tracker deletion");
+requireText(html, "await reconcileNativeReminders()", "Clear All failure reminder rollback");
+requireText(html, "surviving temporary export-cache copies", "Clear All native-cache boundary");
+requireText(html, "Masking hides financial amounts and WIC quantities only.", "masked-report scope warning");
+requireText(html, "No account, profile, or publisher-operated analytics or telemetry.", "qualified local-first disclosure");
+forbidText(html, "anonymousReport", "overbroad report anonymity claim");
+forbidText(html, "Anonymous report", "overbroad report anonymity claim");
+forbidText(html, "Reporte anónimo", "overbroad report anonymity claim");
+forbidText(html, "Core tracker data stays on this device unless you export it.", "device-backup overstatement");
+forbidText(html, "Los datos principales del rastreador permanecen en este dispositivo salvo que los exportes.", "device-backup overstatement");
+forbidText(html, "Optional permanent Remove Ads", "unshipped purchase claim");
+forbidText(html, "Restore Purchase", "unshipped purchase claim");
 forbidText(html, "USDA/FNA", "agency attribution");
 requireText(html, "if(window.ReactNativeWebView?.postMessage)throw R.err(R.ERROR.SHARE_FAILED", "native blob-navigation fail-close");
 requireText(html, "MAX_PDF_DETAIL_ROWS=2000", "bounded iPhone PDF generation");
@@ -741,6 +811,12 @@ requireText(app, "const AD_SLOT_BOTTOM = 66", "HTML/native banner alignment");
 requireText(app, "requestNonPersonalizedAdsOnly: true", "non-personalized request");
 requireText(app, "AdsConsent.gatherConsent()", "UMP consent update");
 requireText(app, "AdsConsent.getConsentInfo()", "cached UMP consent check");
+requireText(app, 'type: "legal-ready"; ready: boolean', "native legal-readiness bridge");
+requireText(app, 'type: "publisher-ad-choice"; allowed: boolean', "publisher advertising bridge");
+requireText(app, '!publisherAdsAllowed ||', "publisher-choice UMP block");
+requireText(app, 'if (legalReady && publisherAdsAllowed) void showPrivacyChoices();', "privacy-choice legal and publisher gate");
+requireText(app, "const showBanner =\n    legalReady &&", "banner legal gate");
+requireText(app, "legalReady &&\n    publisherAdsAllowed &&", "banner publisher-choice gate");
 requireText(app, "startAdsIfAllowed", "shared consent ad gate");
 requireText(app, "await ensureAdsInitialized()", "idempotent SDK initialization");
 requireText(app, "await mobileAds().initialize()", "SDK initialization");
@@ -753,7 +829,13 @@ requireText(
 requireText(app, "{bannerMounted ? (", "native banner lifecycle gate");
 requireText(app, "type: \"share-file\"", "native file-share bridge");
 requireText(app, "type: \"notifications-reconcile\"", "native notification bridge");
+requireText(app, "type: \"clear-app-data\"", "native Clear All bridge");
 requireText(app, "NOTIFICATIONS_RECONCILED", "native notification acknowledgement");
+requireText(app, "APP_DATA_CLEARED", "native Clear All acknowledgement");
+requireText(app, "window.GBTNativeClearAppDataCompleted", "native Clear All completion callback");
+requireText(app, 'new Directory(Paths.cache, "gbt-share")', "native temporary export-cache root");
+requireText(app, "purgeShareCacheRoot()", "native temporary export-cache purge");
+requireText(app, "await cancelOwnedScheduledReminders()", "native owned-reminder purge");
 requireText(app, 'type ReminderKind = "snap-balance" | "wic-review" | "wic-expiry"', "bounded local reminder kinds");
 requireText(app, "requestId?: string", "native file-share acknowledgement ID");
 requireText(app, "window.GBTNativeShareCompleted", "native file-share acknowledgement");
@@ -774,9 +856,21 @@ forbidText(app, '"data:*"', "WebView origin allowlist");
 forbidText(app, "Buffer.from", "native export memory duplication");
 
 const gatherIndex = app.indexOf("AdsConsent.gatherConsent()");
+const gatherEffectIndex = app.lastIndexOf("useEffect(() => {", gatherIndex);
+const gatherGateSource = app.slice(gatherEffectIndex, gatherIndex);
 const sharedGateIndex = app.indexOf("startAdsIfAllowed(reportedCanRequestAds)", gatherIndex);
-if (gatherIndex < 0 || sharedGateIndex < gatherIndex) {
+if (
+  gatherIndex < 0 ||
+  gatherEffectIndex < 0 ||
+  !gatherGateSource.includes("!legalReady") ||
+  !gatherGateSource.includes("!publisherAdsAllowed") ||
+  !gatherGateSource.includes('consentState !== "unresolved"') ||
+  sharedGateIndex < gatherIndex
+) {
   throw new Error("The initial UMP update does not gate SDK initialization.");
+}
+if ((app.match(/AdsConsent\.gatherConsent\(\)/g) || []).length !== 1) {
+  throw new Error("UMP gathering must have one publisher-gated entry point.");
 }
 if ((app.match(/startAdsIfAllowed\(/g) || []).length < 2) {
   throw new Error("Every UMP consent path must use the shared initialization gate.");
@@ -797,6 +891,9 @@ if (delegate.indexOf("configureAdvertisingPrivacy()") > delegate.indexOf("factor
 }
 
 requireText(plist, TEST_APP_ID, "Info.plist test app ID");
+if (!/<key>GADDelayAppMeasurementInit<\/key>\s*<true\s*\/>/.test(plist)) {
+  throw new Error("Info.plist must delay Google app measurement until publisher advertising is enabled.");
+}
 requireText(plist, "<key>SKAdNetworkItems</key>", "Info.plist SKAdNetwork list");
 forbidText(plist, "NSUserTrackingUsageDescription", "non-tracking test build");
 forbidText(plist, "WKAppBoundDomains", "Google Mobile Ads compatibility");
@@ -818,6 +915,23 @@ if (parsedPackage.dependencies?.["react-native-google-mobile-ads"] !== "16.4.0")
 if (parsedPackage.dependencies?.["expo-notifications"] !== "~57.0.10") {
   throw new Error("expo-notifications must stay compatible with Expo 57.");
 }
+for (const dependency of ["expo-iap", "react-native-iap"]) {
+  if (parsedPackage.dependencies?.[dependency] || parsedPackage.devDependencies?.[dependency]) {
+    throw new Error(`${dependency} is not shipped in the no-purchase release.`);
+  }
+  if (parsedLock.packages?.[`node_modules/${dependency}`]) {
+    throw new Error(`The lockfile still contains unshipped ${dependency}.`);
+  }
+}
+
+const appConfig = JSON.parse(await read("app.json"));
+const configuredPlugins = appConfig?.expo?.plugins || [];
+for (const plugin of configuredPlugins) {
+  const pluginName = Array.isArray(plugin) ? plugin[0] : plugin;
+  if (pluginName === "expo-iap" || pluginName === "react-native-iap") {
+    throw new Error(`Legacy IAP config plugin remains configured: ${pluginName}`);
+  }
+}
 if (parsedLock.packages?.["node_modules/react-native-google-mobile-ads"]?.version !== "16.4.0") {
   throw new Error("The lockfile does not pin react-native-google-mobile-ads 16.4.0.");
 }
@@ -828,6 +942,15 @@ if (parsedLock.packages?.["node_modules/expo-notifications"]?.version !== "57.0.
 const iconBytes = Buffer.from(iconBase64.replace(/\s/g, ""), "base64");
 if (sha256(iconBytes) !== EXPECTED_ICON_SHA256) {
   throw new Error("The reviewed App Store icon digest changed.");
+}
+if (sha256(brandLogo) !== EXPECTED_BRAND_LOGO_SHA256) {
+  throw new Error("The reviewed in-app brand logo digest changed.");
+}
+if (sha256(brandMaster) !== EXPECTED_BRAND_MASTER_SHA256) {
+  throw new Error("The exact user-supplied brand master digest changed.");
+}
+if (!iconBytes.equals(brandLogo)) {
+  throw new Error("The App Store icon and in-app brand image must use the same reviewed derivative.");
 }
 
 console.log(
