@@ -2,6 +2,7 @@
 set -euo pipefail
 
 app_root="${1:-.}"
+app_json_path="$app_root/app.json"
 target_name="SNAPEBTGroceryTrackerQA"
 plist_path="$app_root/ios/$target_name/Info.plist"
 skad_ids_path="$app_root/ios/skadnetwork-ids.txt"
@@ -11,8 +12,29 @@ plist_buddy="/usr/libexec/PlistBuddy"
 
 test_app_id="ca-app-pub-3940256099942544~1458002511"
 
-if [[ ! -f "$plist_path" || ! -f "$skad_ids_path" || ! -f "$icon_b64_path" ]]; then
+if [[ ! -f "$app_json_path" || ! -f "$plist_path" || ! -f "$skad_ids_path" || ! -f "$icon_b64_path" ]]; then
   echo "Required iOS test-release inputs are missing." >&2
+  exit 1
+fi
+
+# The current release has no purchases or IAP dependency. Remove the legacy
+# config plugin from the frozen native source before Expo generates its
+# Constants manifest during the Xcode build.
+node - "$app_json_path" <<'NODE'
+const fs = require("node:fs");
+const path = process.argv[2];
+const document = JSON.parse(fs.readFileSync(path, "utf8"));
+const plugins = document?.expo?.plugins;
+if (!Array.isArray(plugins)) throw new Error("app.json expo.plugins is missing");
+document.expo.plugins = plugins.filter((plugin) => {
+  const name = Array.isArray(plugin) ? plugin[0] : plugin;
+  return name !== "expo-iap" && name !== "react-native-iap";
+});
+fs.writeFileSync(path, `${JSON.stringify(document, null, 2)}\n`);
+NODE
+
+if grep -Eq 'expo-iap|react-native-iap' "$app_json_path"; then
+  echo "Legacy IAP config plugin remains in app.json." >&2
   exit 1
 fi
 

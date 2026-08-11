@@ -923,6 +923,15 @@ for (const dependency of ["expo-iap", "react-native-iap"]) {
     throw new Error(`The lockfile still contains unshipped ${dependency}.`);
   }
 }
+
+const appConfig = JSON.parse(fs.readFileSync("app.json", "utf8"));
+const configuredPlugins = appConfig?.expo?.plugins || [];
+for (const plugin of configuredPlugins) {
+  const pluginName = Array.isArray(plugin) ? plugin[0] : plugin;
+  if (pluginName === "expo-iap" || pluginName === "react-native-iap") {
+    throw new Error(`Legacy IAP config plugin remains configured: ${pluginName}`);
+  }
+}
 if (parsedLock.packages?.["node_modules/react-native-google-mobile-ads"]?.version !== "16.4.0") {
   throw new Error("The lockfile does not pin react-native-google-mobile-ads 16.4.0.");
 }
