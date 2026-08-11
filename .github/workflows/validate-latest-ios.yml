@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "release-overlay/**"
+      - "SNAP-EBT-Grocery-Tracker-iOS-QA-Source-v1.0.0.zip"
       - ".github/workflows/validate-latest-ios.yml"
       - ".github/workflows/upload-testflight-test-ads.yml"
   workflow_dispatch:
@@ -28,7 +29,6 @@ jobs:
       EXPO_PUBLIC_AD_PROFILE: test
       EXPO_PUBLIC_IOS_ADMOB_BANNER_ID: ""
       EXPO_PUBLIC_BUILD_PROFILE: qa
-      EXPO_PUBLIC_QA_PURCHASES: "0"
       SOURCE_ZIP: SNAP-EBT-Grocery-Tracker-iOS-QA-Source-v1.0.0.zip
       SOURCE_ZIP_SHA256: 23d938c18df0e185e54946759a3075ef42ce2a6cbc3a0bff99b3a085387e4fcd
 
@@ -78,6 +78,8 @@ jobs:
             "$app_root/scripts/configure-ios-test.sh"
           cp release-overlay/scripts/verify-test-release.mjs \
             "$app_root/scripts/verify-test-release.mjs"
+          cp release-overlay/scripts/finalize-ios-notices.mjs \
+            "$app_root/scripts/finalize-ios-notices.mjs"
           test -d "$app_root/tests"
           cp release-overlay/tests/App.ui.test.tsx \
             "$app_root/tests/App.ui.test.tsx"
@@ -85,6 +87,8 @@ jobs:
           test -d "$app_root/src"
           rm -f "$app_root/src/billing.ts"
           test ! -e "$app_root/src/billing.ts"
+          cp release-overlay/src/removeAdsPurchase.ts \
+            "$app_root/src/removeAdsPurchase.ts"
 
           cd "$app_root"
           node scripts/embed-web-app.mjs app.html src/appHtml.ts
@@ -99,6 +103,10 @@ jobs:
           node --version
           npm --version
           npm ci --no-audit --no-fund
+          mkdir -p ../legal-pages-final
+          npm run generate:notices
+          grep -Fq -- 'expo-iap@5.2.4' THIRD_PARTY_NOTICES.txt
+          grep -Fq -- 'expo-iap@5.2.4' src/thirdPartyNotices.ts
 
       - name: Verify source, privacy gates, and bridges
         shell: bash
@@ -119,6 +127,11 @@ jobs:
           set -euo pipefail
           cd "$APP_ROOT/ios"
           pod install --repo-update
+          grep -Fq 'ExpoIap (5.2.4)' Podfile.lock
+          grep -Fq 'openiap (3.1.1)' Podfile.lock
+          node "$APP_ROOT/scripts/finalize-ios-notices.mjs"
+          grep -Fq 'iOS CocoaPods acknowledgements' "$APP_ROOT/THIRD_PARTY_NOTICES.txt"
+          grep -Fqi 'openiap' "$APP_ROOT/src/thirdPartyNotices.ts"
 
       - name: Compile release app for iOS Simulator
         shell: bash
