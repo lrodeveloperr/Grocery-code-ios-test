@@ -18,6 +18,8 @@ fi
 
 "$plist_buddy" -c "Set :CFBundleDisplayName SNAP-EBT & WIC Tracker QA" "$plist_path"
 "$plist_buddy" -c "Set :GADApplicationIdentifier $test_app_id" "$plist_path"
+"$plist_buddy" -c "Delete :GADDelayAppMeasurementInit" "$plist_path" 2>/dev/null || true
+"$plist_buddy" -c "Add :GADDelayAppMeasurementInit bool true" "$plist_path"
 "$plist_buddy" -c "Delete :NSUserTrackingUsageDescription" "$plist_path" 2>/dev/null || true
 "$plist_buddy" -c "Delete :WKAppBoundDomains" "$plist_path" 2>/dev/null || true
 "$plist_buddy" -c "Delete :SKAdNetworkItems" "$plist_path" 2>/dev/null || true
@@ -46,4 +48,4 @@ decoded_icon="$RUNNER_TEMP/snap-ebt-wic-app-icon.png"
 /usr/bin/sips -z 528 528 "$decoded_icon" \
   --out "$asset_root/SplashScreenLogo.imageset/image@3x.png" >/dev/null
 
-echo "Configured official Google test app ID, $skad_index SKAdNetwork IDs, and release artwork."
+echo "Configured delayed Google measurement, official test app ID, $skad_index SKAdNetwork IDs, and release artwork."

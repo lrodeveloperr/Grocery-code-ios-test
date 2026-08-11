@@ -62,6 +62,8 @@ const NativeWebView = PackageWebView as unknown as React.ForwardRefExoticCompone
 
 type BridgeMessage =
   | { type: "bridge-ready" }
+  | { type: "legal-ready"; ready: boolean }
+  | { type: "publisher-ad-choice"; allowed: boolean }
   | { type: "ad-eligibility"; eligible: boolean }
   | {
       type: "ad-presentation";
@@ -84,7 +86,8 @@ type BridgeMessage =
       optedIn?: boolean;
       requestPermission?: boolean;
       reminders?: unknown;
-    };
+    }
+  | { type: "clear-app-data"; requestId?: string };
 
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
@@ -251,6 +254,50 @@ const NATIVE_BRIDGE_SCRIPT = String.raw`
         requestPermission: options.requestPermission === true,
         reminders: options.reminders
       });
+    });
+  };
+
+  const pendingAppDataClears = Object.create(null);
+  let appDataClearInFlight = false;
+  window.GBTNativeClearAppDataCompleted = function (requestId, ok, code, message) {
+    const pending = pendingAppDataClears[String(requestId || "")];
+    if (!pending) return;
+    delete pendingAppDataClears[String(requestId || "")];
+    window.clearTimeout(pending.timeout);
+    appDataClearInFlight = false;
+    if (ok) {
+      pending.resolve({ code: String(code || "APP_DATA_CLEARED") });
+    } else {
+      pending.reject(
+        bridgeError(
+          code || "APP_DATA_CLEAR_FAILED",
+          message || "Native app data could not be cleared"
+        )
+      );
+    }
+  };
+  window.GBTNativeClearAppData = function () {
+    if (appDataClearInFlight) {
+      return Promise.reject(
+        bridgeError("APP_DATA_CLEAR_BUSY", "App data is already being cleared")
+      );
+    }
+    appDataClearInFlight = true;
+    const requestId = "clear-app-data-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+    return new Promise(function (resolve, reject) {
+      const timeout = window.setTimeout(function () {
+        delete pendingAppDataClears[requestId];
+        appDataClearInFlight = false;
+        reject(
+          bridgeError("APP_DATA_CLEAR_TIMEOUT", "The iPhone data service did not respond")
+        );
+      }, 30000);
+      pendingAppDataClears[requestId] = {
+        resolve: resolve,
+        reject: reject,
+        timeout: timeout
+      };
+      post({ type: "clear-app-data", requestId: requestId });
     });
   };
 
@@ -502,6 +549,31 @@ function isOwnedNotification(request: Notifications.NotificationRequest) {
   return request.content.data?.owner === NOTIFICATION_OWNER;
 }
 
+async function cancelOwnedScheduledReminders(keep = new Set<string>()) {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  await Promise.all(
+    scheduled
+      .filter(
+        (request) =>
+          isOwnedNotification(request) && !keep.has(request.identifier),
+      )
+      .map((request) =>
+        Notifications.cancelScheduledNotificationAsync(request.identifier),
+      ),
+  );
+}
+
+function purgeShareCacheRoot() {
+  const shareCacheRoot = new Directory(Paths.cache, "gbt-share");
+  if (shareCacheRoot.exists) shareCacheRoot.delete();
+  if (shareCacheRoot.exists) {
+    throw new NativeBridgeError(
+      "APP_DATA_CACHE_CLEAR_FAILED",
+      "Temporary export files could not be cleared",
+    );
+  }
+}
+
 function notificationsAllowed(
   permission: Notifications.NotificationPermissionsStatus,
 ) {
@@ -541,6 +613,8 @@ export default function App() {
   const adsInitializationRef = useRef<Promise<void> | null>(null);
   const previousWebAdStateRef = useRef("AD_LOADING");
   const [webReady, setWebReady] = useState(false);
+  const [legalReady, setLegalReady] = useState(false);
+  const [publisherAdsAllowed, setPublisherAdsAllowed] = useState(false);
   const [consentState, setConsentState] =
     useState<ConsentState>("unresolved");
   const [adEligible, setAdEligible] = useState(false);
@@ -557,6 +631,11 @@ export default function App() {
   const bannerUnitId = productionAds ? productionBannerId : TestIds.BANNER;
 
   useEffect(() => {
+    try {
+      purgeShareCacheRoot();
+    } catch (error) {
+      console.warn("Stale export cache cleanup failed", error);
+    }
     void Promise.allSettled([
       Notifications.setAutoServerRegistrationEnabledAsync(false),
       Notifications.unregisterForNotificationsAsync(),
@@ -593,6 +672,11 @@ export default function App() {
   );
 
   useEffect(() => {
+    if (
+      !legalReady ||
+      !publisherAdsAllowed ||
+      consentState !== "unresolved"
+    ) return;
     let active = true;
     void (async () => {
       let reportedCanRequestAds = false;
@@ -613,7 +697,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [startAdsIfAllowed]);
+  }, [consentState, legalReady, publisherAdsAllowed, startAdsIfAllowed]);
 
   useEffect(() => {
     if (!adEligible) {
@@ -627,6 +711,7 @@ export default function App() {
   useEffect(() => {
     if (
       nativeAdState !== "failed" ||
+      !publisherAdsAllowed ||
       !adEligible ||
       consentState !== "permitted" ||
       adLoadAttempt >= 2
@@ -642,7 +727,7 @@ export default function App() {
       2000 * 2 ** adLoadAttempt,
     );
     return () => clearTimeout(retryTimer);
-  }, [adEligible, adLoadAttempt, consentState, nativeAdState]);
+  }, [adEligible, adLoadAttempt, consentState, nativeAdState, publisherAdsAllowed]);
 
   useEffect(() => {
     const previous = previousWebAdStateRef.current;
@@ -650,6 +735,7 @@ export default function App() {
     if (
       previous === "AD_TEMPORARILY_HIDDEN" &&
       webAdState !== "AD_TEMPORARILY_HIDDEN" &&
+      publisherAdsAllowed &&
       adEligible &&
       consentState === "permitted"
     ) {
@@ -657,18 +743,18 @@ export default function App() {
       setBannerInstance((instance) => instance + 1);
       setNativeAdState("loading");
     }
-  }, [adEligible, consentState, webAdState]);
+  }, [adEligible, consentState, publisherAdsAllowed, webAdState]);
 
   const syncAdRuntime = useCallback(() => {
     if (!webReady) return;
     const consent =
-      consentState === "permitted"
+      publisherAdsAllowed && consentState === "permitted"
         ? "REQUEST_PERMITTED"
-        : consentState === "blocked"
+        : publisherAdsAllowed && consentState === "blocked"
           ? "REQUEST_BLOCKED"
           : "UNRESOLVED";
     const state =
-      consentState === "blocked" || !adEligible
+      !publisherAdsAllowed || consentState === "blocked" || !adEligible
         ? "AD_DISABLED"
         : nativeAdState === "loaded"
           ? "AD_LOADED"
@@ -691,6 +777,7 @@ export default function App() {
     adEligible,
     consentState,
     nativeAdState,
+    publisherAdsAllowed,
     webReady,
   ]);
 
@@ -811,23 +898,59 @@ export default function App() {
     [],
   );
 
+  const completeNativeAppDataClear = useCallback(
+    (
+      requestId: string | undefined,
+      ok: boolean,
+      code: string,
+      message = "",
+    ) => {
+      if (!requestId) return;
+      webViewRef.current?.injectJavaScript(`
+        window.GBTNativeClearAppDataCompleted?.(
+          ${JSON.stringify(requestId)},
+          ${ok ? "true" : "false"},
+          ${JSON.stringify(code)},
+          ${JSON.stringify(message)}
+        );
+        true;
+      `);
+    },
+    [],
+  );
+
+  const clearNativeAppData = useCallback(
+    async (message: BridgeMessage) => {
+      if (message.type !== "clear-app-data") return;
+      try {
+        await cancelOwnedScheduledReminders();
+        purgeShareCacheRoot();
+        completeNativeAppDataClear(
+          message.requestId,
+          true,
+          "APP_DATA_CLEARED",
+        );
+      } catch (error) {
+        console.error("Native app-data cleanup failed", error);
+        const failure = nativeBridgeFailure(
+          error,
+          "APP_DATA_CLEAR_FAILED",
+          "Native app data could not be cleared",
+        );
+        completeNativeAppDataClear(
+          message.requestId,
+          false,
+          failure.code,
+          failure.message,
+        );
+      }
+    },
+    [completeNativeAppDataClear],
+  );
+
   const reconcileNotifications = useCallback(
     async (message: BridgeMessage) => {
       if (message.type !== "notifications-reconcile") return;
-
-      const cancelOwnedReminders = async (keep = new Set<string>()) => {
-        const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-        await Promise.all(
-          scheduled
-            .filter(
-              (request) =>
-                isOwnedNotification(request) && !keep.has(request.identifier),
-            )
-            .map((request) =>
-              Notifications.cancelScheduledNotificationAsync(request.identifier),
-            ),
-        );
-      };
 
       try {
         if (typeof message.optedIn !== "boolean") {
@@ -837,7 +960,7 @@ export default function App() {
           );
         }
         if (!message.optedIn) {
-          await cancelOwnedReminders();
+          await cancelOwnedScheduledReminders();
           completeNativeNotificationReconcile(
             message.requestId,
             true,
@@ -849,7 +972,7 @@ export default function App() {
 
         const reminders = normalizeReminderSpecs(message.reminders);
         if (!reminders.length) {
-          await cancelOwnedReminders();
+          await cancelOwnedScheduledReminders();
           completeNativeNotificationReconcile(
             message.requestId,
             true,
@@ -908,7 +1031,7 @@ export default function App() {
             },
           });
         }
-        await cancelOwnedReminders(desiredIdentifiers);
+        await cancelOwnedScheduledReminders(desiredIdentifiers);
         completeNativeNotificationReconcile(
           message.requestId,
           true,
@@ -994,6 +1117,19 @@ export default function App() {
         case "bridge-ready":
           setWebReady(true);
           break;
+        case "legal-ready":
+          setLegalReady(Boolean(message.ready));
+          break;
+        case "publisher-ad-choice": {
+          const allowed = Boolean(message.allowed);
+          setPublisherAdsAllowed(allowed);
+          if (!allowed) {
+            setConsentState("unresolved");
+            setNativeAdState("idle");
+            setAdLoadAttempt(0);
+          }
+          break;
+        }
         case "ad-eligibility":
           setAdEligible(Boolean(message.eligible));
           break;
@@ -1001,7 +1137,7 @@ export default function App() {
           setWebAdState(message.state);
           break;
         case "privacy-choices":
-          void showPrivacyChoices();
+          if (legalReady && publisherAdsAllowed) void showPrivacyChoices();
           break;
         case "share-file":
           void shareFile(message);
@@ -1012,9 +1148,12 @@ export default function App() {
         case "notifications-reconcile":
           void reconcileNotifications(message);
           break;
+        case "clear-app-data":
+          void clearNativeAppData(message);
+          break;
       }
     },
-    [reconcileNotifications, shareFile, shareText, showPrivacyChoices],
+    [clearNativeAppData, legalReady, publisherAdsAllowed, reconcileNotifications, shareFile, shareText, showPrivacyChoices],
   );
 
   const openExternalUrl = useCallback((url: string) => {
@@ -1044,6 +1183,8 @@ export default function App() {
     [],
   );
   const showBanner =
+    legalReady &&
+    publisherAdsAllowed &&
     consentState === "permitted" &&
     adEligible &&
     nativeAdState !== "failed";
@@ -1069,6 +1210,7 @@ export default function App() {
           sharedCookiesEnabled={false}
           allowsLinkPreview={false}
           pullToRefreshEnabled={false}
+          automaticallyAdjustContentInsets={false}
           mediaPlaybackRequiresUserAction
           onMessage={onMessage}
           onLoadEnd={() => setWebReady(true)}
@@ -1111,15 +1253,15 @@ export default function App() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#eef6ff",
+    backgroundColor: "#f2f2f7",
   },
   safeArea: {
     flex: 1,
-    backgroundColor: "#eef6ff",
+    backgroundColor: "#f2f2f7",
   },
   webView: {
     flex: 1,
-    backgroundColor: "#eef6ff",
+    backgroundColor: "#f2f2f7",
   },
   bannerOverlay: {
     position: "absolute",

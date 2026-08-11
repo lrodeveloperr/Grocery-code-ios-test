@@ -243,12 +243,21 @@ jobs:
             "$app_root/assets/app-icon.png.base64"
           cp release-overlay/assets/brand-logo-ui.png \
             "$app_root/assets/brand-logo-ui.png"
+          cp release-overlay/assets/brand-logo-master.jpeg \
+            "$app_root/assets/brand-logo-master.jpeg"
           cp release-overlay/scripts/embed-web-app.mjs \
             "$app_root/scripts/embed-web-app.mjs"
           cp release-overlay/scripts/configure-ios-test.sh \
             "$app_root/scripts/configure-ios-test.sh"
           cp release-overlay/scripts/verify-test-release.mjs \
             "$app_root/scripts/verify-test-release.mjs"
+          test -d "$app_root/tests"
+          cp release-overlay/tests/App.ui.test.tsx \
+            "$app_root/tests/App.ui.test.tsx"
+
+          test -d "$app_root/src"
+          rm -f "$app_root/src/billing.ts"
+          test ! -e "$app_root/src/billing.ts"
 
           cd "$app_root"
           node scripts/embed-web-app.mjs app.html src/appHtml.ts
@@ -302,6 +311,8 @@ jobs:
           cd "$APP_ROOT"
           npm ci --no-audit --no-fund
           npm run typecheck
+          npm run test:logic
+          npm run test:ui
           node scripts/verify-test-release.mjs
 
       - name: Install iOS dependencies
@@ -376,6 +387,7 @@ jobs:
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist")" == "$MARKETING_VERSION" ]]
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")" == "$BUILD_NUMBER" ]]
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :GADApplicationIdentifier' "$plist")" == "$GOOGLE_TEST_APP_ID" ]]
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :GADDelayAppMeasurementInit' "$plist")" == "true" ]]
           grep -aFq "$GOOGLE_TEST_BANNER_ID" "$app_path/main.jsbundle"
           grep -aFq 'requestNonPersonalizedAdsOnly' "$app_path/main.jsbundle"
 
@@ -413,4 +425,3 @@ jobs:
             echo
             echo "Wait for Apple processing, then add this build to an internal tester group."
           } >> "$GITHUB_STEP_SUMMARY"
-
