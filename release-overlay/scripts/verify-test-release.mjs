@@ -1010,8 +1010,58 @@ forbidText(drawerSource, "resources", "removed drawer resource destination");
 
 requireText(app, 'const testAds = adProfile === "test";', "explicit test ad profile");
 requireText(app, 'const productionAds = adProfile === "production";', "ad profile gate");
+requireText(
+  app,
+  "process.env.EXPO_PUBLIC_IOS_ADMOB_APP_ID?.trim()",
+  "production AdMob app ID input",
+);
+requireText(
+  app,
+  "process.env.EXPO_PUBLIC_IOS_ADMOB_BANNER_ID?.trim()",
+  "production AdMob banner ID input",
+);
+requireText(
+  app,
+  "process.env.EXPO_PUBLIC_ADMOB_PUBLISHER_ID?.trim()",
+  "approved AdMob publisher ID input",
+);
+requireText(
+  app,
+  "function hasMatchingProductionAdMobIdentifiers(",
+  "production AdMob identifier validator",
+);
+requireText(
+  app,
+  "const appMatch = /^ca-app-pub-(\\d{16})~\\d{10}$/.exec(appId);",
+  "production AdMob app ID format",
+);
+requireText(
+  app,
+  "const bannerMatch = /^ca-app-pub-(\\d{16})\\/\\d{10}$/.exec(bannerId);",
+  "production AdMob banner ID format",
+);
+requireText(
+  app,
+  "/^\\d{16}$/.test(approvedPublisherId)",
+  "approved AdMob publisher ID format",
+);
+requireText(
+  app,
+  "approvedPublisherId !== GOOGLE_DEMO_PUBLISHER_ID",
+  "Google demo publisher rejection",
+);
+requireText(
+  app,
+  "appMatch?.[1] === approvedPublisherId",
+  "production app/publisher ownership match",
+);
+requireText(
+  app,
+  "bannerMatch?.[1] === approvedPublisherId",
+  "production banner/publisher ownership match",
+);
 if (
-  !/const bannerUnitId\s*=\s*testAds\s*\?\s*TestIds\.BANNER\s*:\s*productionAds\s*\?\s*productionBannerId\s*:\s*"";/.test(
+  !/const bannerUnitId\s*=\s*testAds\s*\?\s*TestIds\.BANNER\s*:\s*productionAdsConfigured\s*\?\s*productionBannerId\s*:\s*"";/.test(
     app,
   )
 ) {
@@ -1021,6 +1071,7 @@ if (
 }
 for (const unsafeFallback of [
   "productionAds ? productionBannerId : TestIds.BANNER",
+  ": productionAds\n      ? productionBannerId",
   "if (!productionAds) return ensureAdsInitialized();",
   "{!productionAds ? (",
 ]) {
@@ -1079,6 +1130,16 @@ requireText(
   "unconfigured ad-profile fail-close",
 );
 requireText(app, "if (!adProfileConfigured) return false;", "SDK profile fail-close");
+requireText(
+  app,
+  "if (!productionAdsConfigured) {\n      setPrivacyChoicesRequired(false);",
+  "privacy-options production identifier gate",
+);
+requireText(
+  app,
+  '} catch {\n      setConsentState("blocked");\n      Alert.alert(\n        "Advertising privacy choices"',
+  "privacy-options post-form failure fail-close",
+);
 requireText(app, "return ensureAdsInitialized();", "idempotent SDK initialization");
 requireText(app, "await mobileAds().initialize()", "SDK initialization");
 requireText(
@@ -1132,6 +1193,75 @@ requireText(app, "finishVerifiedRemoveAdsPurchase(purchase)", "delivered transac
 requireText(app, "removeAdsEntitlement === \"not-entitled\"", "native ad entitlement gate");
 requireText(app, "removeAdsReconcileQueueRef.current.then(", "serialized StoreKit entitlement reconciliation");
 requireText(app, "removeAdsDeliveryQueueRef.current.then(", "serialized StoreKit transaction delivery");
+requireText(
+  app,
+  "const STOREKIT_CONNECTION_RETRY_DELAYS_MS = [0, 1000, 3000] as const;",
+  "bounded StoreKit connection retry schedule",
+);
+requireText(
+  app,
+  "const STOREKIT_ENTITLEMENT_RETRY_DELAYS_MS = [0, 500, 2000] as const;",
+  "bounded StoreKit entitlement retry schedule",
+);
+requireText(
+  app,
+  "for (const delay of STOREKIT_CONNECTION_RETRY_DELAYS_MS)",
+  "StoreKit connection retry loop",
+);
+requireText(
+  app,
+  "for (const delay of STOREKIT_ENTITLEMENT_RETRY_DELAYS_MS)",
+  "StoreKit entitlement retry loop",
+);
+requireText(app, "const ensureStoreConnection = () =>", "StoreKit reconnect gate");
+const storeEffectStart = app.indexOf(
+  "useEffect(() => {\n    let active = true;\n    let connectionTask",
+);
+const storeEffectEnd = app.indexOf(
+  "\n\n  const ensureAdsInitialized = useCallback(",
+  storeEffectStart,
+);
+const storeEffectSource = app.slice(storeEffectStart, storeEffectEnd);
+const appStateRetryIndex = storeEffectSource.indexOf("AppState.addEventListener(");
+const initialStoreConnectIndex = storeEffectSource.indexOf(
+  "void ensureStoreConnection();",
+);
+if (
+  storeEffectStart < 0 ||
+  storeEffectEnd <= storeEffectStart ||
+  appStateRetryIndex < 0 ||
+  initialStoreConnectIndex <= appStateRetryIndex
+) {
+  throw new Error(
+    "StoreKit must install its foreground reconnect path before the initial connection attempt.",
+  );
+}
+for (const [needle, label] of [
+  ["if (!connectionTask) {", "single-flight StoreKit reconnect"],
+  ["connectionTask = null;", "StoreKit reconnect task reset"],
+  ['if (active && state === "active") void ensureStoreConnection();', "foreground StoreKit reconnect"],
+  ["appStateSubscription.remove();", "StoreKit foreground-listener cleanup"],
+  ["removeAdsStoreRef.current?.close();", "StoreKit connection cleanup"],
+  ["removeAdsStoreRef.current = null;", "StoreKit connection reference cleanup"],
+]) {
+  requireText(storeEffectSource, needle, label);
+}
+const entitlementRetryStart = app.indexOf(
+  "const reconcileRemoveAdsEntitlement = useCallback(",
+);
+const entitlementRetryEnd = app.indexOf(
+  "\n\n  const deliverRemoveAdsPurchase = useCallback(",
+  entitlementRetryStart,
+);
+const entitlementRetrySource = app.slice(
+  entitlementRetryStart,
+  entitlementRetryEnd,
+);
+requireText(
+  entitlementRetrySource,
+  'removeAdsEntitledRef.current ? "entitled" : "unknown"',
+  "paid-user-preserving StoreKit retry exhaustion state",
+);
 requireText(app, 'purchase.purchaseState !== "purchased"', "non-purchased transaction rejection");
 requireText(app, "isRemoveAdsAlreadyOwned(error)", "already-owned reconciliation");
 requireText(app, "token: ++removeAdsActionSequenceRef.current", "purchase operation ownership token");
@@ -1204,10 +1334,11 @@ const bypassInitIndex = adGateSource.indexOf(
   bypassIndex,
 );
 const infoIndex = adGateSource.indexOf("AdsConsent.getConsentInfo()");
-const assignIndex = adGateSource.indexOf(
-  "canRequestAds = currentInfo.canRequestAds;",
+const infoFailureIndex = adGateSource.indexOf(
+  "} catch {\n        return false;\n      }",
+  infoIndex,
 );
-const rejectIndex = adGateSource.indexOf("!canRequestAds");
+const rejectIndex = adGateSource.indexOf("!currentInfo.canRequestAds");
 const initIndex = adGateSource.lastIndexOf("return ensureAdsInitialized();");
 if (
   !(
@@ -1217,8 +1348,8 @@ if (
     bypassInitIndex > bypassIndex &&
     infoIndex > bypassIndex &&
     infoIndex > bypassInitIndex &&
-    assignIndex > infoIndex &&
-    rejectIndex > assignIndex &&
+    infoFailureIndex > infoIndex &&
+    rejectIndex > infoFailureIndex &&
     initIndex > rejectIndex
   )
 ) {
@@ -1226,11 +1357,17 @@ if (
     "Only test ads may bypass UMP; production must enforce canRequestAds before SDK initialization.",
   );
 }
+forbidText(
+  adGateSource,
+  "reportedCanRequestAds",
+  "caller-supplied UMP permission fallback",
+);
+forbidText(app, "reportedCanRequestAds", "caller-supplied UMP permission fallback");
 
 const gatherIndex = app.indexOf("AdsConsent.gatherConsent()");
 const gatherEffectIndex = app.lastIndexOf("useEffect(() => {", gatherIndex);
 const gatherGateSource = app.slice(gatherEffectIndex, gatherIndex);
-const sharedGateIndex = app.indexOf("startAdsIfAllowed(reportedCanRequestAds)", gatherIndex);
+const sharedGateIndex = app.indexOf("startAdsIfAllowed()", gatherIndex);
 if (
   gatherIndex < 0 ||
   gatherEffectIndex < 0 ||
@@ -1243,13 +1380,13 @@ if (
 }
 if (
   !gatherGateSource.includes("if (testAds)") ||
-  !gatherGateSource.includes("startAdsIfAllowed(true)")
+  !gatherGateSource.includes("startAdsIfAllowed()")
 ) {
   throw new Error(
     "The internal Google demo-ad path is not isolated from publisher UMP.",
   );
 }
-const testStart = gatherGateSource.indexOf("startAdsIfAllowed(true)");
+const testStart = gatherGateSource.indexOf("startAdsIfAllowed()");
 const testReturn = gatherGateSource.indexOf("return;", testStart);
 if (testStart < 0 || testReturn < testStart || gatherIndex < testReturn) {
   throw new Error("The test-ad path does not return before production UMP gathering.");
@@ -1259,6 +1396,11 @@ if ((app.match(/AdsConsent\.gatherConsent\(\)/g) || []).length !== 1) {
 }
 if ((app.match(/startAdsIfAllowed\(/g) || []).length < 2) {
   throw new Error("Every UMP consent path must use the shared initialization gate.");
+}
+for (const match of app.matchAll(/startAdsIfAllowed\(([^)]*)\)/g)) {
+  if (match[1].trim()) {
+    throw new Error("The shared UMP gate must not accept caller-supplied permission state.");
+  }
 }
 
 requireText(

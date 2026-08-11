@@ -52,12 +52,51 @@ test("keeps one non-personalized banner behind StoreKit, legal, and UMP gates", 
   expect(nativeSource).toContain(
     "const adProfileConfigured = testAds || productionAdsConfigured;",
   );
+  expect(nativeSource).toContain(
+    "productionAds &&\n    hasMatchingProductionAdMobIdentifiers(",
+  );
+  expect(nativeSource).toContain(
+    "process.env.EXPO_PUBLIC_IOS_ADMOB_APP_ID?.trim()",
+  );
+  expect(nativeSource).toContain(
+    "process.env.EXPO_PUBLIC_IOS_ADMOB_BANNER_ID?.trim()",
+  );
+  expect(nativeSource).toContain(
+    "process.env.EXPO_PUBLIC_ADMOB_PUBLISHER_ID?.trim()",
+  );
+  const productionIdentifierGate = sourceSection(
+    nativeSource,
+    "function hasMatchingProductionAdMobIdentifiers(",
+    "\n\nNotifications.setNotificationHandler",
+  );
+  expect(productionIdentifierGate).toContain(
+    "approvedPublisherId !== GOOGLE_DEMO_PUBLISHER_ID",
+  );
+  expect(productionIdentifierGate).toContain("/^\\d{16}$/.test(approvedPublisherId)");
+  expect(productionIdentifierGate).toContain(
+    "/^ca-app-pub-(\\d{16})~\\d{10}$/",
+  );
+  expect(productionIdentifierGate).toContain(
+    "/^ca-app-pub-(\\d{16})\\/\\d{10}$/",
+  );
+  expect(productionIdentifierGate).toContain(
+    "appMatch?.[1] === approvedPublisherId",
+  );
+  expect(productionIdentifierGate).toContain(
+    "bannerMatch?.[1] === approvedPublisherId",
+  );
   expect(nativeSource).toContain("if (!adProfileConfigured) return false;");
   expect(nativeSource).not.toContain(
     "productionAds ? productionBannerId : TestIds.BANNER",
   );
   expect(nativeSource).not.toContain(
+    ": productionAds\n      ? productionBannerId",
+  );
+  expect(nativeSource).not.toContain(
     "if (!productionAds) return ensureAdsInitialized();",
+  );
+  expect(nativeSource).toMatch(
+    /const bannerUnitId\s*=\s*testAds\s*\?\s*TestIds\.BANNER\s*:\s*productionAdsConfigured\s*\?\s*productionBannerId\s*:\s*"";/,
   );
 
   const sharedAdGate = sourceSection(
@@ -71,9 +110,11 @@ test("keeps one non-personalized banner behind StoreKit, legal, and UMP gates", 
   expect(sharedAdGate.indexOf("AdsConsent.getConsentInfo()")).toBeGreaterThan(
     sharedAdGate.indexOf("if (!productionAdsConfigured) return false;"),
   );
-  expect(sharedAdGate.indexOf("!canRequestAds")).toBeGreaterThan(
+  expect(sharedAdGate).toContain("} catch {\n        return false;\n      }");
+  expect(sharedAdGate.indexOf("!currentInfo.canRequestAds")).toBeGreaterThan(
     sharedAdGate.indexOf("AdsConsent.getConsentInfo()"),
   );
+  expect(sharedAdGate).not.toContain("reportedCanRequestAds");
 
   const consentEffect = sourceSection(
     nativeSource,
@@ -83,10 +124,15 @@ test("keeps one non-personalized banner behind StoreKit, legal, and UMP gates", 
   expect(consentEffect).toContain("AdsConsent.gatherConsent()");
   expect(consentEffect).toContain("if (!adProfileConfigured)");
   expect(consentEffect).toContain("if (testAds)");
-  expect(consentEffect.indexOf("return;")).toBeLessThan(
-    consentEffect.indexOf("AdsConsent.gatherConsent()"),
+  const testConsentBranch = sourceSection(
+    consentEffect,
+    "      if (testAds) {",
+    "      try {\n        const consent = await AdsConsent.gatherConsent();",
   );
-  expect(consentEffect).toContain("startAdsIfAllowed(reportedCanRequestAds)");
+  expect(testConsentBranch).toContain("startAdsIfAllowed()");
+  expect(testConsentBranch).toContain("return;");
+  expect(consentEffect).toContain("startAdsIfAllowed()");
+  expect(consentEffect).not.toContain("reportedCanRequestAds");
   expect(consentEffect).toContain('removeAdsEntitlement !== "not-entitled"');
   expect(consentEffect).not.toContain("publisher");
 
@@ -116,7 +162,18 @@ test("keeps one non-personalized banner behind StoreKit, legal, and UMP gates", 
   expect(nativeSource).toContain(
     "if (legalReady && privacyChoicesRequired) void showPrivacyChoices();",
   );
-  expect(nativeSource).toContain("if (!productionAds) {");
+  const privacyChoicesGate = sourceSection(
+    nativeSource,
+    "  const showPrivacyChoices = useCallback(async () => {",
+    "  const beginRemoveAdsPurchase = useCallback(async () => {",
+  );
+  expect(privacyChoicesGate).toContain("if (!productionAdsConfigured) {");
+  expect(privacyChoicesGate).toContain(
+    "[productionAdsConfigured, startAdsIfAllowed]",
+  );
+  expect(privacyChoicesGate).toContain(
+    '} catch {\n      setConsentState("blocked");\n      Alert.alert(\n        "Advertising privacy choices"',
+  );
   expect(nativeSource).toContain("{testAds ? (");
   expect(webSource).toContain("window.GBTAdvertisingPrivacyOptions=Object.freeze");
   expect(webSource).toContain(
@@ -140,6 +197,44 @@ test("keeps one non-personalized banner behind StoreKit, legal, and UMP gates", 
   expect(nativeSource).toContain('type: "restore-remove-ads"');
   expect(nativeSource).toContain("readVerifiedRemoveAdsEntitlement()");
   expect(nativeSource).toContain(
+    "const STOREKIT_CONNECTION_RETRY_DELAYS_MS = [0, 1000, 3000] as const;",
+  );
+  expect(nativeSource).toContain(
+    "const STOREKIT_ENTITLEMENT_RETRY_DELAYS_MS = [0, 500, 2000] as const;",
+  );
+  const entitlementReconciliation = sourceSection(
+    nativeSource,
+    "  const reconcileRemoveAdsEntitlement = useCallback(",
+    "  const deliverRemoveAdsPurchase = useCallback(",
+  );
+  expect(entitlementReconciliation).toContain(
+    "for (const delay of STOREKIT_ENTITLEMENT_RETRY_DELAYS_MS)",
+  );
+  expect(entitlementReconciliation).toContain(
+    'removeAdsEntitledRef.current ? "entitled" : "unknown"',
+  );
+  const storeConnectionEffect = sourceSection(
+    nativeSource,
+    "  useEffect(() => {\n    let active = true;\n    let connectionTask",
+    "  const ensureAdsInitialized = useCallback(",
+  );
+  expect(storeConnectionEffect).toContain(
+    "for (const delay of STOREKIT_CONNECTION_RETRY_DELAYS_MS)",
+  );
+  expect(storeConnectionEffect).toContain("const ensureStoreConnection = () =>");
+  expect(storeConnectionEffect).toContain("if (!connectionTask) {");
+  expect(storeConnectionEffect).toContain("connectionTask = null;");
+  expect(storeConnectionEffect).toContain("AppState.addEventListener(");
+  expect(storeConnectionEffect).toContain(
+    'if (active && state === "active") void ensureStoreConnection();',
+  );
+  expect(storeConnectionEffect).toContain("appStateSubscription.remove();");
+  expect(storeConnectionEffect).toContain("removeAdsStoreRef.current?.close();");
+  expect(storeConnectionEffect).toContain("removeAdsStoreRef.current = null;");
+  expect(storeConnectionEffect.indexOf("AppState.addEventListener(")).toBeLessThan(
+    storeConnectionEffect.indexOf("void ensureStoreConnection();"),
+  );
+  expect(nativeSource).toContain(
     'removeAdsEntitlementRef.current !== "not-entitled"',
   );
   expect(nativeSource).toContain("finishVerifiedRemoveAdsPurchase(purchase)");
@@ -151,6 +246,12 @@ test("keeps one non-personalized banner behind StoreKit, legal, and UMP gates", 
   expect(nativeSource).toContain('purchase.purchaseState !== "purchased"');
   expect(nativeSource).toContain("isRemoveAdsAlreadyOwned(error)");
   expect(nativeSource).toContain("onLoadStart={() => setWebReady(false)}");
+  const adGateCalls = Array.from(
+    nativeSource.matchAll(/startAdsIfAllowed\(([^)]*)\)/g),
+    (match) => match[1].trim(),
+  );
+  expect(adGateCalls.length).toBeGreaterThanOrEqual(4);
+  expect(adGateCalls.every((argument) => argument === "")).toBe(true);
   expect(purchaseSource).toContain(
     'export const REMOVE_ADS_PRODUCT_ID = "remove_ads_lifetime";',
   );
