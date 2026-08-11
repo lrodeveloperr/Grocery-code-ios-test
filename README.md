@@ -7,10 +7,13 @@ This private repository contains the iOS build and release overlay for **SNAP-EB
 - Platform: iPhone/iOS
 - Core app: free and ad-supported
 - Advertising: one fixed, non-personalized banner when Google UMP permits an ad request
-- General ad-disable control: none in the free release
+- Remove Ads Forever: one non-consumable App Store purchase, configured at **US$9.99** in the United States storefront
+- Product ID: `remove_ads_forever`
+- Purchase UI: **Remove Ads** is a standalone sidebar destination and displays StoreKit's localized price
+- Restore UI: **Restore Purchase** is always present in Settings
 - Privacy choices: shown only when required by Google UMP; they change advertising data treatment, not banner visibility
-- Remove Ads purchase: not included in this TestFlight release
 - Subscription: none
+- Benefits & Resources directory: not included
 - Account or cloud synchronization: none
 - Core SNAP/PAN, WIC, grocery, budget, History, and report records: local to the device
 
@@ -26,6 +29,12 @@ The active release overlay uses these canonical URLs. The former `SNAP-EBT-Groce
 
 ## Build notes
 
-The repository retains a frozen QA source archive as a build baseline. Current release files in `release-overlay/` supersede conflicting runtime files from that archive. Every release or QA artifact must apply the active overlay and pass `release-overlay/scripts/verify-test-release.mjs`; archived optional-ad controls, simulated-purchase copy, embedded policy text, and legal URLs are not current release requirements.
+The repository retains a frozen QA source archive as a build baseline. Current release files in `release-overlay/` supersede conflicting runtime files from that archive. Every release or QA artifact must apply the active overlay and pass `release-overlay/scripts/verify-test-release.mjs`; archived optional-ad controls, simulated-purchase code, old prices, embedded policy text, and legal URLs are not current release requirements.
+
+The app never hard-codes US$9.99 in its purchase screen. App Store Connect owns the storefront price and StoreKit supplies the localized `displayPrice`. Before upload, App Store app `6799562282` must contain exactly one `NON_CONSUMABLE` product with ID `remove_ads_forever`, the United States price must be set to US$9.99, and the Paid Apps Agreement, tax, banking, localization, and review screenshot must be complete. TestFlight uses Apple's sandbox and does not charge testers.
+
+StoreKit's verified current entitlement is authoritative. A verified purchase or restore removes the banner immediately; cancellation, pending approval, an unverified transaction, or a failed restore never grants the entitlement. Refund or revocation returns the app to the normal UMP-gated banner path. Clear All Data removes tracker data but does not delete an App Store purchase.
+
+Both release workflows regenerate the npm third-party inventory after installing the reviewed lockfile, then append the final CocoaPods acknowledgements before compilation. The gates require `expo-iap@5.2.4`, `ExpoIap (5.2.4)`, and `openiap (3.1.1)` so the StoreKit implementation cannot ship against stale notices.
 
 No Apple certificate, private key, provisioning profile, live advertising identifier, payment credential, or production secret should be committed to this repository.

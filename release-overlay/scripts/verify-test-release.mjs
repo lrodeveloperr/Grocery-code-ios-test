@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 
 const EXPECTED_HTML_SHA256 =
-  "2576d5c9edbd38c9051b3a8963eac889ac10173e437408221bb31740f9c0b730";
+  "2dc58777b855d1dac8c2a7ef2612a8565dbc4db84bfbbfab1754d9afd46684e4";
 const EXPECTED_ICON_SHA256 =
   "a2893e96e83fed237c7063747c1f41c10c30ea85e3911149c13b02bfa861f808";
 const EXPECTED_BRAND_LOGO_SHA256 =
@@ -30,10 +30,12 @@ function forbidText(haystack, needle, label) {
   }
 }
 
-const [html, app, delegate, plist, embedded, packageJson, packageLock, skadText, iconBase64, brandLogo, brandMaster] =
+const [html, app, purchase, iosNotices, delegate, plist, embedded, packageJson, packageLock, skadText, iconBase64, brandLogo, brandMaster] =
   await Promise.all([
     read("app.html"),
     read("App.tsx"),
+    read("src/removeAdsPurchase.ts"),
+    read("scripts/finalize-ios-notices.mjs"),
     read("ios/SNAPEBTGroceryTrackerQA/AppDelegate.swift"),
     read("ios/SNAPEBTGroceryTrackerQA/Info.plist"),
     read("src/appHtml.ts"),
@@ -98,6 +100,54 @@ for (const [index, match] of scripts.entries()) {
     new Function(match[1]);
   } catch (error) {
     throw new Error(`Inline script ${index + 1} failed syntax validation: ${error}`);
+  }
+}
+
+const messagesMarker = "const MESSAGES=";
+const messagesStart = html.indexOf(messagesMarker);
+const messagesEnd = html.indexOf(";\n\nObject.assign(MESSAGES", messagesStart);
+if (messagesStart < 0 || messagesEnd <= messagesStart) {
+  throw new Error("Could not inspect the localization catalogs.");
+}
+const catalogs = JSON.parse(
+  html.slice(messagesStart + messagesMarker.length, messagesEnd),
+);
+const catalogPatchPattern =
+  /Object\.assign\(MESSAGES\['(en-US|es-PR)'\],\s*(\{[\s\S]*?\})\s*\);/g;
+for (const match of html.matchAll(catalogPatchPattern)) {
+  Object.assign(catalogs[match[1]], vm.runInNewContext(`(${match[2]})`));
+}
+const englishKeys = Object.keys(catalogs["en-US"]).sort();
+const spanishKeys = Object.keys(catalogs["es-PR"]).sort();
+if (JSON.stringify(englishKeys) !== JSON.stringify(spanishKeys)) {
+  const english = new Set(englishKeys);
+  const spanish = new Set(spanishKeys);
+  throw new Error(
+    `Localization catalogs differ: missing es-PR=${englishKeys.filter((key) => !spanish.has(key)).join(",")}; missing en-US=${spanishKeys.filter((key) => !english.has(key)).join(",")}`,
+  );
+}
+for (const key of [
+  "drawer.removeAds",
+  "drawer.adsRemoved",
+  "settings.purchases",
+  "purchase.title",
+  "purchase.buyWithPrice",
+  "purchase.restore",
+  "purchase.restoreSuccess",
+  "purchase.restoreNone",
+  "purchase.restoreFailed",
+]) {
+  if (!catalogs["en-US"][key] || !catalogs["es-PR"][key]) {
+    throw new Error(`The bilingual purchase catalog is missing ${key}.`);
+  }
+}
+for (const key of englishKeys) {
+  if (
+    key === "drawer.resources" ||
+    key === "nav.resources" ||
+    key.startsWith("resources.")
+  ) {
+    throw new Error(`Removed Benefits & Resources key remains: ${key}.`);
   }
 }
 
@@ -786,7 +836,7 @@ requireText(html, "moneyPadState.centsShortcutApplied", "idempotent cent shortcu
 requireText(html, "moneyInputAttributes(a.unit==='$'", "conditional WIC dollar keypad");
 requireText(html, "moneyInputAttributes(true,d.priceEntryMode", "transaction price keypad");
 requireText(html, "input.dispatchEvent(new Event('change',{bubbles:true}))", "money keypad change synchronization");
-requireText(html, "function adPlacementAllowed(){return state.route!=='cards'&&!modalState;}", "Cards and modal ad exclusion");
+requireText(html, "function adPlacementAllowed(){return state.route!=='cards'&&state.route!=='removeAds'&&!modalState;}", "Cards, Remove Ads, and modal ad exclusion");
 requireText(html, "window.dispatchEvent(new Event('gbt-ad-presentation-change'))", "immediate ad-placement bridge");
 requireText(html, "window.GBTNativeShareFile(blob,name", "explicit native report-share bridge");
 requireText(html, "SNAP_ITEM_NOT_ELIGIBLE", "SNAP/PAN eligibility checkout guard");
@@ -865,8 +915,8 @@ requireText(
   "ad-aware Help scrolling",
 );
 for (const [label, value, expectedOccurrences] of [
-  ["English disclosure", "Independent local-first tracker. No account, profile, or publisher-operated analytics or telemetry. Core tracker data is stored in the app on this device and is not uploaded to an operator-controlled server; exports and device backups are explained in the Privacy Policy. The free app displays a limited number of non-personalized banner ads. Google may process device and advertising data as explained in the Privacy Policy. The app never asks for an EBT/WIC PIN or connects to a government benefit account.", 2],
-  ["Puerto Rico Spanish disclosure", "Rastreador independiente y local. No requiere cuenta ni perfil y no contiene analítica o telemetría operada por el editor. Los datos principales del rastreador se almacenan en la aplicación en este dispositivo y no se cargan a un servidor controlado por el operador; las exportaciones y copias de seguridad se explican en la Política de Privacidad. La aplicación gratuita muestra una cantidad limitada de anuncios de banner no personalizados. Google puede procesar datos del dispositivo y de publicidad según se explica en la Política de Privacidad. La aplicación nunca solicita un PIN de EBT/WIC ni se conecta a una cuenta gubernamental de beneficios.", 2],
+  ["English disclosure", "Independent local-first tracker. No account, profile, or publisher-operated analytics or telemetry. Core tracker data is stored in the app on this device and is not uploaded to an operator-controlled server; exports and device backups are explained in the Privacy Policy. Without an active one-time Remove Ads purchase, the app displays one fixed non-personalized banner ad. Google may process device and advertising data as explained in the Privacy Policy. The app never asks for an EBT/WIC PIN or connects to a government benefit account.", 2],
+  ["Puerto Rico Spanish disclosure", "Rastreador independiente y local. No requiere cuenta ni perfil y no contiene analítica o telemetría operada por el editor. Los datos principales del rastreador se almacenan en la aplicación en este dispositivo y no se cargan a un servidor controlado por el operador; las exportaciones y copias de seguridad se explican en la Política de Privacidad. Sin una compra única activa para eliminar anuncios, la aplicación muestra un anuncio fijo de banner no personalizado. Google puede procesar datos del dispositivo y de publicidad según se explica en la Política de Privacidad. La aplicación nunca solicita un PIN de EBT/WIC ni se conecta a una cuenta gubernamental de beneficios.", 2],
   ["English Privacy supplement", "Locally entered balances, benefits, grocery items, budgets, and History are not sent as ad parameters.", 2],
   ["Puerto Rico Spanish Privacy supplement", "No hay cuenta ni perfil. Los saldos, beneficios, artículos, presupuestos e Historial introducidos localmente no se envían como parámetros publicitarios.", 2],
   ["English independence copy", "Independent app—not affiliated with or endorsed by USDA/FNS, Puerto Rico ADSEF, any SNAP/PAN or WIC agency, retailer, or card issuer. It does not provide official balances, eligibility decisions, retailer acceptance, or product authorization. Official sources control.", 3],
@@ -882,17 +932,65 @@ forbidText(html, "Anonymous report", "overbroad report anonymity claim");
 forbidText(html, "Reporte anónimo", "overbroad report anonymity claim");
 forbidText(html, "Core tracker data stays on this device unless you export it.", "device-backup overstatement");
 forbidText(html, "Los datos principales del rastreador permanecen en este dispositivo salvo que los exportes.", "device-backup overstatement");
-forbidText(html, "Optional permanent Remove Ads", "unshipped purchase claim");
-forbidText(html, "Restore Purchase", "unshipped purchase claim");
+requireText(html, "window.GBTPurchaseRuntime=Object.freeze", "ephemeral purchase runtime");
+requireText(html, "postPurchaseIntent('purchase-remove-ads')", "purchase intent bridge");
+requireText(html, "postPurchaseIntent('restore-remove-ads')", "restore intent bridge");
+requireText(html, "purchaseRuntime.displayPrice", "StoreKit localized display price");
+requireText(html, "data-action=\"purchase-remove-ads\"", "Remove Ads purchase action");
+if ((html.match(/data-action="restore-remove-ads"/g) || []).length !== 1) {
+  throw new Error("Settings must contain exactly one Restore Purchase action.");
+}
+if ((html.match(/\{route:'removeAds'/g) || []).length !== 1) {
+  throw new Error("The drawer must contain exactly one Remove Ads destination.");
+}
+const removeAdsRendererStart = html.indexOf("function renderRemoveAds(){");
+const settingsRendererStart = html.indexOf("function renderSettings(){");
+const helpRendererStart = html.indexOf("function renderHelp(){");
+if (
+  removeAdsRendererStart < 0 ||
+  settingsRendererStart <= removeAdsRendererStart ||
+  helpRendererStart <= settingsRendererStart
+) {
+  throw new Error("Purchase renderer boundaries are missing.");
+}
+const removeAdsRenderer = html.slice(removeAdsRendererStart, settingsRendererStart);
+const settingsRenderer = html.slice(settingsRendererStart, helpRendererStart);
+if ((removeAdsRenderer.match(/data-action="purchase-remove-ads"/g) || []).length !== 1) {
+  throw new Error("Remove Ads must contain exactly one native purchase action.");
+}
+if ((settingsRenderer.match(/data-action="restore-remove-ads"/g) || []).length !== 1) {
+  throw new Error("Settings must contain exactly one native restore action.");
+}
+for (const removedResource of [
+  "SUPPORT_RESOURCES",
+  "resourceFilters",
+  "renderResources",
+  "drawer.resources",
+  "nav.resources",
+  "resources.subtitle",
+  "resourceSearch",
+  "resource-section",
+  "open-resource",
+  "resources-page",
+  "resource-grid",
+  "resource-card",
+  "{route:'resources'",
+  "Benefits & Resources",
+  "Benefits and Resources",
+  "Beneficios y recursos",
+]) {
+  forbidText(html, removedResource, "removed Benefits & Resources directory");
+}
+for (const priceLiteral of ["$4.99", "$9.99", "$12.99"]) {
+  forbidText(html, priceLiteral, "hard-coded App Store price");
+}
 forbidText(html, "USDA/FNA", "agency attribution");
 requireText(html, "if(window.ReactNativeWebView?.postMessage)throw R.err(R.ERROR.SHARE_FAILED", "native blob-navigation fail-close");
 requireText(html, "MAX_PDF_DETAIL_ROWS=2000", "bounded iPhone PDF generation");
 requireText(html, "if(delta&&!isNew)", "new SNAP opening-balance ledger guard");
 requireText(html, "k==='CHECKOUT'||k==='PURCHASE'", "explicit purchase ledger classification");
 forbidText(html, "errors.push(['itemInput','UNRESOLVED_FUNDING'])", "shop item validation");
-forbidText(html, "openRemoveAdsPurchase", "public test release");
-forbidText(html, "confirm-remove-ads-preview", "public test release");
-forbidText(html, "class=\"remove-ads-row\"", "public test release");
+forbidText(html, "confirm-remove-ads-preview", "simulated purchase path");
 forbidText(html, "haptic(", "haptic-free interface");
 forbidText(html, 'id="hapticSetting"', "haptic-free settings");
 forbidText(html, "navigator.vibrate", "haptic-free web runtime");
@@ -904,6 +1002,8 @@ if (secondaryStart < 0 || secondaryEnd < 0) {
 }
 const drawerSource = html.slice(secondaryStart, secondaryEnd);
 forbidText(drawerSource, "share-app", "navigation drawer");
+requireText(drawerSource, "{route:'removeAds'", "Remove Ads drawer destination");
+forbidText(drawerSource, "resources", "removed drawer resource destination");
 
 requireText(app, TEST_APP_ID, "native wrapper test app ID marker");
 requireText(app, TEST_BANNER_ID, "native wrapper test banner marker");
@@ -916,7 +1016,11 @@ requireText(app, "AdsConsent.gatherConsent()", "UMP consent update");
 requireText(app, "AdsConsent.getConsentInfo()", "cached UMP consent check");
 requireText(app, 'type: "legal-ready"; ready: boolean', "native legal-readiness bridge");
 requireText(app, 'if (legalReady && privacyChoicesRequired) void showPrivacyChoices();', "UMP-required privacy-choice gate");
-requireText(app, "const showBanner =\n    legalReady &&", "banner legal gate");
+requireText(
+  app,
+  'const showBanner =\n    removeAdsEntitlement === "not-entitled" &&\n    legalReady &&',
+  "banner StoreKit and legal gate",
+);
 requireText(app, 'consentState === "permitted"', "banner UMP gate");
 requireText(
   app,
@@ -940,8 +1044,18 @@ forbidText(app, "AppTrackingTransparency", "tracking-free wrapper");
 forbidText(app, "requestTrackingAuthorization", "tracking-free wrapper");
 forbidText(app, "ATTrackingManager", "tracking-free wrapper");
 requireText(app, "startAdsIfAllowed", "shared consent ad gate");
-requireText(app, "await ensureAdsInitialized()", "idempotent SDK initialization");
+requireText(app, "return ensureAdsInitialized();", "idempotent SDK initialization");
 requireText(app, "await mobileAds().initialize()", "SDK initialization");
+requireText(
+  app,
+  'if (removeAdsEntitlementRef.current !== "not-entitled") return false;',
+  "last-moment paid-user SDK initialization guard",
+);
+requireText(
+  app,
+  "if (!initialized && adsInitializationRef.current === initialization)",
+  "guarded ad-initialization cache reset",
+);
 requireText(app, "adLoadAttempt >= 2", "bounded banner retry");
 requireText(
   app,
@@ -976,6 +1090,75 @@ forbidText(app, 'url.startsWith("data:")', "top-level data navigation");
 forbidText(app, '"blob:*"', "WebView origin allowlist");
 forbidText(app, '"data:*"', "WebView origin allowlist");
 forbidText(app, "Buffer.from", "native export memory duplication");
+requireText(app, 'type: "purchase-remove-ads"', "native purchase intent");
+requireText(app, 'type: "restore-remove-ads"', "native restore intent");
+requireText(app, "readVerifiedRemoveAdsEntitlement()", "native entitlement reconciliation");
+requireText(app, "finishVerifiedRemoveAdsPurchase(purchase)", "delivered transaction finish");
+requireText(app, "removeAdsEntitlement === \"not-entitled\"", "native ad entitlement gate");
+requireText(app, "removeAdsReconcileQueueRef.current.then(", "serialized StoreKit entitlement reconciliation");
+requireText(app, "removeAdsDeliveryQueueRef.current.then(", "serialized StoreKit transaction delivery");
+requireText(app, 'purchase.purchaseState !== "purchased"', "non-purchased transaction rejection");
+requireText(app, "isRemoveAdsAlreadyOwned(error)", "already-owned reconciliation");
+requireText(app, "token: ++removeAdsActionSequenceRef.current", "purchase operation ownership token");
+forbidText(app, "entitlementGenerationRef", "stale-generation entitlement race");
+forbidText(app, "removeAdsDeliveryRef", "transaction single-flight event drop");
+requireText(app, "onLoadStart={() => setWebReady(false)}", "WebView runtime reload reset");
+for (const priceLiteral of ["$4.99", "$9.99", "$12.99"]) {
+  forbidText(app, priceLiteral, "hard-coded native App Store price");
+  forbidText(purchase, priceLiteral, "hard-coded StoreKit fallback price");
+}
+for (const obsoletePurchasePath of [
+  "EXPO_PUBLIC_QA_PURCHASES",
+  "QA_PURCHASES",
+  "resetQaPurchase",
+  "react-native-iap",
+]) {
+  forbidText(app, obsoletePurchasePath, "obsolete or simulated purchase path");
+  forbidText(purchase, obsoletePurchasePath, "obsolete or simulated purchase path");
+}
+requireText(
+  purchase,
+  'export const REMOVE_ADS_PRODUCT_ID = "remove_ads_forever";',
+  "reviewed non-consumable product ID",
+);
+requireText(purchase, "currentEntitlementIOS(REMOVE_ADS_PRODUCT_ID)", "StoreKit current entitlement");
+requireText(
+  purchase,
+  "isTransactionVerifiedIOS(REMOVE_ADS_PRODUCT_ID)",
+  "StoreKit transaction verification",
+);
+requireText(purchase, "purchaseUpdatedListener(", "StoreKit transaction updates");
+requireText(purchase, "purchaseErrorListener(", "StoreKit purchase errors");
+requireText(purchase, "if (!connected) throw new Error", "failed StoreKit connection guard");
+if (purchase.indexOf("purchaseUpdatedListener(") > purchase.indexOf("await initConnection()")) {
+  throw new Error("StoreKit listeners must be registered before the connection is initialized.");
+}
+requireText(purchase, "restorePurchases()", "user-initiated StoreKit restore");
+requireText(purchase, "product.displayPrice", "localized StoreKit display price");
+requireText(purchase, 'candidate.platform === "ios"', "iOS product catalog gate");
+requireText(purchase, 'candidate.typeIOS === "non-consumable"', "non-consumable product catalog gate");
+requireText(purchase, 'purchase.store === "apple"', "Apple transaction gate");
+requireText(
+  purchase,
+  "await finishTransaction({ purchase, isConsumable: false });",
+  "non-consumable transaction finish",
+);
+forbidText(purchase, "SecureStore", "non-authoritative entitlement cache");
+forbidText(purchase, "localStorage", "WebView entitlement persistence");
+
+const deliveryStart = app.indexOf("const deliverRemoveAdsPurchase");
+const deliveryEnd = app.indexOf("\n\n  useEffect(() => {", deliveryStart);
+if (deliveryStart < 0 || deliveryEnd <= deliveryStart) {
+  throw new Error("Could not inspect purchase delivery order.");
+}
+const deliverySource = app.slice(deliveryStart, deliveryEnd);
+if (
+  deliverySource.indexOf("reconcileRemoveAdsEntitlement()") < 0 ||
+  deliverySource.indexOf("finishVerifiedRemoveAdsPurchase(purchase)") <
+    deliverySource.indexOf("reconcileRemoveAdsEntitlement()")
+) {
+  throw new Error("A StoreKit transaction may be finished before verified delivery.");
+}
 
 const gatherIndex = app.indexOf("AdsConsent.gatherConsent()");
 const gatherEffectIndex = app.lastIndexOf("useEffect(() => {", gatherIndex);
@@ -985,6 +1168,7 @@ if (
   gatherIndex < 0 ||
   gatherEffectIndex < 0 ||
   !gatherGateSource.includes("!legalReady") ||
+  !gatherGateSource.includes('removeAdsEntitlement !== "not-entitled"') ||
   !gatherGateSource.includes('consentState !== "unresolved"') ||
   sharedGateIndex < gatherIndex
 ) {
@@ -1036,22 +1220,42 @@ if (parsedPackage.dependencies?.["react-native-google-mobile-ads"] !== "16.4.0")
 if (parsedPackage.dependencies?.["expo-notifications"] !== "~57.0.10") {
   throw new Error("expo-notifications must stay compatible with Expo 57.");
 }
-for (const dependency of ["expo-iap", "react-native-iap"]) {
-  if (parsedPackage.dependencies?.[dependency] || parsedPackage.devDependencies?.[dependency]) {
-    throw new Error(`${dependency} is not shipped in the no-purchase release.`);
-  }
-  if (parsedLock.packages?.[`node_modules/${dependency}`]) {
-    throw new Error(`The lockfile still contains unshipped ${dependency}.`);
-  }
+if (parsedPackage.dependencies?.["expo-iap"] !== "5.2.4") {
+  throw new Error("expo-iap must be an exact 5.2.4 runtime dependency.");
+}
+if (parsedLock.packages?.["node_modules/expo-iap"]?.version !== "5.2.4") {
+  throw new Error("The lockfile must pin expo-iap 5.2.4.");
+}
+if (
+  parsedPackage.dependencies?.["react-native-iap"] ||
+  parsedPackage.devDependencies?.["react-native-iap"] ||
+  parsedLock.packages?.["node_modules/react-native-iap"]
+) {
+  throw new Error("The obsolete react-native-iap package must not be shipped.");
+}
+for (const noticeGate of [
+  "Pods-SNAPEBTGroceryTrackerQA-acknowledgements.markdown",
+  'const marker = "iOS CocoaPods acknowledgements (generated from Podfile.lock)";',
+  'for (const component of ["ExpoIap", "openiap"])',
+  'npmNotices.includes("expo-iap@5.2.4")',
+  'writeFileSync(noticePath, combinedNotices)',
+  'writeFileSync(\n  sourcePath,',
+]) {
+  requireText(iosNotices, noticeGate, "final iOS third-party notices");
 }
 
 const appConfig = JSON.parse(await read("app.json"));
 const configuredPlugins = appConfig?.expo?.plugins || [];
+let expoIapPluginCount = 0;
 for (const plugin of configuredPlugins) {
   const pluginName = Array.isArray(plugin) ? plugin[0] : plugin;
-  if (pluginName === "expo-iap" || pluginName === "react-native-iap") {
-    throw new Error(`Legacy IAP config plugin remains configured: ${pluginName}`);
+  if (pluginName === "expo-iap") expoIapPluginCount += 1;
+  if (pluginName === "react-native-iap") {
+    throw new Error("The obsolete react-native-iap config plugin must not be configured.");
   }
+}
+if (expoIapPluginCount !== 1) {
+  throw new Error(`Expected exactly one expo-iap config plugin; found ${expoIapPluginCount}.`);
 }
 if (parsedLock.packages?.["node_modules/react-native-google-mobile-ads"]?.version !== "16.4.0") {
   throw new Error("The lockfile does not pin react-native-google-mobile-ads 16.4.0.");
@@ -1075,5 +1279,5 @@ if (!iconBytes.equals(brandLogo)) {
 }
 
 console.log(
-  `Release checks passed: ${scripts.length} scripts, ${skadIds.length} SKAdNetwork IDs, official fixed-banner test IDs, NPA + UMP gates, file/link/reminder bridges, haptics removed.`,
+  `Release checks passed: ${scripts.length} scripts, ${skadIds.length} SKAdNetwork IDs, verified StoreKit Remove Ads entitlement, one NPA + UMP-gated banner, Benefits & Resources removed, and file/link/reminder bridges.`,
 );

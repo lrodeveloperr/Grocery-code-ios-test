@@ -5,6 +5,7 @@ app_root="${1:-.}"
 app_json_path="$app_root/app.json"
 target_name="SNAPEBTGroceryTrackerQA"
 plist_path="$app_root/ios/$target_name/Info.plist"
+project_path="$app_root/ios/$target_name.xcodeproj"
 skad_ids_path="$app_root/ios/skadnetwork-ids.txt"
 icon_b64_path="$app_root/assets/app-icon.png.base64"
 asset_root="$app_root/ios/$target_name/Images.xcassets"
@@ -17,9 +18,8 @@ if [[ ! -f "$app_json_path" || ! -f "$plist_path" || ! -f "$skad_ids_path" || ! 
   exit 1
 fi
 
-# The current release has no purchases or IAP dependency. Remove the legacy
-# config plugin from the frozen native source before Expo generates its
-# Constants manifest during the Xcode build.
+# Normalize the reviewed StoreKit config plugin and remove the obsolete
+# react-native-iap plugin from the frozen source.
 node - "$app_json_path" <<'NODE'
 const fs = require("node:fs");
 const path = process.argv[2];
@@ -30,13 +30,32 @@ document.expo.plugins = plugins.filter((plugin) => {
   const name = Array.isArray(plugin) ? plugin[0] : plugin;
   return name !== "expo-iap" && name !== "react-native-iap";
 });
+document.expo.plugins.push("expo-iap");
 fs.writeFileSync(path, `${JSON.stringify(document, null, 2)}\n`);
 NODE
 
-if grep -Eq 'expo-iap|react-native-iap' "$app_json_path"; then
-  echo "Legacy IAP config plugin remains in app.json." >&2
+if [[ "$(grep -Fc '"expo-iap"' "$app_json_path")" != "1" ]] ||
+  grep -Fq 'react-native-iap' "$app_json_path"; then
+  echo "The reviewed expo-iap plugin configuration is invalid." >&2
   exit 1
 fi
+
+# This archive is assembled without Expo prebuild, so record the iOS
+# In-App Purchase capability directly on the existing Xcode target.
+ruby -rxcodeproj - "$project_path/project.pbxproj" "$target_name" <<'RUBY'
+project_file, target_name = ARGV
+project = Xcodeproj::Project.open(File.dirname(project_file))
+target = project.targets.find { |candidate| candidate.name == target_name }
+raise "Missing Xcode target #{target_name}" unless target
+attributes = project.root_object.attributes
+target_attributes = attributes["TargetAttributes"] ||= {}
+entry = target_attributes[target.uuid] ||= {}
+capabilities = entry["SystemCapabilities"] ||= {}
+capabilities["com.apple.InAppPurchase"] = { "enabled" => 1 }
+project.save
+RUBY
+
+grep -Fq 'com.apple.InAppPurchase' "$project_path/project.pbxproj"
 
 "$plist_buddy" -c "Set :CFBundleDisplayName SNAP-EBT & WIC Tracker QA" "$plist_path"
 "$plist_buddy" -c "Set :GADApplicationIdentifier $test_app_id" "$plist_path"
@@ -70,4 +89,4 @@ decoded_icon="$RUNNER_TEMP/snap-ebt-wic-app-icon.png"
 /usr/bin/sips -z 528 528 "$decoded_icon" \
   --out "$asset_root/SplashScreenLogo.imageset/image@3x.png" >/dev/null
 
-echo "Configured delayed Google measurement, official test app ID, $skad_index SKAdNetwork IDs, and release artwork."
+echo "Configured StoreKit IAP, delayed Google measurement, official test app ID, $skad_index SKAdNetwork IDs, and release artwork."

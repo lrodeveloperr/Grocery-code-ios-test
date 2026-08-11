@@ -4,6 +4,14 @@ import { resolve } from "node:path";
 const root = resolve(__dirname, "..");
 const nativeSource = readFileSync(resolve(root, "App.tsx"), "utf8");
 const webSource = readFileSync(resolve(root, "app.html"), "utf8");
+const purchaseSource = readFileSync(
+  resolve(root, "src/removeAdsPurchase.ts"),
+  "utf8",
+);
+const iosNoticeSource = readFileSync(
+  resolve(root, "scripts/finalize-ios-notices.mjs"),
+  "utf8",
+);
 
 function occurrences(source: string, value: string): number {
   return source.split(value).length - 1;
@@ -17,7 +25,7 @@ function sourceSection(source: string, start: string, end: string): string {
   return source.slice(startIndex, endIndex);
 }
 
-test("keeps the free release ad-supported, non-personalized, and UMP-gated", () => {
+test("keeps one non-personalized banner behind StoreKit, legal, and UMP gates", () => {
   for (const obsolete of [
     "publisherAdsAllowed",
     "publisher-ad-choice",
@@ -40,11 +48,12 @@ test("keeps the free release ad-supported, non-personalized, and UMP-gated", () 
 
   const consentEffect = sourceSection(
     nativeSource,
-    '  useEffect(() => {\n    if (!legalReady || consentState !== "unresolved") return;',
-    '  useEffect(() => {\n    if (!adEligible)',
+    '  useEffect(() => {\n    if (\n      removeAdsEntitlement !== "not-entitled"',
+    '  useEffect(() => {\n    if (!adEligible || removeAdsEntitlement !== "not-entitled")',
   );
   expect(consentEffect).toContain("AdsConsent.gatherConsent()");
   expect(consentEffect).toContain("startAdsIfAllowed(reportedCanRequestAds)");
+  expect(consentEffect).toContain('removeAdsEntitlement !== "not-entitled"');
   expect(consentEffect).not.toContain("publisher");
 
   const bannerGate = sourceSection(
@@ -54,6 +63,7 @@ test("keeps the free release ad-supported, non-personalized, and UMP-gated", () 
   );
   expect(bannerGate).toContain("legalReady &&");
   expect(bannerGate).toContain('consentState === "permitted"');
+  expect(bannerGate).toContain('removeAdsEntitlement === "not-entitled"');
   expect(bannerGate).not.toContain("publisher");
 
   const bannerStyle = sourceSection(
@@ -83,10 +93,52 @@ test("keeps the free release ad-supported, non-personalized, and UMP-gated", () 
   expect(webSource).toContain("tr('onboarding.advertisingNotice')");
   expect(webSource).toContain("tr('legal.adSupportedBody')");
   expect(webSource).toContain("drawerOpen||!adPlacementAllowed()");
+  expect(webSource).toContain("state.route!=='removeAds'");
   expect(webSource).toContain("Google AdMob may process your IP address/coarse location");
   expect(webSource).toContain("Google AdMob puede procesar tu dirección IP/ubicación aproximada");
   expect(webSource).not.toContain("You can decline and still use all core tracker features without ads");
   expect(webSource).not.toContain("Puedes rechazarlo y seguir usando todas las funciones principales sin anuncios");
+
+  expect(nativeSource).toContain('type: "purchase-remove-ads"');
+  expect(nativeSource).toContain('type: "restore-remove-ads"');
+  expect(nativeSource).toContain("readVerifiedRemoveAdsEntitlement()");
+  expect(nativeSource).toContain(
+    'removeAdsEntitlementRef.current !== "not-entitled"',
+  );
+  expect(nativeSource).toContain("finishVerifiedRemoveAdsPurchase(purchase)");
+  expect(nativeSource).toContain("removeAdsReconcileQueueRef.current.then(");
+  expect(nativeSource).toContain("removeAdsDeliveryQueueRef.current.then(");
+  expect(nativeSource).not.toContain("entitlementGenerationRef");
+  expect(nativeSource).not.toContain("removeAdsDeliveryRef");
+  expect(nativeSource).toContain("token: ++removeAdsActionSequenceRef.current");
+  expect(nativeSource).toContain('purchase.purchaseState !== "purchased"');
+  expect(nativeSource).toContain("isRemoveAdsAlreadyOwned(error)");
+  expect(nativeSource).toContain("onLoadStart={() => setWebReady(false)}");
+  expect(purchaseSource).toContain(
+    'export const REMOVE_ADS_PRODUCT_ID = "remove_ads_forever";',
+  );
+  expect(purchaseSource).toContain("currentEntitlementIOS(REMOVE_ADS_PRODUCT_ID)");
+  expect(purchaseSource).toContain(
+    "isTransactionVerifiedIOS(REMOVE_ADS_PRODUCT_ID)",
+  );
+  expect(purchaseSource).toContain("purchaseUpdatedListener(");
+  expect(purchaseSource.indexOf("purchaseUpdatedListener(")).toBeLessThan(
+    purchaseSource.indexOf("await initConnection()"),
+  );
+  expect(purchaseSource).toContain("if (!connected) throw new Error");
+  expect(purchaseSource).toContain("restorePurchases()");
+  expect(purchaseSource).toContain("product.displayPrice");
+  expect(purchaseSource).toContain('candidate.platform === "ios"');
+  expect(purchaseSource).toContain('candidate.typeIOS === "non-consumable"');
+  expect(purchaseSource).toContain('purchase.store === "apple"');
+  expect(purchaseSource).toContain(
+    "await finishTransaction({ purchase, isConsumable: false });",
+  );
+  for (const literal of ["$4.99", "$9.99", "$12.99"]) {
+    expect(nativeSource).not.toContain(literal);
+    expect(webSource).not.toContain(literal);
+    expect(purchaseSource).not.toContain(literal);
+  }
 });
 
 test("keeps Clear All fail-closed across native cache, reminders, and web stores", () => {
@@ -131,6 +183,8 @@ test("keeps Clear All fail-closed across native cache, reminders, and web stores
   expect(legacyIndex).toBeLessThan(durableIndex);
   expect(occurrences(webClear, "await reconcileNativeReminders()")).toBe(3);
   expect(webClear).toContain("state=C.canonicalState()");
+  expect(nativeClear).not.toContain("removeAds");
+  expect(webClear).not.toContain("purchaseRuntime");
 });
 
 test("moves the localized safety disclosure from the drawer into Help", () => {
@@ -158,8 +212,8 @@ test("moves the localized safety disclosure from the drawer into Help", () => {
   );
 
   const localizedCopy: Array<[string, number]> = [
-    ["Independent local-first tracker. No account, profile, or publisher-operated analytics or telemetry. Core tracker data is stored in the app on this device and is not uploaded to an operator-controlled server; exports and device backups are explained in the Privacy Policy. The free app displays a limited number of non-personalized banner ads. Google may process device and advertising data as explained in the Privacy Policy. The app never asks for an EBT/WIC PIN or connects to a government benefit account.", 2],
-    ["Rastreador independiente y local. No requiere cuenta ni perfil y no contiene analítica o telemetría operada por el editor. Los datos principales del rastreador se almacenan en la aplicación en este dispositivo y no se cargan a un servidor controlado por el operador; las exportaciones y copias de seguridad se explican en la Política de Privacidad. La aplicación gratuita muestra una cantidad limitada de anuncios de banner no personalizados. Google puede procesar datos del dispositivo y de publicidad según se explica en la Política de Privacidad. La aplicación nunca solicita un PIN de EBT/WIC ni se conecta a una cuenta gubernamental de beneficios.", 2],
+    ["Independent local-first tracker. No account, profile, or publisher-operated analytics or telemetry. Core tracker data is stored in the app on this device and is not uploaded to an operator-controlled server; exports and device backups are explained in the Privacy Policy. Without an active one-time Remove Ads purchase, the app displays one fixed non-personalized banner ad. Google may process device and advertising data as explained in the Privacy Policy. The app never asks for an EBT/WIC PIN or connects to a government benefit account.", 2],
+    ["Rastreador independiente y local. No requiere cuenta ni perfil y no contiene analítica o telemetría operada por el editor. Los datos principales del rastreador se almacenan en la aplicación en este dispositivo y no se cargan a un servidor controlado por el operador; las exportaciones y copias de seguridad se explican en la Política de Privacidad. Sin una compra única activa para eliminar anuncios, la aplicación muestra un anuncio fijo de banner no personalizado. Google puede procesar datos del dispositivo y de publicidad según se explica en la Política de Privacidad. La aplicación nunca solicita un PIN de EBT/WIC ni se conecta a una cuenta gubernamental de beneficios.", 2],
     ["Locally entered balances, benefits, grocery items, budgets, and History are not sent as ad parameters.", 2],
     ["No hay cuenta ni perfil. Los saldos, beneficios, artículos, presupuestos e Historial introducidos localmente no se envían como parámetros publicitarios.", 2],
     ["Independent app—not affiliated with or endorsed by USDA/FNS, Puerto Rico ADSEF, any SNAP/PAN or WIC agency, retailer, or card issuer. It does not provide official balances, eligibility decisions, retailer acceptance, or product authorization. Official sources control.", 3],
@@ -170,12 +224,38 @@ test("moves the localized safety disclosure from the drawer into Help", () => {
   }
 });
 
-test("ships only the reviewed WebView product without dormant billing code", () => {
+test("ships one reviewed native non-consumable and no Benefits & Resources directory", () => {
   expect(nativeSource).not.toContain('case "publisher-ad-choice"');
   expect(nativeSource).toContain('case "clear-app-data"');
   expect(nativeSource).toContain("automaticallyAdjustContentInsets={false}");
-  expect(nativeSource).not.toMatch(/expo-iap|react-native-iap|\.\/src\/billing/);
+  expect(nativeSource).toContain('./src/removeAdsPurchase');
+  expect(purchaseSource).toContain('from "expo-iap"');
+  expect(nativeSource).not.toMatch(/react-native-iap|\.\/src\/billing/);
+  expect(purchaseSource).not.toMatch(/react-native-iap|QA_PURCHASES|subscription/);
   expect(webSource).not.toMatch(/expo-iap|react-native-iap|anonymousReport/);
+  expect(iosNoticeSource).toContain("expo-iap@5.2.4");
+  expect(iosNoticeSource).toContain('["ExpoIap", "openiap"]');
+  expect(iosNoticeSource).toContain(
+    "Pods-SNAPEBTGroceryTrackerQA-acknowledgements.markdown",
+  );
+  expect(occurrences(webSource, "data-action=\"restore-remove-ads\"")).toBe(1);
+  expect(occurrences(webSource, "data-action=\"purchase-remove-ads\"")).toBe(1);
+  expect(webSource).toContain(
+    "{route:'removeAds',key:purchaseRuntime.adsRemoved?'drawer.adsRemoved':'drawer.removeAds'",
+  );
+  for (const removed of [
+    "SUPPORT_RESOURCES",
+    "resourceFilters",
+    "renderResources",
+    "drawer.resources",
+    "nav.resources",
+    "resources.subtitle",
+    "resourceSearch",
+    "resource-section",
+    "open-resource",
+  ]) {
+    expect(webSource).not.toContain(removed);
+  }
 
   const injectedBridge = sourceSection(
     nativeSource,

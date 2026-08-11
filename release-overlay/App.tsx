@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
+  AppState,
   Linking,
   Share,
   StyleSheet,
@@ -28,6 +29,22 @@ import type {
 } from "react-native-webview/lib/WebViewTypes";
 
 import APP_HTML from "./src/appHtml";
+import {
+  connectRemoveAdsStore,
+  fetchRemoveAdsProduct,
+  finishVerifiedRemoveAdsPurchase,
+  isRemoveAdsAlreadyOwned,
+  isRemoveAdsPurchaseCancelled,
+  isRemoveAdsPurchaseEvent,
+  isRemoveAdsPurchasePending,
+  readVerifiedRemoveAdsEntitlement,
+  requestRemoveAdsPurchase,
+  restoreRemoveAdsPurchase,
+} from "./src/removeAdsPurchase";
+import type {
+  RemoveAdsProduct,
+  RemoveAdsStoreConnection,
+} from "./src/removeAdsPurchase";
 
 const LOCAL_APP_ORIGIN = "https://snap-ebt-wic.local/";
 const AD_SLOT_HEIGHT = 50;
@@ -42,6 +59,25 @@ const MAX_OWNED_REMINDERS = 48;
 
 type ConsentState = "unresolved" | "permitted" | "blocked";
 type NativeAdState = "idle" | "loading" | "loaded" | "failed";
+type RemoveAdsEntitlementState =
+  | "checking"
+  | "not-entitled"
+  | "entitled"
+  | "unknown";
+type RemoveAdsProductState = "loading" | "ready" | "unavailable";
+type RemoveAdsOperation = "idle" | "purchasing" | "restoring";
+type RemoveAdsAction = "purchase" | "restore";
+type RemoveAdsActionContext = {
+  kind: RemoveAdsAction;
+  token: number;
+};
+type RemoveAdsResult =
+  | "success"
+  | "already-active"
+  | "pending"
+  | "cancelled"
+  | "none"
+  | "failed";
 type ReminderKind = "snap-balance" | "wic-review" | "wic-expiry";
 type ReminderLocale = "en-US" | "es-PR";
 
@@ -72,6 +108,8 @@ type BridgeMessage =
       eligible: boolean;
     }
   | { type: "privacy-choices" }
+  | { type: "purchase-remove-ads" }
+  | { type: "restore-remove-ads" }
   | { type: "share-text"; title?: string; text?: string; url?: string }
   | {
       type: "share-file";
@@ -610,11 +648,29 @@ function fileUti(name: string, mimeType?: string) {
 
 export default function App() {
   const webViewRef = useRef<WebViewHandle>(null);
-  const adsInitializationRef = useRef<Promise<void> | null>(null);
+  const adsInitializationRef = useRef<Promise<boolean> | null>(null);
   const previousWebAdStateRef = useRef("AD_LOADING");
+  const removeAdsEntitlementRef =
+    useRef<RemoveAdsEntitlementState>("checking");
+  const removeAdsEntitledRef = useRef(false);
+  const removeAdsStoreRef = useRef<RemoveAdsStoreConnection | null>(null);
+  const removeAdsOperationRef = useRef<RemoveAdsOperation>("idle");
+  const removeAdsActionRef = useRef<RemoveAdsActionContext | null>(null);
+  const removeAdsActionSequenceRef = useRef(0);
+  const removeAdsDeliveryQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const removeAdsReconcileQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [webReady, setWebReady] = useState(false);
   const [legalReady, setLegalReady] = useState(false);
   const [privacyChoicesRequired, setPrivacyChoicesRequired] = useState(false);
+  const [removeAdsEntitlement, setRemoveAdsEntitlement] =
+    useState<RemoveAdsEntitlementState>("checking");
+  const [removeAdsProductState, setRemoveAdsProductState] =
+    useState<RemoveAdsProductState>("loading");
+  const [removeAdsProduct, setRemoveAdsProduct] =
+    useState<RemoveAdsProduct | null>(null);
+  const [removeAdsStoreReady, setRemoveAdsStoreReady] = useState(false);
+  const [removeAdsOperation, setRemoveAdsOperation] =
+    useState<RemoveAdsOperation>("idle");
   const [consentState, setConsentState] =
     useState<ConsentState>("unresolved");
   const [adEligible, setAdEligible] = useState(false);
@@ -642,23 +698,267 @@ export default function App() {
     ]);
   }, []);
 
+  const setRemoveAdsOperationState = useCallback(
+    (operation: RemoveAdsOperation) => {
+      removeAdsOperationRef.current = operation;
+      setRemoveAdsOperation(operation);
+    },
+    [],
+  );
+
+  const applyRemoveAdsEntitlementState = useCallback(
+    (entitlement: RemoveAdsEntitlementState) => {
+      removeAdsEntitlementRef.current = entitlement;
+      removeAdsEntitledRef.current = entitlement === "entitled";
+      setRemoveAdsEntitlement(entitlement);
+      if (entitlement === "entitled") {
+        setNativeAdState("idle");
+        setAdLoadAttempt(0);
+      }
+    },
+    [],
+  );
+
+  const completeRemoveAdsAction = useCallback(
+    (action: RemoveAdsAction, result: RemoveAdsResult) => {
+      webViewRef.current?.injectJavaScript(`
+        window.GBTPurchaseRuntime?.complete(
+          ${JSON.stringify(action)},
+          ${JSON.stringify(result)}
+        );
+        true;
+      `);
+    },
+    [],
+  );
+
+  const refreshRemoveAdsProduct = useCallback(async () => {
+    setRemoveAdsProductState("loading");
+    try {
+      const product = await fetchRemoveAdsProduct();
+      if (!product) {
+        setRemoveAdsProduct(null);
+        setRemoveAdsProductState("unavailable");
+        return null;
+      }
+      setRemoveAdsProduct(product);
+      setRemoveAdsProductState("ready");
+      return product;
+    } catch {
+      setRemoveAdsProduct(null);
+      setRemoveAdsProductState("unavailable");
+      return null;
+    }
+  }, []);
+
+  const reconcileRemoveAdsEntitlement = useCallback(() => {
+    const reconciliation = removeAdsReconcileQueueRef.current.then(
+      async (): Promise<boolean | null> => {
+        try {
+          const result = await readVerifiedRemoveAdsEntitlement();
+          applyRemoveAdsEntitlementState(
+            result.entitled ? "entitled" : "not-entitled",
+          );
+          return result.entitled;
+        } catch {
+          applyRemoveAdsEntitlementState(
+            removeAdsEntitledRef.current ? "entitled" : "unknown",
+          );
+          return null;
+        }
+      },
+    );
+    removeAdsReconcileQueueRef.current = reconciliation.then(() => undefined);
+    return reconciliation;
+  }, [applyRemoveAdsEntitlementState]);
+
+  const deliverRemoveAdsPurchase = useCallback(
+    (
+      purchase: Parameters<typeof isRemoveAdsPurchaseEvent>[0],
+      purchaseAction: RemoveAdsActionContext | null,
+    ) => {
+      if (!isRemoveAdsPurchaseEvent(purchase)) return Promise.resolve();
+      const delivery = removeAdsDeliveryQueueRef.current.then(async () => {
+        if (purchase.purchaseState !== "purchased") {
+          if (
+            purchaseAction?.kind === "purchase" &&
+            removeAdsActionRef.current === purchaseAction
+          ) {
+            removeAdsActionRef.current = null;
+            completeRemoveAdsAction(
+              "purchase",
+              purchase.purchaseState === "pending" ? "pending" : "failed",
+            );
+            setRemoveAdsOperationState("idle");
+          }
+          return;
+        }
+        const ownsPurchaseAction =
+          purchaseAction?.kind === "purchase" &&
+          removeAdsActionRef.current === purchaseAction;
+        if (ownsPurchaseAction) removeAdsActionRef.current = null;
+        try {
+          const entitled = await reconcileRemoveAdsEntitlement();
+          if (entitled !== true) {
+            if (ownsPurchaseAction) {
+              completeRemoveAdsAction("purchase", "failed");
+            }
+            return;
+          }
+          if (ownsPurchaseAction) {
+            completeRemoveAdsAction("purchase", "success");
+          }
+          try {
+            await finishVerifiedRemoveAdsPurchase(purchase);
+          } catch (error) {
+            console.warn(
+              "StoreKit will replay the unfinished transaction",
+              error,
+            );
+          }
+        } finally {
+          if (ownsPurchaseAction) setRemoveAdsOperationState("idle");
+        }
+      });
+      removeAdsDeliveryQueueRef.current = delivery.catch((error) => {
+        console.warn("StoreKit transaction delivery failed", error);
+      });
+      return delivery;
+    },
+    [
+      completeRemoveAdsAction,
+      reconcileRemoveAdsEntitlement,
+      setRemoveAdsOperationState,
+    ],
+  );
+
+  const settleRemoveAdsPurchaseError = useCallback(
+    async (error: unknown, action: RemoveAdsActionContext | null) => {
+      if (
+        action?.kind !== "purchase" ||
+        removeAdsActionRef.current !== action
+      ) {
+        return;
+      }
+      removeAdsActionRef.current = null;
+      try {
+        if (isRemoveAdsAlreadyOwned(error)) {
+          const entitled = await reconcileRemoveAdsEntitlement();
+          completeRemoveAdsAction(
+            "purchase",
+            entitled === true ? "success" : "failed",
+          );
+        } else if (isRemoveAdsPurchaseCancelled(error)) {
+          completeRemoveAdsAction("purchase", "cancelled");
+        } else if (isRemoveAdsPurchasePending(error)) {
+          completeRemoveAdsAction("purchase", "pending");
+        } else {
+          completeRemoveAdsAction("purchase", "failed");
+        }
+      } finally {
+        setRemoveAdsOperationState("idle");
+      }
+    },
+    [
+      completeRemoveAdsAction,
+      reconcileRemoveAdsEntitlement,
+      setRemoveAdsOperationState,
+    ],
+  );
+
+  useEffect(() => {
+    let active = true;
+    let appStateSubscription: { remove: () => void } | null = null;
+    void (async () => {
+      try {
+        const connection = await connectRemoveAdsStore({
+          onPurchaseUpdated: (purchase) => {
+            if (active) {
+              const action = removeAdsActionRef.current;
+              const purchaseAction =
+                action?.kind === "purchase" ? action : null;
+              void deliverRemoveAdsPurchase(purchase, purchaseAction).catch((error) => {
+                console.warn("StoreKit purchase update failed", error);
+              });
+            }
+          },
+          onPurchaseError: (error) => {
+            const action = removeAdsActionRef.current;
+            if (active && action?.kind === "purchase") {
+              void settleRemoveAdsPurchaseError(error, action);
+            }
+          },
+        });
+        if (!active) {
+          connection.close();
+          return;
+        }
+        removeAdsStoreRef.current = connection;
+        setRemoveAdsStoreReady(true);
+        appStateSubscription = AppState.addEventListener("change", (state) => {
+          if (active && state === "active") {
+            void reconcileRemoveAdsEntitlement();
+          }
+        });
+        await Promise.all([
+          reconcileRemoveAdsEntitlement(),
+          refreshRemoveAdsProduct(),
+        ]);
+      } catch (error) {
+        console.warn("StoreKit Remove Ads setup is unavailable", error);
+        if (active) {
+          setRemoveAdsStoreReady(false);
+          applyRemoveAdsEntitlementState("unknown");
+          setRemoveAdsProduct(null);
+          setRemoveAdsProductState("unavailable");
+        }
+      }
+    })();
+    return () => {
+      active = false;
+      appStateSubscription?.remove();
+      removeAdsStoreRef.current?.close();
+      removeAdsStoreRef.current = null;
+    };
+  }, [
+    applyRemoveAdsEntitlementState,
+    completeRemoveAdsAction,
+    deliverRemoveAdsPurchase,
+    reconcileRemoveAdsEntitlement,
+    refreshRemoveAdsProduct,
+    settleRemoveAdsPurchaseError,
+    setRemoveAdsOperationState,
+  ]);
+
   const ensureAdsInitialized = useCallback(async () => {
+    if (removeAdsEntitlementRef.current !== "not-entitled") return false;
     if (!adsInitializationRef.current) {
       adsInitializationRef.current = (async () => {
         await mobileAds().setRequestConfiguration({
           maxAdContentRating: MaxAdContentRating.PG,
         });
+        if (removeAdsEntitlementRef.current !== "not-entitled") return false;
         await mobileAds().initialize();
+        return true;
       })().catch((error) => {
         adsInitializationRef.current = null;
         throw error;
       });
     }
-    await adsInitializationRef.current;
+    const initialization = adsInitializationRef.current;
+    const initialized = await initialization;
+    if (!initialized && adsInitializationRef.current === initialization) {
+      adsInitializationRef.current = null;
+    }
+    return (
+      initialized &&
+      removeAdsEntitlementRef.current === "not-entitled"
+    );
   }, []);
 
   const startAdsIfAllowed = useCallback(
     async (reportedCanRequestAds = false) => {
+      if (removeAdsEntitlementRef.current !== "not-entitled") return false;
       let canRequestAds = reportedCanRequestAds;
       try {
         const currentInfo = await AdsConsent.getConsentInfo();
@@ -668,15 +968,25 @@ export default function App() {
         );
         canRequestAds = currentInfo.canRequestAds;
       } catch {}
-      if (!canRequestAds) return false;
-      await ensureAdsInitialized();
-      return true;
+      if (
+        !canRequestAds ||
+        removeAdsEntitlementRef.current !== "not-entitled"
+      ) {
+        return false;
+      }
+      return ensureAdsInitialized();
     },
     [ensureAdsInitialized],
   );
 
   useEffect(() => {
-    if (!legalReady || consentState !== "unresolved") return;
+    if (
+      removeAdsEntitlement !== "not-entitled" ||
+      !legalReady ||
+      consentState !== "unresolved"
+    ) {
+      return;
+    }
     let active = true;
     void (async () => {
       let reportedCanRequestAds = false;
@@ -693,32 +1003,85 @@ export default function App() {
       if (!active) return;
       try {
         const started = await startAdsIfAllowed(reportedCanRequestAds);
-        if (active) setConsentState(started ? "permitted" : "blocked");
+        if (active) {
+          setConsentState(
+            started || removeAdsEntitlementRef.current !== "not-entitled"
+              ? "permitted"
+              : "blocked",
+          );
+        }
       } catch {
         if (active) {
-          setConsentState("blocked");
+          setConsentState(
+            removeAdsEntitlementRef.current === "not-entitled"
+              ? "blocked"
+              : "permitted",
+          );
         }
       }
     })();
     return () => {
       active = false;
     };
-  }, [consentState, legalReady, startAdsIfAllowed]);
+  }, [
+    consentState,
+    legalReady,
+    removeAdsEntitlement,
+    startAdsIfAllowed,
+  ]);
 
   useEffect(() => {
-    if (!adEligible) {
+    if (
+      removeAdsEntitlement !== "not-entitled" ||
+      !legalReady ||
+      consentState !== "permitted"
+    ) {
+      return;
+    }
+    let active = true;
+    void startAdsIfAllowed(true)
+      .then((started) => {
+        if (
+          active &&
+          !started &&
+          removeAdsEntitlementRef.current === "not-entitled"
+        ) {
+          setConsentState("blocked");
+        }
+      })
+      .catch(() => {
+        if (
+          active &&
+          removeAdsEntitlementRef.current === "not-entitled"
+        ) {
+          setConsentState("blocked");
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [
+    consentState,
+    legalReady,
+    removeAdsEntitlement,
+    startAdsIfAllowed,
+  ]);
+
+  useEffect(() => {
+    if (!adEligible || removeAdsEntitlement !== "not-entitled") {
       setNativeAdState("idle");
       setAdLoadAttempt(0);
       return;
     }
     setNativeAdState("loading");
-  }, [adEligible]);
+  }, [adEligible, removeAdsEntitlement]);
 
   useEffect(() => {
     if (
       nativeAdState !== "failed" ||
       !adEligible ||
       consentState !== "permitted" ||
+      removeAdsEntitlement !== "not-entitled" ||
       adLoadAttempt >= 2
     ) {
       return;
@@ -732,7 +1095,13 @@ export default function App() {
       2000 * 2 ** adLoadAttempt,
     );
     return () => clearTimeout(retryTimer);
-  }, [adEligible, adLoadAttempt, consentState, nativeAdState]);
+  }, [
+    adEligible,
+    adLoadAttempt,
+    consentState,
+    nativeAdState,
+    removeAdsEntitlement,
+  ]);
 
   useEffect(() => {
     const previous = previousWebAdStateRef.current;
@@ -741,13 +1110,14 @@ export default function App() {
       previous === "AD_TEMPORARILY_HIDDEN" &&
       webAdState !== "AD_TEMPORARILY_HIDDEN" &&
       adEligible &&
-      consentState === "permitted"
+      consentState === "permitted" &&
+      removeAdsEntitlement === "not-entitled"
     ) {
       setAdLoadAttempt(0);
       setBannerInstance((instance) => instance + 1);
       setNativeAdState("loading");
     }
-  }, [adEligible, consentState, webAdState]);
+  }, [adEligible, consentState, removeAdsEntitlement, webAdState]);
 
   const syncAdRuntime = useCallback(() => {
     if (!webReady) return;
@@ -758,14 +1128,20 @@ export default function App() {
           ? "REQUEST_BLOCKED"
           : "UNRESOLVED";
     const state =
-      consentState === "blocked" || !adEligible
+      removeAdsEntitlement !== "not-entitled" ||
+      consentState === "blocked" ||
+      !adEligible
         ? "AD_DISABLED"
         : nativeAdState === "loaded"
           ? "AD_LOADED"
           : nativeAdState === "failed"
             ? "AD_UNAVAILABLE"
             : "AD_LOADING";
-    const height = nativeAdState === "loaded" ? AD_SLOT_HEIGHT : 0;
+    const height =
+      removeAdsEntitlement === "not-entitled" &&
+      nativeAdState === "loaded"
+        ? AD_SLOT_HEIGHT
+        : 0;
     webViewRef.current?.injectJavaScript(`
       (function () {
         const runtime = window.GBTAdRuntime;
@@ -781,12 +1157,57 @@ export default function App() {
     adEligible,
     consentState,
     nativeAdState,
+    removeAdsEntitlement,
     webReady,
   ]);
 
   useEffect(() => {
     syncAdRuntime();
   }, [syncAdRuntime]);
+
+  const syncRemoveAdsRuntime = useCallback(() => {
+    if (!webReady) return;
+    const status =
+      removeAdsEntitlement === "entitled"
+        ? "active"
+        : removeAdsOperation === "purchasing"
+          ? "purchasing"
+          : removeAdsOperation === "restoring"
+            ? "restoring"
+            : removeAdsEntitlement === "checking"
+              ? "checking"
+              : removeAdsProductState === "ready"
+                ? "ready"
+                : "unavailable";
+    webViewRef.current?.injectJavaScript(`
+      window.GBTPurchaseRuntime?.setState({
+        status: ${JSON.stringify(status)},
+        adsRemoved: ${removeAdsEntitlement === "entitled"},
+        displayPrice: ${JSON.stringify(removeAdsProduct?.displayPrice || "")},
+        canPurchase: ${
+          removeAdsStoreReady &&
+          removeAdsProductState === "ready" &&
+          removeAdsEntitlement === "not-entitled" &&
+          removeAdsOperation === "idle"
+        },
+        canRestore: ${
+          removeAdsStoreReady && removeAdsOperation === "idle"
+        }
+      });
+      true;
+    `);
+  }, [
+    removeAdsEntitlement,
+    removeAdsOperation,
+    removeAdsProduct?.displayPrice,
+    removeAdsProductState,
+    removeAdsStoreReady,
+    webReady,
+  ]);
+
+  useEffect(() => {
+    syncRemoveAdsRuntime();
+  }, [syncRemoveAdsRuntime]);
 
   const syncAdvertisingPrivacyOptions = useCallback(() => {
     if (!webReady) return;
@@ -1103,15 +1524,27 @@ export default function App() {
         setConsentState("blocked");
         return;
       }
+      if (removeAdsEntitlementRef.current !== "not-entitled") {
+        setConsentState("permitted");
+        return;
+      }
       try {
         const started = await startAdsIfAllowed(info.canRequestAds);
-        setConsentState(started ? "permitted" : "blocked");
-      } catch {
-        setConsentState("blocked");
-        Alert.alert(
-          "Advertising unavailable",
-          "Advertising could not be initialized. Please try again later.",
+        setConsentState(
+          started || removeAdsEntitlementRef.current !== "not-entitled"
+            ? "permitted"
+            : "blocked",
         );
+      } catch {
+        if (removeAdsEntitlementRef.current === "not-entitled") {
+          setConsentState("blocked");
+          Alert.alert(
+            "Advertising unavailable",
+            "Advertising could not be initialized. Please try again later.",
+          );
+        } else {
+          setConsentState("permitted");
+        }
       }
     } catch {
       Alert.alert(
@@ -1120,6 +1553,86 @@ export default function App() {
       );
     }
   }, [startAdsIfAllowed]);
+
+  const beginRemoveAdsPurchase = useCallback(async () => {
+    if (removeAdsEntitlementRef.current === "entitled") {
+      completeRemoveAdsAction("purchase", "already-active");
+      return;
+    }
+    if (removeAdsEntitlementRef.current !== "not-entitled") {
+      completeRemoveAdsAction("purchase", "failed");
+      return;
+    }
+    if (removeAdsOperationRef.current !== "idle") return;
+    if (!removeAdsStoreRef.current) {
+      completeRemoveAdsAction("purchase", "failed");
+      return;
+    }
+    const product =
+      removeAdsProductState === "ready" && removeAdsProduct
+        ? removeAdsProduct
+        : await refreshRemoveAdsProduct();
+    if (!product) {
+      completeRemoveAdsAction("purchase", "failed");
+      return;
+    }
+    const action: RemoveAdsActionContext = {
+      kind: "purchase",
+      token: ++removeAdsActionSequenceRef.current,
+    };
+    removeAdsActionRef.current = action;
+    setRemoveAdsOperationState("purchasing");
+    try {
+      await requestRemoveAdsPurchase();
+    } catch (error) {
+      await settleRemoveAdsPurchaseError(error, action);
+    }
+  }, [
+    completeRemoveAdsAction,
+    reconcileRemoveAdsEntitlement,
+    refreshRemoveAdsProduct,
+    removeAdsProduct,
+    removeAdsProductState,
+    settleRemoveAdsPurchaseError,
+    setRemoveAdsOperationState,
+  ]);
+
+  const beginRemoveAdsRestore = useCallback(async () => {
+    if (removeAdsOperationRef.current !== "idle") return;
+    if (removeAdsEntitlementRef.current === "entitled") {
+      completeRemoveAdsAction("restore", "already-active");
+      return;
+    }
+    if (!removeAdsStoreRef.current) {
+      completeRemoveAdsAction("restore", "failed");
+      return;
+    }
+    const action: RemoveAdsActionContext = {
+      kind: "restore",
+      token: ++removeAdsActionSequenceRef.current,
+    };
+    removeAdsActionRef.current = action;
+    setRemoveAdsOperationState("restoring");
+    try {
+      await restoreRemoveAdsPurchase();
+      const entitled = await reconcileRemoveAdsEntitlement();
+      completeRemoveAdsAction(
+        "restore",
+        entitled === true ? "success" : entitled === false ? "none" : "failed",
+      );
+    } catch {
+      completeRemoveAdsAction("restore", "failed");
+    } finally {
+      if (removeAdsActionRef.current === action) {
+        removeAdsActionRef.current = null;
+        setRemoveAdsOperationState("idle");
+      }
+    }
+  }, [
+    completeRemoveAdsAction,
+    reconcileRemoveAdsEntitlement,
+    setRemoveAdsOperationState,
+  ]);
 
   const onMessage = useCallback(
     (event: WebViewMessageEvent) => {
@@ -1148,6 +1661,12 @@ export default function App() {
         case "privacy-choices":
           if (legalReady && privacyChoicesRequired) void showPrivacyChoices();
           break;
+        case "purchase-remove-ads":
+          if (legalReady) void beginRemoveAdsPurchase();
+          break;
+        case "restore-remove-ads":
+          if (legalReady) void beginRemoveAdsRestore();
+          break;
         case "share-file":
           void shareFile(message);
           break;
@@ -1162,7 +1681,7 @@ export default function App() {
           break;
       }
     },
-    [clearNativeAppData, legalReady, privacyChoicesRequired, reconcileNotifications, shareFile, shareText, showPrivacyChoices],
+    [beginRemoveAdsPurchase, beginRemoveAdsRestore, clearNativeAppData, legalReady, privacyChoicesRequired, reconcileNotifications, shareFile, shareText, showPrivacyChoices],
   );
 
   const openExternalUrl = useCallback((url: string) => {
@@ -1192,6 +1711,7 @@ export default function App() {
     [],
   );
   const showBanner =
+    removeAdsEntitlement === "not-entitled" &&
     legalReady &&
     consentState === "permitted" &&
     adEligible &&
@@ -1221,6 +1741,7 @@ export default function App() {
           automaticallyAdjustContentInsets={false}
           mediaPlaybackRequiresUserAction
           onMessage={onMessage}
+          onLoadStart={() => setWebReady(false)}
           onLoadEnd={() => setWebReady(true)}
           onShouldStartLoadWithRequest={shouldStartNavigation}
           onOpenWindow={(event: WebViewOpenWindowEvent) =>

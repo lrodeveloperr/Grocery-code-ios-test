@@ -126,247 +126,16 @@ label,.label{font-size:12px;font-weight:600;color:#6e6e73}
 .toast{bottom:calc(var(--ad-nav-height) + var(--ad-visible-height) + var(--ad-visible-separator-height) + 24px)}
 @media print{.ad-banner,.ad-nav-separator{display:none!important}.main{padding-bottom:0!important}}
 .ad-badge{min-width:max-content;padding-left:7px;padding-right:7px}.modal input[type=date],.onboarding input[type=date]{background:#fff;color:var(--text);-webkit-text-fill-color:var(--text)}.locale-switch{margin-bottom:12px}
-.resources-controls{
-  display:grid;
-  gap:10px
-}
 
-.resources-segment{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:4px;
-  padding:4px;
-  background:#e9e9ee;
-  border-radius:14px
-}
-
-.resources-segment button{
-  min-height:40px;
-  border:0;
-  border-radius:11px;
-  background:transparent;
-  color:#6e6e73;
-  font-size:13px;
-  font-weight:600;
-  padding:8px
-}
-
-.resources-segment button.active{
-  background:#fff;
-  color:#111;
-  box-shadow:0 1px 4px rgba(0,0,0,.08)
-}
-
-.resources-segment button:active{
-  transform:scale(.985)
-}
-
-.resources-filters{
-  display:grid;
-  gap:7px
-}
-
-.resources-filter-label{
-  font-size:11px;
-  font-weight:600;
-  color:#8e8e93;
-  padding-left:2px
-}
-
-.resources-filter-chips{
-  display:flex;
-  gap:7px;
-  overflow:auto;
-  padding:0 0 3px;
-  scrollbar-width:none
-}
-
-.resources-filter-chips::-webkit-scrollbar{
-  display:none
-}
-
-.resources-filter-chips button{
-  flex:none;
-  min-height:36px;
-  border:.5px solid rgba(60,60,67,.18);
-  background:#fff;
-  color:#3a3a3c;
-  border-radius:999px;
-  padding:8px 12px;
-  font-size:12px;
-  font-weight:600
-}
-
-.resources-filter-chips button.active{
-  background:#007aff;
-  border-color:#007aff;
-  color:#fff
-}
-
-.resources-filter-chips button:active{
-  transform:scale(.97)
-}
-
-.resource-grid{
-  display:grid;
-  gap:10px
-}
-
-.resource-card{
-  width:100%;
-  min-height:106px;
-  border:.5px solid rgba(60,60,67,.14);
-  border-radius:20px;
-  background:#fff;
-  box-shadow:0 4px 14px rgba(0,0,0,.045);
-  padding:14px;
-  display:grid;
-  grid-template-columns:46px minmax(0,1fr) 22px;
-  align-items:center;
-  gap:12px;
-  text-align:left;
-  color:#1c1c1e
-}
-
-.resource-card:active{
-  transform:scale(.988);
-  background:#f7f7fa
-}
-
-.resource-icon{
-  width:46px;
-  height:46px;
-  border-radius:15px;
-  display:grid;
-  place-items:center;
-  background:#eef6ff;
-  color:#007aff
-}
-
-.resource-icon .ico{
-  width:24px;
-  height:24px
-}
-
-.resource-card.tone-green .resource-icon{
-  background:#eaf8ee;
-  color:#248a46
-}
-
-.resource-card.tone-amber .resource-icon{
-  background:#fff5e4;
-  color:#b96b00
-}
-
-.resource-card.tone-purple .resource-icon{
-  background:#f5efff;
-  color:#7d4db5
-}
-
-.resource-copy{
-  min-width:0;
-  display:grid;
-  gap:4px
-}
-
-.resource-title{
-  font-size:15px;
-  font-weight:700;
-  color:#111;
-  letter-spacing:-.15px
-}
-
-.resource-body{
-  font-size:12px;
-  line-height:1.4;
-  color:#6e6e73
-}
-
-.resource-meta{
-  display:flex;
-  align-items:center;
-  gap:6px;
-  flex-wrap:wrap;
-  margin-top:3px
-}
-
-.resource-tag{
-  display:inline-flex;
-  align-items:center;
-  border-radius:999px;
-  background:#f2f2f7;
-  color:#6e6e73;
-  padding:4px 7px;
-  font-size:9px;
-  font-weight:700
-}
-
-.resource-tag.program{
-  background:#e8f2ff;
-  color:#0067c7
-}
-
-.resource-open{
-  display:inline-flex;
-  align-items:center;
-  gap:4px;
-  color:#007aff;
-  font-size:10px;
-  font-weight:700;
-  margin-top:2px
-}
-
-.resource-open .ico{
-  width:13px;
-  height:13px
-}
-
-.resource-chevron{
-  color:#8e8e93
-}
-
-.resource-chevron .ico{
-  width:20px;
-  height:20px
-}
-
-.resources-note{
-  background:#fff9eb;
-  border:.5px solid rgba(255,159,10,.22);
-  border-radius:15px;
-  padding:11px 12px;
-  color:#795400;
-  font-size:11px;
-  line-height:1.45
-}
-
-.resource-trust{
-  display:grid;
-  grid-template-columns:32px minmax(0,1fr);
-  gap:10px;
-  align-items:start
-}
-
-.resource-trust>.ico{
-  width:24px;
-  height:24px;
-  color:#007aff;
-  margin-top:1px
-}
-
-.resource-trust b{
-  display:block;
-  font-size:13px;
-  margin-bottom:4px
-}
-
-.resource-trust p{
-  margin:0;
-  color:#6e6e73;
-  font-size:11px;
-  line-height:1.5
-}
-
+.purchase-card{display:grid;gap:14px;text-align:left}
+.purchase-hero{display:grid;grid-template-columns:52px minmax(0,1fr);gap:13px;align-items:center}
+.purchase-hero-icon{width:52px;height:52px;border-radius:17px;display:grid;place-items:center;background:#eaf8ee;color:#248a46}
+.purchase-hero-icon .ico{width:28px;height:28px}
+.purchase-hero h2{margin:0 0 4px;font-size:18px}
+.purchase-hero p{margin:0;color:var(--muted);font-size:12px;line-height:1.45}
+.purchase-status{border-radius:15px;background:#f2f2f7;padding:11px 12px;color:#5c5c61;font-size:12px;line-height:1.45}
+.purchase-status.success{background:#eaf8ee;color:#24723c}
+.purchase-settings{display:grid;gap:0}
 
 /* Reporting v2.7 presentation — extends the existing iOS design layer */
 .report-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:4px;background:#e9e9ee;border-radius:14px}
@@ -887,7 +656,7 @@ label,.label{font-size:12px;font-weight:600;color:#6e6e73}
   return {SCHEMA_VERSION,BLOCKER,WARNING,INFO,CASH_STATUS,clone,id,cents,isoDate,dateOnly,addDays,periodEnd,nextPeriodStart,makeCashPeriod,getCashBudgetStatus,cashStatusAfter,archiveCurrentCashPeriod,processExpiredCashPeriod,applyRolloverChoice,updateCashBudgetAmount,resetCashTiming,getActiveSnapCards,getSpendableSnapCardById,getActiveWicCards,isWicAllowanceUsable,getSpendableWicAllowanceById,getAvailableFundingSources,itemTotalCents,calculateFundingAllocations,validateBasketForCheckout,applyCheckoutTransaction,normalizeReportRows,filterReportRows,reportSummary,correctHistoryItemFunding,correctHistoryTransactionDetails,validateWicAllowanceEdit,normalizeReminder,processMonthlyReminder,canonicalState,migrateV25State,migrateLegacyState,normalizeState,normalizeCategoryId};
 });
 </script><script>const SUPPORTED_LOCALES=["en-US", "es-PR"];
-const MESSAGES={"en-US":{"app.title":"SNAP-EBT & WIC Benefits Tracker","app.webTitle":"SNAP-EBT & WIC Benefits Tracker · iOS Web App","app.drawerSubtitle":"SNAP-EBT · WIC · Shopping budget","app.disclaimer":"Independent local-first tracker. No account, profile, or publisher-operated analytics or telemetry. Core tracker data is stored in the app on this device and is not uploaded to an operator-controlled server; exports and device backups are explained in the Privacy Policy. The free app displays a limited number of non-personalized banner ads. Google may process device and advertising data as explained in the Privacy Policy. The app never asks for an EBT/WIC PIN or connects to a government benefit account.","nav.home":"Home","nav.shop":"Shop","nav.history":"History","nav.reports":"Reports","nav.cards":"Cards & Budgets","nav.saved":"Saved Baskets","nav.settings":"Settings","nav.help":"Help / Support","a11y.menu":"Menu","a11y.home":"Home","a11y.revealPrivate":"Reveal private values","a11y.hidePrivate":"Hide private values","a11y.adRegion":"Advertising banner","a11y.close":"Close","a11y.increaseQuantity":"Increase quantity","a11y.decreaseQuantity":"Decrease quantity","a11y.removeItem":"Remove {item}","a11y.deleteSaved":"Delete saved basket {name}","a11y.removeWic":"Remove WIC benefit {name}","a11y.backspace":"Backspace","ads.badge":"AD","ads.sponsoredSpace":"Sponsored banner space","ads.advertisementBanner":"Advertisement banner","ads.dynamicSpace":"Dynamic ad space","ads.refreshesAutomatically":"Refreshes automatically","ads.neverInterruptShopping":"Ads never interrupt shopping","ads.reportsRemainFree":"Reports remain free","common.save":"Save","common.add":"Add","common.edit":"Edit","common.manage":"Manage","common.load":"Load","common.delete":"Delete","common.back":"Back","common.continue":"Continue","common.done":"Done","common.cancel":"Cancel","common.clear":"Clear","common.undo":"Undo","entry.notSaved":"Not saved. Your changes are still here. Retry when storage is available.","entry.required":"This field is required.","entry.invalidNumber":"Enter a valid number.","entry.tooManyDecimals":"Too many decimal places.","entry.outOfRange":"The value is outside the supported range.","entry.discardDraft":"Discard this unfinished entry?","entry.discard":"Discard draft","entry.retry":"Retry save","entry.draftDiscarded":"Draft discarded.","entry.restoreDraft":"Restore draft","wic.chooseBenefitRequired":"Choose a WIC benefit for this item.","wic.matchingBenefits":"Matching WIC benefits","saved.rename":"Rename","saved.renameTitle":"Rename saved basket","saved.nameInUse":"A saved basket already uses that name.","saved.deleteUndo":"Saved basket deleted. Undo is available.","saved.undoDelete":"Undo delete","saved.mergeSeparate":"Keep separate","saved.mergeCombine":"Combine duplicates","saved.mergeSkip":"Skip duplicates","saved.mergePreview":"{count} incoming items · {duplicates} possible duplicates","saved.storeConflict":"Your current store will be kept. The saved basket store is {store}.","validation.moveToCash":"Move this item to Cash","validation.balanceCheck":"This item cannot be saved with the selected funding until the balance issue is resolved.","a11y.suggestionCount":"{count} suggestions available.","shop.priceEntryMode":"Price type","shop.unitPrice":"Unit price","shop.lineTotal":"Line total","shop.quantityUnit":"Quantity unit","shop.snapEligibility":"SNAP eligibility","shop.eligible":"Eligible","shop.notEligible":"Not eligible","shop.unsureEligibility":"Unsure","shop.transactionDate":"Transaction date","shop.usePreviousPrice":"Use previous price","shop.previousPrice":"Previous price","shop.duplicateItem":"Duplicate","shop.removedUndo":"Item removed. Undo is available.","onboarding.editWic":"Edit WIC benefit","onboarding.reviewTitle":"Review your setup","onboarding.setupLater":"Set up later","budget.saveChanges":"Save changes","budget.saveAndStart":"Save and start new period","cards.setBalance":"Set current balance","cards.addFunds":"Add funds / reload","cards.resultingBalance":"Resulting balance","wic.copyPrevious":"Copy previous benefit","wic.currentAvailable":"Currently available","wic.startNewPeriod":"Start new WIC period","wic.newPeriodTitle":"Start new WIC period","wic.newPeriodBody":"Choose the benefits to copy, review quantities and dates, then save them together.","wic.periodStart":"New period start","wic.periodEnd":"New period end","wic.copyBenefit":"Copy","wic.duplicateMode":"If a matching benefit already exists","wic.skipDuplicates":"Skip the existing match","wic.createSeparate":"Create a separate benefit","wic.noBenefitsSelected":"Choose at least one benefit to copy.","wic.newPeriodSaved":"New WIC period saved.","bulk.title":"Apply funding to multiple items","bulk.body":"Review what will change before applying.","bulk.source":"Funding source","bulk.affected":"{count} items will change","bulk.exceptions":"{count} items will stay unchanged","bulk.overwriteExisting":"Replace confirmed SNAP/Cash choices","bulk.overwriteSplits":"Replace confirmed split payments","bulk.previewBalance":"Balance after these choices","bulk.apply":"Apply funding","bulk.none":"No items can use this bulk choice.","saved.fundingReview":"Review previous funding","saved.validSuggestions":"{count} previous funding suggestions are still available.","saved.needsRemap":"{count} items need a different funding source.","saved.applyValidSuggestions":"Apply available previous SNAP/Cash suggestions","saved.remapTo":"For unavailable funding, use","saved.leaveUnresolved":"Leave for review","saved.remapNotice":"Previous WIC and split choices remain suggestions and must be confirmed against current prices and benefits.","correction.detailsTitle":"Edit transaction details","correction.detailsBody":"The original transaction is reversed in memory, the replacement is validated, and nothing is saved unless the complete correction succeeds.","correction.scopeNote":"Changing the store or transaction date applies to the whole transaction.","correction.itemName":"Item name","correction.saveDetails":"Save corrected transaction","correction.detailsApplied":"Transaction details corrected.","validation.moveShortfallToCash":"Pay this item with Cash","validation.shortfallPreview":"This changes the selected item to Cash and revalidates the basket before saving.","common.preview":"Preview","correction.paymentOnly":"Correct payment / funding","correction.details":"Edit transaction details","validation.shortfall":"{item}: {source} needs {required}; {available} is available. Shortfall {shortfall}.","a11y.errorSummary":"Please correct the highlighted fields.","common.choose":"Choose","common.active":"Active","common.retired":"Retired","common.pending":"Pending","common.unknown":"unknown","common.category":"Category","common.unit":"Unit","common.quantity":"Quantity","common.priceEach":"Price each","common.startDate":"Start date","common.expiryDate":"Expiry date","common.cardName":"Card name","common.monthlyReminderDate":"Monthly reminder date","funding.snap":"SNAP","funding.wic":"WIC","funding.cash":"Cash","funding.split":"SNAP + Cash","funding.unsure":"Unsure","funding.method":"Funding","funding.all":"All funding methods","budget.title":"Shopping budget","budget.cashBudget":"Cash budget","budget.status":"Shopping budget status","budget.remaining":"{amount} remaining","budget.reached":"Budget reached","budget.overBy":"{amount} over budget","budget.spentOf":"Spent {spent} / {budget}","budget.spentPeriod":"{amount} spent this period","budget.dailySuggested":"Suggested daily spend","budget.cashAlwaysAllowed":"Cash is always allowed; the budget is only a planning target.","budget.planningTarget":"This is a planning target, not a spending limit.","budget.base":"Base budget","budget.baseAmount":"Base budget amount","budget.cycle":"Budget cycle","budget.periodStarts":"Period starts","budget.periodTiming":"Period timing","budget.newPeriodStart":"New period start","budget.saveWithoutReset":"Save amount without resetting spending","budget.changeTimingExplanation":"Changing the period settings starts a new period and archives the current one. Current-period spending resets only when you confirm the new period.","budget.startNewWithDates":"Start new period with these settings","budget.startNewQuestion":"Start a new budget period?","budget.startNewBody":"The current period will be archived. Current-period spending resets only after you confirm the new period.","budget.startNew":"Start new period","budget.carryover":"Carryover","budget.periodHistory":"Period history","budget.noCompletedPeriods":"No completed periods yet","budget.periodOver":"{amount} over","budget.periodRemaining":"{amount} left","budget.completedUnder":"Completed under budget","budget.completedOver":"Completed over budget","budget.performance":"Shopping budget performance","budget.position":"Budget status","budget.invalidNegative":"Budget cannot be negative.","rollover.eyebrow":"New budget period","rollover.title":"You had money left in your budget","rollover.body":"{amount} was left unspent in the previous period. Add it to the next shopping budget?","rollover.startFresh":"Start fresh","rollover.carryForward":"Carry forward","reminder.review":"Reminder: review {names}.","home.noActiveCard":"No active card","home.activeCards.one":"{count} active card","home.activeCards.other":"{count} active cards","home.wicAvailable":"WIC benefits available","home.nextExpiry":"Next expiry","home.continueGrocery":"Continue Grocery","home.startGrocery":"Start Grocery","home.storeNotEntered":"Store not entered","shop.store":"Store","shop.storeName":"Store name","shop.item":"Item","shop.product":"Grocery item","shop.priceNotEntered":"Price not entered","shop.noPriceYet":"I do not have the price yet","shop.enterPrice":"Enter a price","shop.updateItem":"Update item","shop.addToBasket":"Add to basket","shop.currentBasket":"Current basket","shop.saveBasket":"Save basket","shop.reviewCheckout":"Review checkout","shop.basketEmpty":"Basket is empty","shop.addFirstItem":"Add your first grocery item above to get started.","shop.priceUnknown":"Price unknown","shop.priceUnknownLower":"price unknown","shop.enterItemName":"Enter an item name.","shop.enterValidPrice":"Enter a valid price.","shop.snapCard":"SNAP card","shop.useSnapOnly":"Use SNAP only","shop.splitWithCash":"Split with Cash","shop.snapAmount":"SNAP amount","shop.cashRemainder":"Cash remainder","shop.noUsableWic":"No usable WIC benefits are available.","shop.chooseWic":"Choose one of your available WIC benefits","shop.amountUsed":"Amount used","shop.currentBalance":"Current balance","shop.remainingPrice":"Remaining price","shop.payRemainderWith":"Pay remainder with","shop.decideBeforeCheckout":"Decide before checkout","shop.unsureBody":"You can add the item now, but checkout will require SNAP, WIC, or Cash.","shop.countItems.one":"{count} item","shop.countItems.other":"{count} items","shop.unknownPrices.one":"{count} price unknown","shop.unknownPrices.other":"{count} prices unknown","checkout.needsAttention":"Needs attention","checkout.editItem":"Edit item","checkout.cashOverWarning":"This checkout puts you {amount} over your shopping budget.","checkout.planningNote":"Planning note","checkout.title":"Checkout","checkout.reviewBasket":"Review basket","checkout.complete":"Complete checkout","checkout.logged":"Checkout logged","checkout.balancesUpdated":"Balances updated","checkout.successBody":"The selected benefit balances were updated once, and the transaction was saved in History.","checkout.viewHistory":"View History","checkout.startNext":"Start next basket","checkout.commitFailed":"Checkout could not be committed. Nothing was changed.","checkout.unknownPrice":"unknown price","checkout.itemCount.one":"{count} item","checkout.itemCount.other":"{count} items","history.subtitle":"Completed transactions and corrections.","history.search":"Search store or item","history.all":"All","history.noMatches":"No matching history","history.pendingAction":"Pending action","history.knownPriceTotal":"Known-price total","history.incompleteTotal.one":"The price of {count} item is missing; this total is incomplete.","history.incompleteTotal.other":"The prices of {count} items are missing; this total is incomplete.","history.correct":"Correct","history.itemCount.one":"{count} item","history.itemCount.other":"{count} items","correction.title":"Correction","correction.body":"Choose the correct payment method. The original payment is reversed before the correction is applied.","correction.apply":"Apply correction","correction.wicBenefit":"WIC benefit","correction.dollarRemainder":"If a dollar WIC amount leaves a remainder","correction.chooseRemainder":"Choose remainder funding if needed","correction.applied":"Correction applied.","reports.subtitle":"Reports combine your tracked benefits, shopping budget, and transaction history.","reports.allStores":"All stores","reports.allCategories":"All categories","reports.knownSpend":"Known-amount spending","reports.unknownPriceItems":"Unknown-price items","reports.fundingBreakdown":"Funding breakdown","reports.wicQuantities":"WIC quantities used","reports.topStores":"Stores with highest spending","reports.categories":"Categories","reports.export":"Export spreadsheet","reports.print":"Print / Save PDF","reports.noData":"No matching data","reports.fromDate":"From date","reports.toDate":"To date","cards.subtitle":"Manage your benefits and shopping budget here.","cards.snapCards":"SNAP cards","cards.noSnap":"No SNAP cards","cards.wicCards":"WIC cards & benefits","cards.addCard":"Add card","cards.noWic":"No WIC cards","cards.allowance":"Benefit","cards.noAllowances":"No benefits","cards.manageSnap":"Manage SNAP card","cards.addSnap":"Add SNAP card","cards.currentTrackedBalance":"Current tracked balance","cards.manageWic":"Manage WIC card","cards.addWic":"Add WIC card","cards.prefillWic":"Use what is already on this card as a base so you do not have to type everything again.","cards.editWicBenefit":"Edit WIC benefit","cards.addWicBenefit":"Add WIC benefit","cards.customLabel":"Custom label","cards.startingAmount":"Starting amount","cards.remainingAmount":"Remaining amount","cards.reactivateAllowance":"Reactivate benefit","cards.retireAllowance":"Retire benefit","cards.reactivateCard":"Reactivate card","cards.retireCard":"Retire card","cards.balanceNegative":"Balance cannot be negative.","saved.subtitle":"Reusable grocery templates. Payment methods are selected again when a list is loaded.","saved.noStore":"No store","saved.noSaved":"No saved baskets yet","saved.saveFromShop":"Save a list from Shop after adding items you want to reuse.","saved.saveTitle":"Save basket","saved.name":"Basket name","saved.defaultName":"Grocery list","saved.paymentNotRetained":"Payment methods are not retained. When you load this list, choose the payment method again for each item.","saved.currentExists":"You already have a current basket. Merge the saved items or replace it?","saved.loadQuestion":"Load these groceries into your basket?","saved.merge":"Merge","saved.replace":"Replace","saved.loadBasket":"Load basket","saved.saved":"Basket saved.","saved.itemCount.one":"{count} item","saved.itemCount.other":"{count} items","settings.subtitle":"Manage general application preferences.","settings.privacyMode":"Privacy mode","settings.privacyBody":"Mask sensitive values until temporarily revealed.","settings.haptics":"Haptic feedback","settings.hapticsBody":"Subtle vibration on supported devices.","settings.language":"Language","settings.english":"English (United States)","settings.spanishPR":"Español (Puerto Rico)","help.subtitle":"How the application works.","help.whatTracks":"What this app tracks","help.tracksBody":"SNAP and WIC have limited balances that you enter and manage. The shopping budget is only a planning target, so Cash transactions are never blocked for going over it.","help.privacy":"Privacy","help.privacyBody":"Locally entered balances, benefits, grocery items, budgets, and History are not sent as ad parameters.","help.independence":"Independence","help.independenceBody":"Independent app—not affiliated with or endorsed by USDA/FNS, Puerto Rico ADSEF, any SNAP/PAN or WIC agency, retailer, or card issuer. It does not provide official balances, eligibility decisions, retailer acceptance, or product authorization. Official sources control.","onboarding.choosePrograms":"Which benefits do you use?","onboarding.currentSnap":"Current SNAP balance","onboarding.trackedBalance":"Balance to track","onboarding.wicTitle":"What is on your WIC card?","onboarding.wicBody":"Add the benefits one by one. Choose the category first, then the matching unit, available amount, and dates if you use them.","onboarding.wicCategory":"WIC category","onboarding.availableAmount":"Available amount","onboarding.amountExample":"Example: 36 or 1","onboarding.customCategoryName":"Custom category name","onboarding.enterCustomCategory":"Enter a custom WIC category","onboarding.benefitStartOptional":"Benefit start date (optional)","onboarding.expiryOptional":"Use-by / expiry date (optional)","onboarding.unitAuto":"The unit changes automatically to match the category. You can choose another compatible unit before adding the benefit.","onboarding.addWic":"Add WIC benefit","onboarding.noWic":"No WIC benefits added yet","onboarding.openApp":"Open app","onboarding.noPin":"No EBT/WIC PIN required. No connection to government benefit accounts.","onboarding.enterAmount":"Enter an amount.","onboarding.enterCategory":"Enter a category name.","onboarding.languagePrompt":"Language","onboarding.languageHint":"Choose your language before entering data.","data.clearQuestion":"Clear all data?","data.clearBody":"This permanently removes this app’s locally stored tracker data and surviving temporary export-cache copies from this device, cancels its scheduled local reminders, and returns you to initial setup. Files you previously saved or shared to other locations are stored separately and are not deleted.","data.clearAll":"Clear All Data","cycle.weekly":"Weekly","cycle.biweekly":"Every 2 weeks","cycle.monthly":"Monthly","cycle.custom":"Custom days","wic.category.produce":"Fruits & vegetables / CVB","wic.category.milk":"Milk","wic.category.eggs":"Eggs","wic.category.cheese":"Cheese","wic.category.yogurt":"Yogurt","wic.category.cereal":"Breakfast cereal","wic.category.grains":"Whole grains","wic.category.juice":"100% juice","wic.category.beans":"Beans / legumes","wic.category.pb":"Peanut butter","wic.category.fish":"Canned fish","wic.category.tofu":"Tofu / soy","wic.category.formula":"Infant formula","wic.category.infantCereal":"Infant cereal","wic.category.infantProduce":"Infant fruits & vegetables","wic.category.infantMeat":"Infant meats","wic.category.custom":"Custom WIC category","unit.dollar":"$","unit.gal":"gal","unit.qt":"qt","unit.half_gal":"½ gallon","unit.dozen":"dozen","unit.oz":"oz","unit.lb":"lb","unit.package":"package","unit.container":"container","unit.box":"box","unit.loaf":"loaf","unit.fl_oz":"fl oz","unit.can":"can","unit.jar":"jar","unit.pouch":"pouch","unit.each":"unit","unit.half_gal.plural":"½ gallons","unit.dozen.plural":"dozen","unit.package.plural":"packages","unit.container.plural":"containers","unit.box.plural":"boxes","unit.loaf.plural":"loaves","unit.can.plural":"cans","unit.jar.plural":"jars","unit.pouch.plural":"pouches","unit.each.plural":"units","category.other":"Other","validation.EMPTY_BASKET":"Add at least one grocery item before checkout.","validation.INVALID_ITEM":"A basket item is invalid or missing its name.","validation.INVALID_QUANTITY":"Quantity must be greater than zero.","validation.UNRESOLVED_FUNDING":"Choose SNAP, WIC, or Cash before checkout.","validation.PRICE_REQUIRED":"Enter the item price for this payment method.","validation.SNAP_SOURCE_UNAVAILABLE":"The selected SNAP card is missing or inactive.","validation.INVALID_SPLIT":"The SNAP/Cash split must equal the item total.","validation.WIC_CARD_MISSING":"The selected WIC card no longer exists.","validation.WIC_CARD_INACTIVE":"The selected WIC card is inactive.","validation.WIC_ALLOWANCE_MISSING":"The selected WIC benefit no longer exists.","validation.WIC_ALLOWANCE_INACTIVE":"The selected WIC benefit is inactive.","validation.WIC_NOT_STARTED":"This WIC benefit has not started yet.","validation.WIC_EXPIRED":"This WIC benefit has expired.","validation.WIC_UNAVAILABLE":"The selected WIC benefit is not available for this transaction.","validation.WIC_AMOUNT_REQUIRED":"Enter the WIC amount used for this item.","validation.WIC_UNIT_MISMATCH":"The WIC unit does not match the selected benefit.","validation.WIC_DOLLARS_EXCEED_PRICE":"The WIC dollar amount cannot exceed the known item total.","validation.WIC_REMAINDER_UNRESOLVED":"Choose how to pay the remaining item amount.","validation.WIC_PRICE_UNKNOWN":"The item price was not entered. Reports will show the known WIC amount and mark the grocery total as incomplete.","validation.SNAP_INSUFFICIENT":"SNAP balance is insufficient for this checkout.","validation.WIC_INSUFFICIENT":"The WIC benefit does not have enough remaining for this checkout.","validation.CASH_OVER_BUDGET":"This checkout puts you {amount} over your shopping budget.","validation.SNAP_INSUFFICIENT_CORRECTION":"SNAP balance is insufficient for this correction.","validation.WIC_INSUFFICIENT_CORRECTION":"The WIC benefit does not have enough remaining for this correction.","validation.WIC_EDIT_STARTING_NEGATIVE":"Starting balance cannot be negative.","validation.WIC_EDIT_REMAINING_NEGATIVE":"Remaining balance cannot be negative.","validation.WIC_EDIT_REMAINING_EXCEEDS_STARTING":"Remaining balance cannot exceed starting balance without an explicit adjustment.","validation.WIC_EDIT_START_AFTER_EXPIRY":"Start date cannot be after expiry date.","error.checkoutPlanInvalid":"Checkout could not be completed. Nothing was changed.","error.snapLedgerChanged":"The SNAP balance changed before checkout could finish. Review the basket and try again.","error.wicLedgerChanged":"The WIC balance changed before checkout could finish. Review the basket and try again.","error.historicalSnapMissing":"The original SNAP source is no longer available for this correction.","error.historicalWicMissing":"The original WIC benefit is no longer available for this correction.","error.transactionNotFound":"Transaction not found.","error.itemNotFound":"Item not found.","export.header.date":"Date","export.header.store":"Store","export.header.item":"Item","export.header.category":"Category","export.header.funding":"Funding method","export.header.amount":"Allocated amount (USD cents)","export.header.priceKnown":"Item price known","export.header.itemTotal":"Item total (USD cents)","export.header.wicUnit":"WIC unit","export.header.wicQuantity":"WIC quantity","export.yes":"Yes","export.no":"No","funding.snapWic":"SNAP + WIC","cards.defaultSnapName":"SNAP {index}","cards.defaultWicName":"WIC {index}","cards.reminder":"Monthly reminder","cards.wicBenefitDates":"{start} – {end}","cards.noDate":"No date","cards.prefillTitle":"Use an existing benefit as a starting point","cards.addAnotherWic":"Add another WIC benefit","cards.saveBenefit":"Save benefit","cards.saveCard":"Save card","cards.saveBalance":"Save balance","cards.activeStatus":"Active","cards.retiredStatus":"Retired","cards.noReminder":"No reminder","history.noStore":"Store not entered","history.detailTitle":"Transaction details","reports.priceKnownYes":"Yes","reports.priceKnownNo":"No","reports.wicUnitUsage":"{amount}","reports.noStore":"Store not entered","reports.cashBudgetTarget":"Shopping budget","reports.currentPeriod":"Current period","correction.noEligibleWic":"No WIC benefit is available for the transaction date.","correction.noEligibleSnap":"No active SNAP card is available.","common.from":"From","common.to":"To","common.yes":"Yes","common.no":"No","common.remove":"Remove","common.all":"All","a11y.editItem":"Edit {item}","a11y.openWicBenefit":"Open WIC benefit {name}","a11y.chooseSuggestion":"Choose {name}","a11y.onboardingLanguage":"Choose application language","a11y.adBadge":"Advertisement","saved.generatedName":"Grocery list","saved.deleted":"Saved basket deleted.","shop.catalogSuggestion":"Catalog item","shop.recentSuggestion":"Recent item","shop.customItem":"Custom item","checkout.unknownPricesSummary.one":"{count} item without a price","checkout.unknownPricesSummary.other":"{count} items without prices","reminder.none":"No reminders due.","onboarding.languageEnglish":"English (United States)","onboarding.languageSpanishPR":"Español (Puerto Rico)","export.title":"SNAP-EBT & WIC Benefits Tracker report","export.filename":"snap-wic-benefits-tracker-report","export.pending":"Pending","export.categoryOther":"Other","unit.fl_oz.plural":"fl oz","unit.gal.plural":"gal","unit.lb.plural":"lb","unit.oz.plural":"oz","unit.qt.plural":"qt"},"es-PR":{"app.title":"SNAP-EBT & WIC Benefits Tracker","app.webTitle":"SNAP-EBT & WIC Benefits Tracker · aplicación web para iOS","app.drawerSubtitle":"PAN · WIC · Presupuesto de compra","app.disclaimer":"Rastreador independiente y local. No requiere cuenta ni perfil y no contiene analítica o telemetría operada por el editor. Los datos principales del rastreador se almacenan en la aplicación en este dispositivo y no se cargan a un servidor controlado por el operador; las exportaciones y copias de seguridad se explican en la Política de Privacidad. La aplicación gratuita muestra una cantidad limitada de anuncios de banner no personalizados. Google puede procesar datos del dispositivo y de publicidad según se explica en la Política de Privacidad. La aplicación nunca solicita un PIN de EBT/WIC ni se conecta a una cuenta gubernamental de beneficios.","nav.home":"Inicio","nav.shop":"Compra","nav.history":"Historial","nav.reports":"Reportes","nav.cards":"Tarjetas y presupuesto","nav.saved":"Listas guardadas","nav.settings":"Configuración","nav.help":"Ayuda y soporte","a11y.menu":"Menú","a11y.home":"Inicio","a11y.revealPrivate":"Mostrar valores privados","a11y.hidePrivate":"Ocultar valores privados","a11y.adRegion":"Banner publicitario","a11y.close":"Cerrar","a11y.increaseQuantity":"Aumentar cantidad","a11y.decreaseQuantity":"Reducir cantidad","a11y.removeItem":"Eliminar {item}","a11y.deleteSaved":"Eliminar la lista guardada {name}","a11y.removeWic":"Eliminar el beneficio WIC {name}","a11y.backspace":"Borrar último dígito","ads.badge":"ANUNCIO","ads.sponsoredSpace":"Espacio para anuncio patrocinado","ads.advertisementBanner":"Banner publicitario","ads.dynamicSpace":"Espacio publicitario dinámico","ads.refreshesAutomatically":"Se actualiza automáticamente","ads.neverInterruptShopping":"Los anuncios no interrumpen tu compra","ads.reportsRemainFree":"Los reportes siguen siendo gratis","common.save":"Guardar","common.add":"Añadir","common.edit":"Editar","common.manage":"Administrar","common.load":"Cargar","common.delete":"Eliminar","common.back":"Atrás","common.continue":"Continuar","common.done":"Listo","common.cancel":"Cancelar","common.clear":"Borrar","common.undo":"Deshacer","entry.notSaved":"No se guardó. Tus cambios siguen aquí. Intenta guardar de nuevo cuando el almacenamiento esté disponible.","entry.required":"Este campo es obligatorio.","entry.invalidNumber":"Ingresa un número válido.","entry.tooManyDecimals":"Hay demasiados decimales.","entry.outOfRange":"El valor está fuera del rango permitido.","entry.discardDraft":"¿Descartar esta entrada sin terminar?","entry.discard":"Descartar borrador","entry.retry":"Reintentar guardado","entry.draftDiscarded":"Borrador descartado.","entry.restoreDraft":"Restaurar borrador","wic.chooseBenefitRequired":"Escoge un beneficio WIC para este producto.","wic.matchingBenefits":"Beneficios WIC compatibles","saved.rename":"Renombrar","saved.renameTitle":"Renombrar lista guardada","saved.nameInUse":"Ya existe una lista guardada con ese nombre.","saved.deleteUndo":"Lista guardada eliminada. Puedes deshacerlo.","saved.undoDelete":"Deshacer eliminación","saved.mergeSeparate":"Mantener separados","saved.mergeCombine":"Combinar duplicados","saved.mergeSkip":"Omitir duplicados","saved.mergePreview":"{count} productos entrantes · {duplicates} posibles duplicados","saved.storeConflict":"Se conservará tu tienda actual. La tienda de la lista guardada es {store}.","validation.moveToCash":"Mover este producto a efectivo","validation.balanceCheck":"No puedes guardar este producto con la forma de pago seleccionada hasta resolver el problema de saldo.","a11y.suggestionCount":"{count} sugerencias disponibles.","shop.priceEntryMode":"Tipo de precio","shop.unitPrice":"Precio por unidad","shop.lineTotal":"Total de la línea","shop.quantityUnit":"Unidad de cantidad","shop.snapEligibility":"Elegibilidad SNAP/PAN","shop.eligible":"Elegible","shop.notEligible":"No elegible","shop.unsureEligibility":"No estoy seguro","shop.transactionDate":"Fecha de transacción","shop.usePreviousPrice":"Usar precio anterior","shop.previousPrice":"Precio anterior","shop.duplicateItem":"Duplicar","shop.removedUndo":"Producto eliminado. Puedes deshacer.","onboarding.editWic":"Editar beneficio WIC","onboarding.reviewTitle":"Revisa tu configuración","onboarding.setupLater":"Configurar después","budget.saveChanges":"Guardar cambios","budget.saveAndStart":"Guardar e iniciar período nuevo","cards.setBalance":"Establecer saldo actual","cards.addFunds":"Añadir fondos / recarga","cards.resultingBalance":"Saldo resultante","wic.copyPrevious":"Copiar beneficio anterior","wic.currentAvailable":"Disponible actualmente","wic.startNewPeriod":"Comenzar nuevo período WIC","wic.newPeriodTitle":"Comenzar nuevo período WIC","wic.newPeriodBody":"Escoge los beneficios que deseas copiar, revisa las cantidades y fechas y luego guárdalos juntos.","wic.periodStart":"Inicio del nuevo período","wic.periodEnd":"Fin del nuevo período","wic.copyBenefit":"Copiar","wic.duplicateMode":"Si ya existe un beneficio equivalente","wic.skipDuplicates":"Omitir el beneficio existente","wic.createSeparate":"Crear un beneficio separado","wic.noBenefitsSelected":"Escoge al menos un beneficio para copiar.","wic.newPeriodSaved":"Nuevo período WIC guardado.","bulk.title":"Aplicar forma de pago a varios productos","bulk.body":"Revisa lo que cambiará antes de aplicarlo.","bulk.source":"Forma de pago","bulk.affected":"{count} productos cambiarán","bulk.exceptions":"{count} productos quedarán sin cambios","bulk.overwriteExisting":"Reemplazar opciones confirmadas de PAN/efectivo","bulk.overwriteSplits":"Reemplazar pagos divididos confirmados","bulk.previewBalance":"Saldo después de estos cambios","bulk.apply":"Aplicar forma de pago","bulk.none":"Ningún producto puede usar esta opción en grupo.","saved.fundingReview":"Revisar forma de pago anterior","saved.validSuggestions":"{count} sugerencias de pago anteriores siguen disponibles.","saved.needsRemap":"{count} productos necesitan otra forma de pago.","saved.applyValidSuggestions":"Aplicar sugerencias disponibles de PAN/efectivo","saved.remapTo":"Para pagos no disponibles, usar","saved.leaveUnresolved":"Dejar para revisar","saved.remapNotice":"Las opciones WIC y los pagos divididos anteriores permanecen como sugerencias y deben confirmarse con los precios y beneficios actuales.","correction.detailsTitle":"Editar detalles de la transacción","correction.detailsBody":"La transacción original se revierte en memoria, se valida el reemplazo y no se guarda nada a menos que toda la corrección sea válida.","correction.scopeNote":"Cambiar la tienda o la fecha de la transacción se aplica a toda la transacción.","correction.itemName":"Nombre del producto","correction.saveDetails":"Guardar transacción corregida","correction.detailsApplied":"Detalles de la transacción corregidos.","validation.moveShortfallToCash":"Pagar este producto con efectivo","validation.shortfallPreview":"Esto cambia el producto seleccionado a efectivo y vuelve a validar el carrito antes de guardar.","common.preview":"Vista previa","correction.paymentOnly":"Corregir pago / fuente","correction.details":"Editar detalles de transacción","validation.shortfall":"{item}: {source} requiere {required}; hay {available} disponible. Faltan {shortfall}.","a11y.errorSummary":"Corrige los campos indicados.","common.choose":"Elegir","common.active":"Activa","common.retired":"Retirada","common.pending":"Pendiente","common.unknown":"desconocido","common.category":"Categoría","common.unit":"Unidad","common.quantity":"Cantidad","common.priceEach":"Precio por unidad","common.startDate":"Fecha de inicio","common.expiryDate":"Fecha de vencimiento","common.cardName":"Nombre de la tarjeta","common.monthlyReminderDate":"Fecha del recordatorio mensual","funding.snap":"PAN","funding.wic":"WIC","funding.cash":"Efectivo","funding.split":"PAN + efectivo","funding.unsure":"Sin definir","funding.method":"Forma de pago","funding.all":"Todas las formas de pago","budget.title":"Presupuesto de compra","budget.cashBudget":"Presupuesto de compra","budget.status":"Estado del presupuesto","budget.remaining":"Quedan {amount}","budget.reached":"Presupuesto alcanzado","budget.overBy":"{amount} por encima del presupuesto","budget.spentOf":"Gastado {spent} / {budget}","budget.spentPeriod":"Gastado este período: {amount}","budget.dailySuggested":"Gasto diario sugerido","budget.cashAlwaysAllowed":"Siempre puedes pagar en efectivo; el presupuesto es solo una meta de planificación.","budget.planningTarget":"Esta es una meta de planificación, no un límite de gasto.","budget.base":"Presupuesto base","budget.baseAmount":"Cantidad del presupuesto base","budget.cycle":"Ciclo del presupuesto","budget.periodStarts":"El período comienza","budget.periodTiming":"Fechas del período","budget.newPeriodStart":"Inicio del nuevo período","budget.saveWithoutReset":"Guardar cantidad sin reiniciar el gasto","budget.changeTimingExplanation":"Cambiar la configuración del período inicia un nuevo período y archiva el actual. El gasto del período actual solo se reinicia cuando confirmas el nuevo período.","budget.startNewWithDates":"Iniciar nuevo período con esta configuración","budget.startNewQuestion":"¿Iniciar un nuevo período de presupuesto?","budget.startNewBody":"El período actual se archivará. El gasto del período actual solo se reiniciará después de confirmar el nuevo período.","budget.startNew":"Iniciar nuevo período","budget.carryover":"Saldo trasladado","budget.periodHistory":"Historial de períodos","budget.noCompletedPeriods":"Aún no hay períodos completados","budget.periodOver":"{amount} por encima","budget.periodRemaining":"Saldo restante: {amount}","budget.completedUnder":"Períodos dentro del presupuesto","budget.completedOver":"Períodos por encima del presupuesto","budget.performance":"Rendimiento del presupuesto de compra","budget.position":"Estado del presupuesto","budget.invalidNegative":"El presupuesto no puede ser negativo.","rollover.eyebrow":"Nuevo período de presupuesto","rollover.title":"Te quedó dinero del presupuesto","rollover.body":"Quedaron {amount} sin gastar en el período anterior. ¿Quieres añadir ese saldo al próximo presupuesto?","rollover.startFresh":"Empezar sin saldo anterior","rollover.carryForward":"Añadir al próximo presupuesto","reminder.review":"Recordatorio: revisa {names}.","home.noActiveCard":"Sin tarjeta activa","home.activeCards.one":"{count} tarjeta activa","home.activeCards.other":"{count} tarjetas activas","home.wicAvailable":"Beneficios WIC disponibles","home.nextExpiry":"Próximo vencimiento","home.continueGrocery":"Continuar comprando","home.startGrocery":"Empezar a comprar","home.storeNotEntered":"Tienda no ingresada","shop.store":"Tienda","shop.storeName":"Nombre de la tienda","shop.item":"Producto","shop.product":"Producto","shop.priceNotEntered":"Precio no ingresado","shop.noPriceYet":"Todavía no tengo el precio","shop.enterPrice":"Ingresar precio","shop.updateItem":"Actualizar producto","shop.addToBasket":"Añadir al carrito","shop.currentBasket":"Carrito actual","shop.saveBasket":"Guardar lista","shop.reviewCheckout":"Revisar compra","shop.basketEmpty":"El carrito está vacío","shop.addFirstItem":"Añade tu primer producto arriba para comenzar.","shop.priceUnknown":"Precio desconocido","shop.priceUnknownLower":"precio sin ingresar","shop.enterItemName":"Ingresa el nombre del artículo.","shop.enterValidPrice":"Ingresa un precio válido.","shop.snapCard":"Tarjeta PAN","shop.useSnapOnly":"Usar solo PAN","shop.splitWithCash":"Dividir con efectivo","shop.snapAmount":"Cantidad de PAN","shop.cashRemainder":"Resto en efectivo","shop.noUsableWic":"No hay beneficios WIC disponibles para usar.","shop.chooseWic":"Elige uno de tus beneficios WIC disponibles","shop.amountUsed":"Cantidad usada","shop.currentBalance":"Saldo actual","shop.remainingPrice":"Precio restante","shop.payRemainderWith":"Pagar el resto con","shop.decideBeforeCheckout":"Decide antes de pagar","shop.unsureBody":"Puedes añadir el producto ahora, pero antes de finalizar tendrás que escoger PAN, WIC o efectivo.","shop.countItems.one":"{count} artículo","shop.countItems.other":"{count} artículos","shop.unknownPrices.one":"{count} precio sin ingresar","shop.unknownPrices.other":"{count} precios sin ingresar","checkout.needsAttention":"Requiere atención","checkout.editItem":"Editar producto","checkout.cashOverWarning":"Con esta compra quedarás {amount} por encima de tu presupuesto de compra.","checkout.planningNote":"Nota de planificación","checkout.title":"Compra","checkout.reviewBasket":"Revisar carrito","checkout.complete":"Completar compra","checkout.logged":"Compra registrada","checkout.balancesUpdated":"Saldos actualizados","checkout.successBody":"Los saldos seleccionados se actualizaron una sola vez y la transacción se guardó en el historial.","checkout.viewHistory":"Ver historial","checkout.startNext":"Empezar otro carrito","checkout.commitFailed":"No se pudo completar la compra. No se cambió nada.","checkout.unknownPrice":"precio sin ingresar","checkout.itemCount.one":"{count} artículo","checkout.itemCount.other":"{count} artículos","history.subtitle":"Transacciones completadas y correcciones.","history.search":"Buscar tienda o producto","history.all":"Todos","history.noMatches":"No hay resultados","history.pendingAction":"Acción pendiente","history.knownPriceTotal":"Total con precios conocidos","history.incompleteTotal.one":"Falta el precio de {count} artículo; el total está incompleto.","history.incompleteTotal.other":"Faltan los precios de {count} artículos; el total está incompleto.","history.correct":"Corregir","history.itemCount.one":"{count} artículo","history.itemCount.other":"{count} artículos","correction.title":"Corrección","correction.body":"Escoge la forma de pago correcta. Primero se revierte el pago original y luego se aplica la corrección.","correction.apply":"Aplicar corrección","correction.wicBenefit":"Beneficio WIC","correction.dollarRemainder":"Si un beneficio WIC en dólares deja un resto","correction.chooseRemainder":"Escoge cómo pagar el resto si hace falta","correction.applied":"Corrección aplicada.","reports.subtitle":"Los reportes combinan tus beneficios registrados, tu presupuesto de compra y tu historial de transacciones.","reports.allStores":"Todas las tiendas","reports.allCategories":"Todas las categorías","reports.knownSpend":"Gasto con monto conocido","reports.unknownPriceItems":"Artículos sin precio","reports.fundingBreakdown":"Desglose por forma de pago","reports.wicQuantities":"Cantidades WIC usadas","reports.topStores":"Tiendas con mayor gasto","reports.categories":"Categorías","reports.export":"Exportar hoja","reports.print":"Imprimir / Guardar PDF","reports.noData":"No hay datos","reports.fromDate":"Fecha inicial","reports.toDate":"Fecha final","cards.subtitle":"Aquí puedes administrar tus beneficios y tu presupuesto de compra.","cards.snapCards":"Tarjetas PAN","cards.noSnap":"Sin tarjetas PAN","cards.wicCards":"Tarjetas y beneficios WIC","cards.addCard":"Añadir tarjeta","cards.noWic":"Sin tarjetas WIC","cards.allowance":"Beneficio","cards.noAllowances":"Sin beneficios","cards.manageSnap":"Administrar tarjeta PAN","cards.addSnap":"Añadir tarjeta PAN","cards.currentTrackedBalance":"Saldo actual registrado","cards.manageWic":"Administrar tarjeta WIC","cards.addWic":"Añadir tarjeta WIC","cards.prefillWic":"Usa los beneficios que ya están en esta tarjeta como base para no tener que ingresarlos nuevamente.","cards.editWicBenefit":"Editar beneficio WIC","cards.addWicBenefit":"Añadir beneficio WIC","cards.customLabel":"Nombre personalizado","cards.startingAmount":"Cantidad inicial","cards.remainingAmount":"Cantidad restante","cards.reactivateAllowance":"Reactivar beneficio","cards.retireAllowance":"Retirar beneficio","cards.reactivateCard":"Reactivar tarjeta","cards.retireCard":"Retirar tarjeta","cards.balanceNegative":"El saldo no puede ser negativo.","saved.subtitle":"Listas reutilizables de productos. Las formas de pago se seleccionan nuevamente al cargar una lista.","saved.noStore":"Sin tienda","saved.noSaved":"Aún no hay listas guardadas","saved.saveFromShop":"Guarda una lista desde la sección Compra después de añadir los productos que quieras reutilizar.","saved.saveTitle":"Guardar lista","saved.name":"Nombre de la lista","saved.defaultName":"Lista de compra","saved.paymentNotRetained":"Las formas de pago no se conservan. Cuando cargues esta lista, vuelve a escoger la forma de pago para cada producto.","saved.currentExists":"Ya tienes un carrito actual. ¿Quieres combinar los productos guardados o reemplazar el carrito?","saved.loadQuestion":"¿Cargar estos productos en el carrito?","saved.merge":"Combinar","saved.replace":"Reemplazar","saved.loadBasket":"Cargar lista","saved.saved":"Lista guardada.","saved.itemCount.one":"{count} artículo","saved.itemCount.other":"{count} artículos","settings.subtitle":"Configura las preferencias generales de la aplicación.","settings.privacyMode":"Modo de privacidad","settings.privacyBody":"Oculta los valores sensibles hasta que los muestres temporalmente.","settings.haptics":"Respuesta háptica","settings.hapticsBody":"Vibración sutil en dispositivos compatibles.","settings.language":"Idioma","settings.english":"English (United States)","settings.spanishPR":"Español (Puerto Rico)","help.subtitle":"Cómo funciona la aplicación.","help.whatTracks":"Qué registra esta aplicación","help.tracksBody":"PAN y WIC tienen saldos limitados que tú registras y administras. El presupuesto de compra es solo una meta de planificación, por lo que las transacciones en efectivo nunca se bloquean por excederlo.","help.privacy":"Privacidad","help.privacyBody":"No hay cuenta ni perfil. Los saldos, beneficios, artículos, presupuestos e Historial introducidos localmente no se envían como parámetros publicitarios.","help.independence":"Independencia","help.independenceBody":"Aplicación independiente: no está afiliada ni respaldada por USDA/FNS, ADSEF de Puerto Rico, una agencia de SNAP/PAN o WIC, un comercio ni un emisor de tarjeta. No ofrece saldos oficiales, decisiones de elegibilidad, aceptación de comercios ni autorización de productos. Prevalecen las fuentes oficiales.","onboarding.choosePrograms":"¿Qué beneficios usas?","onboarding.currentSnap":"Saldo actual de PAN","onboarding.trackedBalance":"Saldo que quieres registrar","onboarding.wicTitle":"¿Qué tienes en tu tarjeta WIC?","onboarding.wicBody":"Añade los beneficios uno por uno. Primero escoge la categoría, luego la unidad correspondiente, la cantidad disponible y las fechas si las usas.","onboarding.wicCategory":"Categoría WIC","onboarding.availableAmount":"Cantidad disponible","onboarding.amountExample":"Ejemplo: 36 o 1","onboarding.customCategoryName":"Nombre de la categoría personalizada","onboarding.enterCustomCategory":"Ingresa una categoría WIC personalizada","onboarding.benefitStartOptional":"Fecha de inicio del beneficio (opcional)","onboarding.expiryOptional":"Fecha límite de uso o vencimiento (opcional)","onboarding.unitAuto":"La unidad cambia automáticamente según la categoría. Puedes escoger otra unidad compatible antes de añadir el beneficio.","onboarding.addWic":"Añadir beneficio WIC","onboarding.noWic":"Aún no has añadido beneficios WIC","onboarding.openApp":"Abrir aplicación","onboarding.noPin":"No se requiere un PIN de EBT/WIC. No hay conexión con cuentas gubernamentales de beneficios.","onboarding.enterAmount":"Ingresa una cantidad.","onboarding.enterCategory":"Ingresa un nombre de categoría.","onboarding.languagePrompt":"Idioma","onboarding.languageHint":"Escoge tu idioma antes de ingresar datos.","data.clearQuestion":"¿Borrar todos los datos?","data.clearBody":"Esto elimina permanentemente los datos locales del rastreador y las copias temporales de exportación que aún queden en esta aplicación, cancela sus recordatorios locales programados y vuelve a la configuración inicial. Los archivos que guardaste o compartiste anteriormente en otras ubicaciones se almacenan por separado y no se eliminan.","data.clearAll":"Borrar todos los datos","cycle.weekly":"Semanal","cycle.biweekly":"Cada 2 semanas","cycle.monthly":"Mensual","cycle.custom":"Días personalizados","wic.category.produce":"Frutas y vegetales / CVB","wic.category.milk":"Leche","wic.category.eggs":"Huevos","wic.category.cheese":"Queso","wic.category.yogurt":"Yogur","wic.category.cereal":"Cereal para el desayuno","wic.category.grains":"Granos integrales","wic.category.juice":"Jugo 100 %","wic.category.beans":"Habichuelas / legumbres","wic.category.pb":"Mantequilla de maní","wic.category.fish":"Pescado enlatado","wic.category.tofu":"Tofu / soya","wic.category.formula":"Fórmula infantil","wic.category.infantCereal":"Cereal infantil","wic.category.infantProduce":"Frutas y vegetales para bebés","wic.category.infantMeat":"Carnes para bebés","wic.category.custom":"Categoría WIC personalizada","unit.dollar":"$","unit.gal":"gal","unit.qt":"qt","unit.half_gal":"½ galón","unit.dozen":"docena","unit.oz":"oz","unit.lb":"lb","unit.package":"paquete","unit.container":"envase","unit.box":"caja","unit.loaf":"pan","unit.fl_oz":"fl oz","unit.can":"lata","unit.jar":"frasco","unit.pouch":"bolsa","unit.each":"unidad","unit.half_gal.plural":"½ galones","unit.dozen.plural":"docenas","unit.package.plural":"paquetes","unit.container.plural":"envases","unit.box.plural":"cajas","unit.loaf.plural":"panes","unit.can.plural":"latas","unit.jar.plural":"frascos","unit.pouch.plural":"bolsas","unit.each.plural":"unidades","category.other":"Otros","validation.EMPTY_BASKET":"Añade al menos un producto al carrito antes de pagar.","validation.INVALID_ITEM":"Hay un producto inválido o sin nombre en el carrito.","validation.INVALID_QUANTITY":"La cantidad debe ser mayor que cero.","validation.UNRESOLVED_FUNDING":"Escoge PAN, WIC o efectivo antes de pagar.","validation.PRICE_REQUIRED":"Ingresa el precio del producto para esta forma de pago.","validation.SNAP_SOURCE_UNAVAILABLE":"La tarjeta PAN seleccionada no está disponible o está inactiva.","validation.INVALID_SPLIT":"La división entre PAN y efectivo debe sumar el total del producto.","validation.WIC_CARD_MISSING":"La tarjeta WIC seleccionada ya no existe.","validation.WIC_CARD_INACTIVE":"La tarjeta WIC seleccionada está inactiva.","validation.WIC_ALLOWANCE_MISSING":"El beneficio WIC seleccionado ya no existe.","validation.WIC_ALLOWANCE_INACTIVE":"El beneficio WIC seleccionado está inactivo.","validation.WIC_NOT_STARTED":"Este beneficio WIC todavía no ha comenzado.","validation.WIC_EXPIRED":"Este beneficio WIC está vencido.","validation.WIC_UNAVAILABLE":"El beneficio WIC seleccionado no está disponible para esta transacción.","validation.WIC_AMOUNT_REQUIRED":"Ingresa la cantidad del beneficio WIC que usarás para este producto.","validation.WIC_UNIT_MISMATCH":"La unidad WIC no coincide con el beneficio seleccionado.","validation.WIC_DOLLARS_EXCEED_PRICE":"La cantidad WIC en dólares no puede superar el total conocido del producto.","validation.WIC_REMAINDER_UNRESOLVED":"Escoge cómo pagar el resto del producto.","validation.WIC_PRICE_UNKNOWN":"No se ingresó el precio del producto. Los reportes mostrarán la cantidad WIC conocida e indicarán que el total de la compra está incompleto.","validation.SNAP_INSUFFICIENT":"El saldo de PAN no es suficiente para completar esta compra.","validation.WIC_INSUFFICIENT":"No queda suficiente cantidad en este beneficio WIC para completar la compra.","validation.CASH_OVER_BUDGET":"Con esta compra quedarás {amount} por encima de tu presupuesto de compra.","validation.SNAP_INSUFFICIENT_CORRECTION":"El saldo de PAN no es suficiente para esta corrección.","validation.WIC_INSUFFICIENT_CORRECTION":"No queda suficiente cantidad en este beneficio WIC para aplicar la corrección.","validation.WIC_EDIT_STARTING_NEGATIVE":"La cantidad inicial no puede ser negativa.","validation.WIC_EDIT_REMAINING_NEGATIVE":"La cantidad restante no puede ser negativa.","validation.WIC_EDIT_REMAINING_EXCEEDS_STARTING":"La cantidad restante no puede superar la cantidad inicial sin un ajuste explícito.","validation.WIC_EDIT_START_AFTER_EXPIRY":"La fecha de inicio no puede ser posterior a la fecha de vencimiento.","error.checkoutPlanInvalid":"No se pudo completar la compra. No se cambió nada.","error.snapLedgerChanged":"El saldo de PAN cambió antes de finalizar la compra. Revisa el carrito e inténtalo de nuevo.","error.wicLedgerChanged":"El saldo de WIC cambió antes de finalizar la compra. Revisa el carrito e inténtalo de nuevo.","error.historicalSnapMissing":"La fuente original de PAN ya no está disponible para esta corrección.","error.historicalWicMissing":"El beneficio WIC original ya no está disponible para esta corrección.","error.transactionNotFound":"No se encontró la transacción.","error.itemNotFound":"No se encontró el producto.","export.header.date":"Fecha","export.header.store":"Tienda","export.header.item":"Producto","export.header.category":"Categoría","export.header.funding":"Forma de pago","export.header.amount":"Monto asignado (USD)","export.header.priceKnown":"Precio del producto disponible","export.header.itemTotal":"Total del producto (USD)","export.header.wicUnit":"Unidad WIC","export.header.wicQuantity":"Cantidad WIC","export.yes":"Sí","export.no":"No","funding.snapWic":"PAN + WIC","cards.defaultSnapName":"PAN {index}","cards.defaultWicName":"WIC {index}","cards.reminder":"Recordatorio mensual","cards.wicBenefitDates":"{start} – {end}","cards.noDate":"Sin fecha","cards.prefillTitle":"Usa un beneficio existente como punto de partida","cards.addAnotherWic":"Añadir otro beneficio WIC","cards.saveBenefit":"Guardar beneficio","cards.saveCard":"Guardar tarjeta","cards.saveBalance":"Guardar saldo","cards.activeStatus":"Activa","cards.retiredStatus":"Retirada","cards.noReminder":"Sin recordatorio","history.noStore":"Tienda no ingresada","history.detailTitle":"Detalles de la transacción","reports.priceKnownYes":"Sí","reports.priceKnownNo":"No","reports.wicUnitUsage":"{amount}","reports.noStore":"Tienda no ingresada","reports.cashBudgetTarget":"Presupuesto de compra","reports.currentPeriod":"Período actual","correction.noEligibleWic":"No hay beneficios WIC disponibles para la fecha de la transacción.","correction.noEligibleSnap":"No hay tarjetas PAN activas disponibles.","common.from":"Desde","common.to":"Hasta","common.yes":"Sí","common.no":"No","common.remove":"Eliminar","common.all":"Todos","a11y.editItem":"Editar {item}","a11y.openWicBenefit":"Abrir beneficio WIC {name}","a11y.chooseSuggestion":"Elegir {name}","a11y.onboardingLanguage":"Escoger idioma de la aplicación","a11y.adBadge":"Anuncio","saved.generatedName":"Lista de compra","saved.deleted":"Lista guardada eliminada.","shop.catalogSuggestion":"Producto del catálogo","shop.recentSuggestion":"Producto reciente","shop.customItem":"Producto personalizado","checkout.unknownPricesSummary.one":"{count} artículo sin precio","checkout.unknownPricesSummary.other":"{count} artículos sin precio","reminder.none":"No hay recordatorios pendientes.","onboarding.languageEnglish":"English (United States)","onboarding.languageSpanishPR":"Español (Puerto Rico)","export.title":"Reporte de SNAP-EBT & WIC Benefits Tracker","export.filename":"reporte-snap-ebt-wic-benefits-tracker","export.pending":"Pendiente","export.categoryOther":"Otros","unit.fl_oz.plural":"fl oz","unit.gal.plural":"gal","unit.lb.plural":"lb","unit.oz.plural":"oz","unit.qt.plural":"qt"}};
+const MESSAGES={"en-US":{"app.title":"SNAP-EBT & WIC Benefits Tracker","app.webTitle":"SNAP-EBT & WIC Benefits Tracker · iOS Web App","app.drawerSubtitle":"SNAP-EBT · WIC · Shopping budget","app.disclaimer":"Independent local-first tracker. No account, profile, or publisher-operated analytics or telemetry. Core tracker data is stored in the app on this device and is not uploaded to an operator-controlled server; exports and device backups are explained in the Privacy Policy. Without an active one-time Remove Ads purchase, the app displays one fixed non-personalized banner ad. Google may process device and advertising data as explained in the Privacy Policy. The app never asks for an EBT/WIC PIN or connects to a government benefit account.","nav.home":"Home","nav.shop":"Shop","nav.history":"History","nav.reports":"Reports","nav.cards":"Cards & Budgets","nav.saved":"Saved Baskets","nav.settings":"Settings","nav.help":"Help / Support","a11y.menu":"Menu","a11y.home":"Home","a11y.revealPrivate":"Reveal private values","a11y.hidePrivate":"Hide private values","a11y.adRegion":"Advertising banner","a11y.close":"Close","a11y.increaseQuantity":"Increase quantity","a11y.decreaseQuantity":"Decrease quantity","a11y.removeItem":"Remove {item}","a11y.deleteSaved":"Delete saved basket {name}","a11y.removeWic":"Remove WIC benefit {name}","a11y.backspace":"Backspace","ads.badge":"AD","ads.sponsoredSpace":"Sponsored banner space","ads.advertisementBanner":"Advertisement banner","ads.dynamicSpace":"Dynamic ad space","ads.refreshesAutomatically":"Refreshes automatically","ads.neverInterruptShopping":"Ads never interrupt shopping","ads.reportsRemainFree":"Reports remain free","common.save":"Save","common.add":"Add","common.edit":"Edit","common.manage":"Manage","common.load":"Load","common.delete":"Delete","common.back":"Back","common.continue":"Continue","common.done":"Done","common.cancel":"Cancel","common.clear":"Clear","common.undo":"Undo","entry.notSaved":"Not saved. Your changes are still here. Retry when storage is available.","entry.required":"This field is required.","entry.invalidNumber":"Enter a valid number.","entry.tooManyDecimals":"Too many decimal places.","entry.outOfRange":"The value is outside the supported range.","entry.discardDraft":"Discard this unfinished entry?","entry.discard":"Discard draft","entry.retry":"Retry save","entry.draftDiscarded":"Draft discarded.","entry.restoreDraft":"Restore draft","wic.chooseBenefitRequired":"Choose a WIC benefit for this item.","wic.matchingBenefits":"Matching WIC benefits","saved.rename":"Rename","saved.renameTitle":"Rename saved basket","saved.nameInUse":"A saved basket already uses that name.","saved.deleteUndo":"Saved basket deleted. Undo is available.","saved.undoDelete":"Undo delete","saved.mergeSeparate":"Keep separate","saved.mergeCombine":"Combine duplicates","saved.mergeSkip":"Skip duplicates","saved.mergePreview":"{count} incoming items · {duplicates} possible duplicates","saved.storeConflict":"Your current store will be kept. The saved basket store is {store}.","validation.moveToCash":"Move this item to Cash","validation.balanceCheck":"This item cannot be saved with the selected funding until the balance issue is resolved.","a11y.suggestionCount":"{count} suggestions available.","shop.priceEntryMode":"Price type","shop.unitPrice":"Unit price","shop.lineTotal":"Line total","shop.quantityUnit":"Quantity unit","shop.snapEligibility":"SNAP eligibility","shop.eligible":"Eligible","shop.notEligible":"Not eligible","shop.unsureEligibility":"Unsure","shop.transactionDate":"Transaction date","shop.usePreviousPrice":"Use previous price","shop.previousPrice":"Previous price","shop.duplicateItem":"Duplicate","shop.removedUndo":"Item removed. Undo is available.","onboarding.editWic":"Edit WIC benefit","onboarding.reviewTitle":"Review your setup","onboarding.setupLater":"Set up later","budget.saveChanges":"Save changes","budget.saveAndStart":"Save and start new period","cards.setBalance":"Set current balance","cards.addFunds":"Add funds / reload","cards.resultingBalance":"Resulting balance","wic.copyPrevious":"Copy previous benefit","wic.currentAvailable":"Currently available","wic.startNewPeriod":"Start new WIC period","wic.newPeriodTitle":"Start new WIC period","wic.newPeriodBody":"Choose the benefits to copy, review quantities and dates, then save them together.","wic.periodStart":"New period start","wic.periodEnd":"New period end","wic.copyBenefit":"Copy","wic.duplicateMode":"If a matching benefit already exists","wic.skipDuplicates":"Skip the existing match","wic.createSeparate":"Create a separate benefit","wic.noBenefitsSelected":"Choose at least one benefit to copy.","wic.newPeriodSaved":"New WIC period saved.","bulk.title":"Apply funding to multiple items","bulk.body":"Review what will change before applying.","bulk.source":"Funding source","bulk.affected":"{count} items will change","bulk.exceptions":"{count} items will stay unchanged","bulk.overwriteExisting":"Replace confirmed SNAP/Cash choices","bulk.overwriteSplits":"Replace confirmed split payments","bulk.previewBalance":"Balance after these choices","bulk.apply":"Apply funding","bulk.none":"No items can use this bulk choice.","saved.fundingReview":"Review previous funding","saved.validSuggestions":"{count} previous funding suggestions are still available.","saved.needsRemap":"{count} items need a different funding source.","saved.applyValidSuggestions":"Apply available previous SNAP/Cash suggestions","saved.remapTo":"For unavailable funding, use","saved.leaveUnresolved":"Leave for review","saved.remapNotice":"Previous WIC and split choices remain suggestions and must be confirmed against current prices and benefits.","correction.detailsTitle":"Edit transaction details","correction.detailsBody":"The original transaction is reversed in memory, the replacement is validated, and nothing is saved unless the complete correction succeeds.","correction.scopeNote":"Changing the store or transaction date applies to the whole transaction.","correction.itemName":"Item name","correction.saveDetails":"Save corrected transaction","correction.detailsApplied":"Transaction details corrected.","validation.moveShortfallToCash":"Pay this item with Cash","validation.shortfallPreview":"This changes the selected item to Cash and revalidates the basket before saving.","common.preview":"Preview","correction.paymentOnly":"Correct payment / funding","correction.details":"Edit transaction details","validation.shortfall":"{item}: {source} needs {required}; {available} is available. Shortfall {shortfall}.","a11y.errorSummary":"Please correct the highlighted fields.","common.choose":"Choose","common.active":"Active","common.retired":"Retired","common.pending":"Pending","common.unknown":"unknown","common.category":"Category","common.unit":"Unit","common.quantity":"Quantity","common.priceEach":"Price each","common.startDate":"Start date","common.expiryDate":"Expiry date","common.cardName":"Card name","common.monthlyReminderDate":"Monthly reminder date","funding.snap":"SNAP","funding.wic":"WIC","funding.cash":"Cash","funding.split":"SNAP + Cash","funding.unsure":"Unsure","funding.method":"Funding","funding.all":"All funding methods","budget.title":"Shopping budget","budget.cashBudget":"Cash budget","budget.status":"Shopping budget status","budget.remaining":"{amount} remaining","budget.reached":"Budget reached","budget.overBy":"{amount} over budget","budget.spentOf":"Spent {spent} / {budget}","budget.spentPeriod":"{amount} spent this period","budget.dailySuggested":"Suggested daily spend","budget.cashAlwaysAllowed":"Cash is always allowed; the budget is only a planning target.","budget.planningTarget":"This is a planning target, not a spending limit.","budget.base":"Base budget","budget.baseAmount":"Base budget amount","budget.cycle":"Budget cycle","budget.periodStarts":"Period starts","budget.periodTiming":"Period timing","budget.newPeriodStart":"New period start","budget.saveWithoutReset":"Save amount without resetting spending","budget.changeTimingExplanation":"Changing the period settings starts a new period and archives the current one. Current-period spending resets only when you confirm the new period.","budget.startNewWithDates":"Start new period with these settings","budget.startNewQuestion":"Start a new budget period?","budget.startNewBody":"The current period will be archived. Current-period spending resets only after you confirm the new period.","budget.startNew":"Start new period","budget.carryover":"Carryover","budget.periodHistory":"Period history","budget.noCompletedPeriods":"No completed periods yet","budget.periodOver":"{amount} over","budget.periodRemaining":"{amount} left","budget.completedUnder":"Completed under budget","budget.completedOver":"Completed over budget","budget.performance":"Shopping budget performance","budget.position":"Budget status","budget.invalidNegative":"Budget cannot be negative.","rollover.eyebrow":"New budget period","rollover.title":"You had money left in your budget","rollover.body":"{amount} was left unspent in the previous period. Add it to the next shopping budget?","rollover.startFresh":"Start fresh","rollover.carryForward":"Carry forward","reminder.review":"Reminder: review {names}.","home.noActiveCard":"No active card","home.activeCards.one":"{count} active card","home.activeCards.other":"{count} active cards","home.wicAvailable":"WIC benefits available","home.nextExpiry":"Next expiry","home.continueGrocery":"Continue Grocery","home.startGrocery":"Start Grocery","home.storeNotEntered":"Store not entered","shop.store":"Store","shop.storeName":"Store name","shop.item":"Item","shop.product":"Grocery item","shop.priceNotEntered":"Price not entered","shop.noPriceYet":"I do not have the price yet","shop.enterPrice":"Enter a price","shop.updateItem":"Update item","shop.addToBasket":"Add to basket","shop.currentBasket":"Current basket","shop.saveBasket":"Save basket","shop.reviewCheckout":"Review checkout","shop.basketEmpty":"Basket is empty","shop.addFirstItem":"Add your first grocery item above to get started.","shop.priceUnknown":"Price unknown","shop.priceUnknownLower":"price unknown","shop.enterItemName":"Enter an item name.","shop.enterValidPrice":"Enter a valid price.","shop.snapCard":"SNAP card","shop.useSnapOnly":"Use SNAP only","shop.splitWithCash":"Split with Cash","shop.snapAmount":"SNAP amount","shop.cashRemainder":"Cash remainder","shop.noUsableWic":"No usable WIC benefits are available.","shop.chooseWic":"Choose one of your available WIC benefits","shop.amountUsed":"Amount used","shop.currentBalance":"Current balance","shop.remainingPrice":"Remaining price","shop.payRemainderWith":"Pay remainder with","shop.decideBeforeCheckout":"Decide before checkout","shop.unsureBody":"You can add the item now, but checkout will require SNAP, WIC, or Cash.","shop.countItems.one":"{count} item","shop.countItems.other":"{count} items","shop.unknownPrices.one":"{count} price unknown","shop.unknownPrices.other":"{count} prices unknown","checkout.needsAttention":"Needs attention","checkout.editItem":"Edit item","checkout.cashOverWarning":"This checkout puts you {amount} over your shopping budget.","checkout.planningNote":"Planning note","checkout.title":"Checkout","checkout.reviewBasket":"Review basket","checkout.complete":"Complete checkout","checkout.logged":"Checkout logged","checkout.balancesUpdated":"Balances updated","checkout.successBody":"The selected benefit balances were updated once, and the transaction was saved in History.","checkout.viewHistory":"View History","checkout.startNext":"Start next basket","checkout.commitFailed":"Checkout could not be committed. Nothing was changed.","checkout.unknownPrice":"unknown price","checkout.itemCount.one":"{count} item","checkout.itemCount.other":"{count} items","history.subtitle":"Completed transactions and corrections.","history.search":"Search store or item","history.all":"All","history.noMatches":"No matching history","history.pendingAction":"Pending action","history.knownPriceTotal":"Known-price total","history.incompleteTotal.one":"The price of {count} item is missing; this total is incomplete.","history.incompleteTotal.other":"The prices of {count} items are missing; this total is incomplete.","history.correct":"Correct","history.itemCount.one":"{count} item","history.itemCount.other":"{count} items","correction.title":"Correction","correction.body":"Choose the correct payment method. The original payment is reversed before the correction is applied.","correction.apply":"Apply correction","correction.wicBenefit":"WIC benefit","correction.dollarRemainder":"If a dollar WIC amount leaves a remainder","correction.chooseRemainder":"Choose remainder funding if needed","correction.applied":"Correction applied.","reports.subtitle":"Reports combine your tracked benefits, shopping budget, and transaction history.","reports.allStores":"All stores","reports.allCategories":"All categories","reports.knownSpend":"Known-amount spending","reports.unknownPriceItems":"Unknown-price items","reports.fundingBreakdown":"Funding breakdown","reports.wicQuantities":"WIC quantities used","reports.topStores":"Stores with highest spending","reports.categories":"Categories","reports.export":"Export spreadsheet","reports.print":"Print / Save PDF","reports.noData":"No matching data","reports.fromDate":"From date","reports.toDate":"To date","cards.subtitle":"Manage your benefits and shopping budget here.","cards.snapCards":"SNAP cards","cards.noSnap":"No SNAP cards","cards.wicCards":"WIC cards & benefits","cards.addCard":"Add card","cards.noWic":"No WIC cards","cards.allowance":"Benefit","cards.noAllowances":"No benefits","cards.manageSnap":"Manage SNAP card","cards.addSnap":"Add SNAP card","cards.currentTrackedBalance":"Current tracked balance","cards.manageWic":"Manage WIC card","cards.addWic":"Add WIC card","cards.prefillWic":"Use what is already on this card as a base so you do not have to type everything again.","cards.editWicBenefit":"Edit WIC benefit","cards.addWicBenefit":"Add WIC benefit","cards.customLabel":"Custom label","cards.startingAmount":"Starting amount","cards.remainingAmount":"Remaining amount","cards.reactivateAllowance":"Reactivate benefit","cards.retireAllowance":"Retire benefit","cards.reactivateCard":"Reactivate card","cards.retireCard":"Retire card","cards.balanceNegative":"Balance cannot be negative.","saved.subtitle":"Reusable grocery templates. Payment methods are selected again when a list is loaded.","saved.noStore":"No store","saved.noSaved":"No saved baskets yet","saved.saveFromShop":"Save a list from Shop after adding items you want to reuse.","saved.saveTitle":"Save basket","saved.name":"Basket name","saved.defaultName":"Grocery list","saved.paymentNotRetained":"Payment methods are not retained. When you load this list, choose the payment method again for each item.","saved.currentExists":"You already have a current basket. Merge the saved items or replace it?","saved.loadQuestion":"Load these groceries into your basket?","saved.merge":"Merge","saved.replace":"Replace","saved.loadBasket":"Load basket","saved.saved":"Basket saved.","saved.itemCount.one":"{count} item","saved.itemCount.other":"{count} items","settings.subtitle":"Manage general application preferences.","settings.privacyMode":"Privacy mode","settings.privacyBody":"Mask sensitive values until temporarily revealed.","settings.haptics":"Haptic feedback","settings.hapticsBody":"Subtle vibration on supported devices.","settings.language":"Language","settings.english":"English (United States)","settings.spanishPR":"Español (Puerto Rico)","help.subtitle":"How the application works.","help.whatTracks":"What this app tracks","help.tracksBody":"SNAP and WIC have limited balances that you enter and manage. The shopping budget is only a planning target, so Cash transactions are never blocked for going over it.","help.privacy":"Privacy","help.privacyBody":"Locally entered balances, benefits, grocery items, budgets, and History are not sent as ad parameters.","help.independence":"Independence","help.independenceBody":"Independent app—not affiliated with or endorsed by USDA/FNS, Puerto Rico ADSEF, any SNAP/PAN or WIC agency, retailer, or card issuer. It does not provide official balances, eligibility decisions, retailer acceptance, or product authorization. Official sources control.","onboarding.choosePrograms":"Which benefits do you use?","onboarding.currentSnap":"Current SNAP balance","onboarding.trackedBalance":"Balance to track","onboarding.wicTitle":"What is on your WIC card?","onboarding.wicBody":"Add the benefits one by one. Choose the category first, then the matching unit, available amount, and dates if you use them.","onboarding.wicCategory":"WIC category","onboarding.availableAmount":"Available amount","onboarding.amountExample":"Example: 36 or 1","onboarding.customCategoryName":"Custom category name","onboarding.enterCustomCategory":"Enter a custom WIC category","onboarding.benefitStartOptional":"Benefit start date (optional)","onboarding.expiryOptional":"Use-by / expiry date (optional)","onboarding.unitAuto":"The unit changes automatically to match the category. You can choose another compatible unit before adding the benefit.","onboarding.addWic":"Add WIC benefit","onboarding.noWic":"No WIC benefits added yet","onboarding.openApp":"Open app","onboarding.noPin":"No EBT/WIC PIN required. No connection to government benefit accounts.","onboarding.enterAmount":"Enter an amount.","onboarding.enterCategory":"Enter a category name.","onboarding.languagePrompt":"Language","onboarding.languageHint":"Choose your language before entering data.","data.clearQuestion":"Clear all data?","data.clearBody":"This permanently removes this app’s locally stored tracker data and surviving temporary export-cache copies from this device, cancels its scheduled local reminders, and returns you to initial setup. Files you previously saved or shared to other locations are stored separately and are not deleted. Your App Store purchase is managed separately and is not deleted.","data.clearAll":"Clear All Data","cycle.weekly":"Weekly","cycle.biweekly":"Every 2 weeks","cycle.monthly":"Monthly","cycle.custom":"Custom days","wic.category.produce":"Fruits & vegetables / CVB","wic.category.milk":"Milk","wic.category.eggs":"Eggs","wic.category.cheese":"Cheese","wic.category.yogurt":"Yogurt","wic.category.cereal":"Breakfast cereal","wic.category.grains":"Whole grains","wic.category.juice":"100% juice","wic.category.beans":"Beans / legumes","wic.category.pb":"Peanut butter","wic.category.fish":"Canned fish","wic.category.tofu":"Tofu / soy","wic.category.formula":"Infant formula","wic.category.infantCereal":"Infant cereal","wic.category.infantProduce":"Infant fruits & vegetables","wic.category.infantMeat":"Infant meats","wic.category.custom":"Custom WIC category","unit.dollar":"$","unit.gal":"gal","unit.qt":"qt","unit.half_gal":"½ gallon","unit.dozen":"dozen","unit.oz":"oz","unit.lb":"lb","unit.package":"package","unit.container":"container","unit.box":"box","unit.loaf":"loaf","unit.fl_oz":"fl oz","unit.can":"can","unit.jar":"jar","unit.pouch":"pouch","unit.each":"unit","unit.half_gal.plural":"½ gallons","unit.dozen.plural":"dozen","unit.package.plural":"packages","unit.container.plural":"containers","unit.box.plural":"boxes","unit.loaf.plural":"loaves","unit.can.plural":"cans","unit.jar.plural":"jars","unit.pouch.plural":"pouches","unit.each.plural":"units","category.other":"Other","validation.EMPTY_BASKET":"Add at least one grocery item before checkout.","validation.INVALID_ITEM":"A basket item is invalid or missing its name.","validation.INVALID_QUANTITY":"Quantity must be greater than zero.","validation.UNRESOLVED_FUNDING":"Choose SNAP, WIC, or Cash before checkout.","validation.PRICE_REQUIRED":"Enter the item price for this payment method.","validation.SNAP_SOURCE_UNAVAILABLE":"The selected SNAP card is missing or inactive.","validation.INVALID_SPLIT":"The SNAP/Cash split must equal the item total.","validation.WIC_CARD_MISSING":"The selected WIC card no longer exists.","validation.WIC_CARD_INACTIVE":"The selected WIC card is inactive.","validation.WIC_ALLOWANCE_MISSING":"The selected WIC benefit no longer exists.","validation.WIC_ALLOWANCE_INACTIVE":"The selected WIC benefit is inactive.","validation.WIC_NOT_STARTED":"This WIC benefit has not started yet.","validation.WIC_EXPIRED":"This WIC benefit has expired.","validation.WIC_UNAVAILABLE":"The selected WIC benefit is not available for this transaction.","validation.WIC_AMOUNT_REQUIRED":"Enter the WIC amount used for this item.","validation.WIC_UNIT_MISMATCH":"The WIC unit does not match the selected benefit.","validation.WIC_DOLLARS_EXCEED_PRICE":"The WIC dollar amount cannot exceed the known item total.","validation.WIC_REMAINDER_UNRESOLVED":"Choose how to pay the remaining item amount.","validation.WIC_PRICE_UNKNOWN":"The item price was not entered. Reports will show the known WIC amount and mark the grocery total as incomplete.","validation.SNAP_INSUFFICIENT":"SNAP balance is insufficient for this checkout.","validation.WIC_INSUFFICIENT":"The WIC benefit does not have enough remaining for this checkout.","validation.CASH_OVER_BUDGET":"This checkout puts you {amount} over your shopping budget.","validation.SNAP_INSUFFICIENT_CORRECTION":"SNAP balance is insufficient for this correction.","validation.WIC_INSUFFICIENT_CORRECTION":"The WIC benefit does not have enough remaining for this correction.","validation.WIC_EDIT_STARTING_NEGATIVE":"Starting balance cannot be negative.","validation.WIC_EDIT_REMAINING_NEGATIVE":"Remaining balance cannot be negative.","validation.WIC_EDIT_REMAINING_EXCEEDS_STARTING":"Remaining balance cannot exceed starting balance without an explicit adjustment.","validation.WIC_EDIT_START_AFTER_EXPIRY":"Start date cannot be after expiry date.","error.checkoutPlanInvalid":"Checkout could not be completed. Nothing was changed.","error.snapLedgerChanged":"The SNAP balance changed before checkout could finish. Review the basket and try again.","error.wicLedgerChanged":"The WIC balance changed before checkout could finish. Review the basket and try again.","error.historicalSnapMissing":"The original SNAP source is no longer available for this correction.","error.historicalWicMissing":"The original WIC benefit is no longer available for this correction.","error.transactionNotFound":"Transaction not found.","error.itemNotFound":"Item not found.","export.header.date":"Date","export.header.store":"Store","export.header.item":"Item","export.header.category":"Category","export.header.funding":"Funding method","export.header.amount":"Allocated amount (USD cents)","export.header.priceKnown":"Item price known","export.header.itemTotal":"Item total (USD cents)","export.header.wicUnit":"WIC unit","export.header.wicQuantity":"WIC quantity","export.yes":"Yes","export.no":"No","funding.snapWic":"SNAP + WIC","cards.defaultSnapName":"SNAP {index}","cards.defaultWicName":"WIC {index}","cards.reminder":"Monthly reminder","cards.wicBenefitDates":"{start} – {end}","cards.noDate":"No date","cards.prefillTitle":"Use an existing benefit as a starting point","cards.addAnotherWic":"Add another WIC benefit","cards.saveBenefit":"Save benefit","cards.saveCard":"Save card","cards.saveBalance":"Save balance","cards.activeStatus":"Active","cards.retiredStatus":"Retired","cards.noReminder":"No reminder","history.noStore":"Store not entered","history.detailTitle":"Transaction details","reports.priceKnownYes":"Yes","reports.priceKnownNo":"No","reports.wicUnitUsage":"{amount}","reports.noStore":"Store not entered","reports.cashBudgetTarget":"Shopping budget","reports.currentPeriod":"Current period","correction.noEligibleWic":"No WIC benefit is available for the transaction date.","correction.noEligibleSnap":"No active SNAP card is available.","common.from":"From","common.to":"To","common.yes":"Yes","common.no":"No","common.remove":"Remove","common.all":"All","a11y.editItem":"Edit {item}","a11y.openWicBenefit":"Open WIC benefit {name}","a11y.chooseSuggestion":"Choose {name}","a11y.onboardingLanguage":"Choose application language","a11y.adBadge":"Advertisement","saved.generatedName":"Grocery list","saved.deleted":"Saved basket deleted.","shop.catalogSuggestion":"Catalog item","shop.recentSuggestion":"Recent item","shop.customItem":"Custom item","checkout.unknownPricesSummary.one":"{count} item without a price","checkout.unknownPricesSummary.other":"{count} items without prices","reminder.none":"No reminders due.","onboarding.languageEnglish":"English (United States)","onboarding.languageSpanishPR":"Español (Puerto Rico)","export.title":"SNAP-EBT & WIC Benefits Tracker report","export.filename":"snap-wic-benefits-tracker-report","export.pending":"Pending","export.categoryOther":"Other","unit.fl_oz.plural":"fl oz","unit.gal.plural":"gal","unit.lb.plural":"lb","unit.oz.plural":"oz","unit.qt.plural":"qt","nav.removeAds":"Remove Ads","drawer.removeAds":"Remove Ads","drawer.adsRemoved":"Ads Removed","a11y.removeAds":"Open Remove Ads","settings.purchases":"Purchases","purchase.title":"Remove Ads Forever","purchase.subtitle":"One-time App Store purchase. No subscription.","purchase.removeAdsBody":"One-time purchase. Removes this app’s banner ads forever while the purchase remains valid. Core tracker features remain free.","purchase.buyWithPrice":"Remove Ads — {price}","purchase.loading":"Loading purchase options…","purchase.unavailable":"Purchase options are unavailable right now. Check your connection and try again.","purchase.browserOnly":"Purchases are available only in the installed iPhone app.","purchase.processing":"Waiting for the App Store…","purchase.activeTitle":"Ads Removed","purchase.activeBody":"Your one-time Remove Ads purchase is active. Banner ads are hidden.","purchase.pending":"Purchase pending approval. Ads will be removed after Apple confirms the purchase.","purchase.success":"Purchase complete. Banner ads are now removed.","purchase.failed":"The purchase could not be confirmed. Ads have not been removed. Try again later.","purchase.restore":"Restore Purchase","purchase.restoreBody":"Restore a previous Remove Ads purchase made with this Apple Account.","purchase.restoring":"Checking this Apple Account for a previous purchase…","purchase.restoreSuccess":"Purchase restored. Banner ads are now removed.","purchase.restoreNone":"No previous Remove Ads purchase was found for this Apple Account.","purchase.restoreFailed":"The purchase could not be restored right now. Check your connection and try again.","purchase.alreadyActive":"Your Remove Ads purchase is already active."},"es-PR":{"app.title":"SNAP-EBT & WIC Benefits Tracker","app.webTitle":"SNAP-EBT & WIC Benefits Tracker · aplicación web para iOS","app.drawerSubtitle":"PAN · WIC · Presupuesto de compra","app.disclaimer":"Rastreador independiente y local. No requiere cuenta ni perfil y no contiene analítica o telemetría operada por el editor. Los datos principales del rastreador se almacenan en la aplicación en este dispositivo y no se cargan a un servidor controlado por el operador; las exportaciones y copias de seguridad se explican en la Política de Privacidad. Sin una compra única activa para eliminar anuncios, la aplicación muestra un anuncio fijo de banner no personalizado. Google puede procesar datos del dispositivo y de publicidad según se explica en la Política de Privacidad. La aplicación nunca solicita un PIN de EBT/WIC ni se conecta a una cuenta gubernamental de beneficios.","nav.home":"Inicio","nav.shop":"Compra","nav.history":"Historial","nav.reports":"Reportes","nav.cards":"Tarjetas y presupuesto","nav.saved":"Listas guardadas","nav.settings":"Configuración","nav.help":"Ayuda y soporte","a11y.menu":"Menú","a11y.home":"Inicio","a11y.revealPrivate":"Mostrar valores privados","a11y.hidePrivate":"Ocultar valores privados","a11y.adRegion":"Banner publicitario","a11y.close":"Cerrar","a11y.increaseQuantity":"Aumentar cantidad","a11y.decreaseQuantity":"Reducir cantidad","a11y.removeItem":"Eliminar {item}","a11y.deleteSaved":"Eliminar la lista guardada {name}","a11y.removeWic":"Eliminar el beneficio WIC {name}","a11y.backspace":"Borrar último dígito","ads.badge":"ANUNCIO","ads.sponsoredSpace":"Espacio para anuncio patrocinado","ads.advertisementBanner":"Banner publicitario","ads.dynamicSpace":"Espacio publicitario dinámico","ads.refreshesAutomatically":"Se actualiza automáticamente","ads.neverInterruptShopping":"Los anuncios no interrumpen tu compra","ads.reportsRemainFree":"Los reportes siguen siendo gratis","common.save":"Guardar","common.add":"Añadir","common.edit":"Editar","common.manage":"Administrar","common.load":"Cargar","common.delete":"Eliminar","common.back":"Atrás","common.continue":"Continuar","common.done":"Listo","common.cancel":"Cancelar","common.clear":"Borrar","common.undo":"Deshacer","entry.notSaved":"No se guardó. Tus cambios siguen aquí. Intenta guardar de nuevo cuando el almacenamiento esté disponible.","entry.required":"Este campo es obligatorio.","entry.invalidNumber":"Ingresa un número válido.","entry.tooManyDecimals":"Hay demasiados decimales.","entry.outOfRange":"El valor está fuera del rango permitido.","entry.discardDraft":"¿Descartar esta entrada sin terminar?","entry.discard":"Descartar borrador","entry.retry":"Reintentar guardado","entry.draftDiscarded":"Borrador descartado.","entry.restoreDraft":"Restaurar borrador","wic.chooseBenefitRequired":"Escoge un beneficio WIC para este producto.","wic.matchingBenefits":"Beneficios WIC compatibles","saved.rename":"Renombrar","saved.renameTitle":"Renombrar lista guardada","saved.nameInUse":"Ya existe una lista guardada con ese nombre.","saved.deleteUndo":"Lista guardada eliminada. Puedes deshacerlo.","saved.undoDelete":"Deshacer eliminación","saved.mergeSeparate":"Mantener separados","saved.mergeCombine":"Combinar duplicados","saved.mergeSkip":"Omitir duplicados","saved.mergePreview":"{count} productos entrantes · {duplicates} posibles duplicados","saved.storeConflict":"Se conservará tu tienda actual. La tienda de la lista guardada es {store}.","validation.moveToCash":"Mover este producto a efectivo","validation.balanceCheck":"No puedes guardar este producto con la forma de pago seleccionada hasta resolver el problema de saldo.","a11y.suggestionCount":"{count} sugerencias disponibles.","shop.priceEntryMode":"Tipo de precio","shop.unitPrice":"Precio por unidad","shop.lineTotal":"Total de la línea","shop.quantityUnit":"Unidad de cantidad","shop.snapEligibility":"Elegibilidad SNAP/PAN","shop.eligible":"Elegible","shop.notEligible":"No elegible","shop.unsureEligibility":"No estoy seguro","shop.transactionDate":"Fecha de transacción","shop.usePreviousPrice":"Usar precio anterior","shop.previousPrice":"Precio anterior","shop.duplicateItem":"Duplicar","shop.removedUndo":"Producto eliminado. Puedes deshacer.","onboarding.editWic":"Editar beneficio WIC","onboarding.reviewTitle":"Revisa tu configuración","onboarding.setupLater":"Configurar después","budget.saveChanges":"Guardar cambios","budget.saveAndStart":"Guardar e iniciar período nuevo","cards.setBalance":"Establecer saldo actual","cards.addFunds":"Añadir fondos / recarga","cards.resultingBalance":"Saldo resultante","wic.copyPrevious":"Copiar beneficio anterior","wic.currentAvailable":"Disponible actualmente","wic.startNewPeriod":"Comenzar nuevo período WIC","wic.newPeriodTitle":"Comenzar nuevo período WIC","wic.newPeriodBody":"Escoge los beneficios que deseas copiar, revisa las cantidades y fechas y luego guárdalos juntos.","wic.periodStart":"Inicio del nuevo período","wic.periodEnd":"Fin del nuevo período","wic.copyBenefit":"Copiar","wic.duplicateMode":"Si ya existe un beneficio equivalente","wic.skipDuplicates":"Omitir el beneficio existente","wic.createSeparate":"Crear un beneficio separado","wic.noBenefitsSelected":"Escoge al menos un beneficio para copiar.","wic.newPeriodSaved":"Nuevo período WIC guardado.","bulk.title":"Aplicar forma de pago a varios productos","bulk.body":"Revisa lo que cambiará antes de aplicarlo.","bulk.source":"Forma de pago","bulk.affected":"{count} productos cambiarán","bulk.exceptions":"{count} productos quedarán sin cambios","bulk.overwriteExisting":"Reemplazar opciones confirmadas de PAN/efectivo","bulk.overwriteSplits":"Reemplazar pagos divididos confirmados","bulk.previewBalance":"Saldo después de estos cambios","bulk.apply":"Aplicar forma de pago","bulk.none":"Ningún producto puede usar esta opción en grupo.","saved.fundingReview":"Revisar forma de pago anterior","saved.validSuggestions":"{count} sugerencias de pago anteriores siguen disponibles.","saved.needsRemap":"{count} productos necesitan otra forma de pago.","saved.applyValidSuggestions":"Aplicar sugerencias disponibles de PAN/efectivo","saved.remapTo":"Para pagos no disponibles, usar","saved.leaveUnresolved":"Dejar para revisar","saved.remapNotice":"Las opciones WIC y los pagos divididos anteriores permanecen como sugerencias y deben confirmarse con los precios y beneficios actuales.","correction.detailsTitle":"Editar detalles de la transacción","correction.detailsBody":"La transacción original se revierte en memoria, se valida el reemplazo y no se guarda nada a menos que toda la corrección sea válida.","correction.scopeNote":"Cambiar la tienda o la fecha de la transacción se aplica a toda la transacción.","correction.itemName":"Nombre del producto","correction.saveDetails":"Guardar transacción corregida","correction.detailsApplied":"Detalles de la transacción corregidos.","validation.moveShortfallToCash":"Pagar este producto con efectivo","validation.shortfallPreview":"Esto cambia el producto seleccionado a efectivo y vuelve a validar el carrito antes de guardar.","common.preview":"Vista previa","correction.paymentOnly":"Corregir pago / fuente","correction.details":"Editar detalles de transacción","validation.shortfall":"{item}: {source} requiere {required}; hay {available} disponible. Faltan {shortfall}.","a11y.errorSummary":"Corrige los campos indicados.","common.choose":"Elegir","common.active":"Activa","common.retired":"Retirada","common.pending":"Pendiente","common.unknown":"desconocido","common.category":"Categoría","common.unit":"Unidad","common.quantity":"Cantidad","common.priceEach":"Precio por unidad","common.startDate":"Fecha de inicio","common.expiryDate":"Fecha de vencimiento","common.cardName":"Nombre de la tarjeta","common.monthlyReminderDate":"Fecha del recordatorio mensual","funding.snap":"PAN","funding.wic":"WIC","funding.cash":"Efectivo","funding.split":"PAN + efectivo","funding.unsure":"Sin definir","funding.method":"Forma de pago","funding.all":"Todas las formas de pago","budget.title":"Presupuesto de compra","budget.cashBudget":"Presupuesto de compra","budget.status":"Estado del presupuesto","budget.remaining":"Quedan {amount}","budget.reached":"Presupuesto alcanzado","budget.overBy":"{amount} por encima del presupuesto","budget.spentOf":"Gastado {spent} / {budget}","budget.spentPeriod":"Gastado este período: {amount}","budget.dailySuggested":"Gasto diario sugerido","budget.cashAlwaysAllowed":"Siempre puedes pagar en efectivo; el presupuesto es solo una meta de planificación.","budget.planningTarget":"Esta es una meta de planificación, no un límite de gasto.","budget.base":"Presupuesto base","budget.baseAmount":"Cantidad del presupuesto base","budget.cycle":"Ciclo del presupuesto","budget.periodStarts":"El período comienza","budget.periodTiming":"Fechas del período","budget.newPeriodStart":"Inicio del nuevo período","budget.saveWithoutReset":"Guardar cantidad sin reiniciar el gasto","budget.changeTimingExplanation":"Cambiar la configuración del período inicia un nuevo período y archiva el actual. El gasto del período actual solo se reinicia cuando confirmas el nuevo período.","budget.startNewWithDates":"Iniciar nuevo período con esta configuración","budget.startNewQuestion":"¿Iniciar un nuevo período de presupuesto?","budget.startNewBody":"El período actual se archivará. El gasto del período actual solo se reiniciará después de confirmar el nuevo período.","budget.startNew":"Iniciar nuevo período","budget.carryover":"Saldo trasladado","budget.periodHistory":"Historial de períodos","budget.noCompletedPeriods":"Aún no hay períodos completados","budget.periodOver":"{amount} por encima","budget.periodRemaining":"Saldo restante: {amount}","budget.completedUnder":"Períodos dentro del presupuesto","budget.completedOver":"Períodos por encima del presupuesto","budget.performance":"Rendimiento del presupuesto de compra","budget.position":"Estado del presupuesto","budget.invalidNegative":"El presupuesto no puede ser negativo.","rollover.eyebrow":"Nuevo período de presupuesto","rollover.title":"Te quedó dinero del presupuesto","rollover.body":"Quedaron {amount} sin gastar en el período anterior. ¿Quieres añadir ese saldo al próximo presupuesto?","rollover.startFresh":"Empezar sin saldo anterior","rollover.carryForward":"Añadir al próximo presupuesto","reminder.review":"Recordatorio: revisa {names}.","home.noActiveCard":"Sin tarjeta activa","home.activeCards.one":"{count} tarjeta activa","home.activeCards.other":"{count} tarjetas activas","home.wicAvailable":"Beneficios WIC disponibles","home.nextExpiry":"Próximo vencimiento","home.continueGrocery":"Continuar comprando","home.startGrocery":"Empezar a comprar","home.storeNotEntered":"Tienda no ingresada","shop.store":"Tienda","shop.storeName":"Nombre de la tienda","shop.item":"Producto","shop.product":"Producto","shop.priceNotEntered":"Precio no ingresado","shop.noPriceYet":"Todavía no tengo el precio","shop.enterPrice":"Ingresar precio","shop.updateItem":"Actualizar producto","shop.addToBasket":"Añadir al carrito","shop.currentBasket":"Carrito actual","shop.saveBasket":"Guardar lista","shop.reviewCheckout":"Revisar compra","shop.basketEmpty":"El carrito está vacío","shop.addFirstItem":"Añade tu primer producto arriba para comenzar.","shop.priceUnknown":"Precio desconocido","shop.priceUnknownLower":"precio sin ingresar","shop.enterItemName":"Ingresa el nombre del artículo.","shop.enterValidPrice":"Ingresa un precio válido.","shop.snapCard":"Tarjeta PAN","shop.useSnapOnly":"Usar solo PAN","shop.splitWithCash":"Dividir con efectivo","shop.snapAmount":"Cantidad de PAN","shop.cashRemainder":"Resto en efectivo","shop.noUsableWic":"No hay beneficios WIC disponibles para usar.","shop.chooseWic":"Elige uno de tus beneficios WIC disponibles","shop.amountUsed":"Cantidad usada","shop.currentBalance":"Saldo actual","shop.remainingPrice":"Precio restante","shop.payRemainderWith":"Pagar el resto con","shop.decideBeforeCheckout":"Decide antes de pagar","shop.unsureBody":"Puedes añadir el producto ahora, pero antes de finalizar tendrás que escoger PAN, WIC o efectivo.","shop.countItems.one":"{count} artículo","shop.countItems.other":"{count} artículos","shop.unknownPrices.one":"{count} precio sin ingresar","shop.unknownPrices.other":"{count} precios sin ingresar","checkout.needsAttention":"Requiere atención","checkout.editItem":"Editar producto","checkout.cashOverWarning":"Con esta compra quedarás {amount} por encima de tu presupuesto de compra.","checkout.planningNote":"Nota de planificación","checkout.title":"Compra","checkout.reviewBasket":"Revisar carrito","checkout.complete":"Completar compra","checkout.logged":"Compra registrada","checkout.balancesUpdated":"Saldos actualizados","checkout.successBody":"Los saldos seleccionados se actualizaron una sola vez y la transacción se guardó en el historial.","checkout.viewHistory":"Ver historial","checkout.startNext":"Empezar otro carrito","checkout.commitFailed":"No se pudo completar la compra. No se cambió nada.","checkout.unknownPrice":"precio sin ingresar","checkout.itemCount.one":"{count} artículo","checkout.itemCount.other":"{count} artículos","history.subtitle":"Transacciones completadas y correcciones.","history.search":"Buscar tienda o producto","history.all":"Todos","history.noMatches":"No hay resultados","history.pendingAction":"Acción pendiente","history.knownPriceTotal":"Total con precios conocidos","history.incompleteTotal.one":"Falta el precio de {count} artículo; el total está incompleto.","history.incompleteTotal.other":"Faltan los precios de {count} artículos; el total está incompleto.","history.correct":"Corregir","history.itemCount.one":"{count} artículo","history.itemCount.other":"{count} artículos","correction.title":"Corrección","correction.body":"Escoge la forma de pago correcta. Primero se revierte el pago original y luego se aplica la corrección.","correction.apply":"Aplicar corrección","correction.wicBenefit":"Beneficio WIC","correction.dollarRemainder":"Si un beneficio WIC en dólares deja un resto","correction.chooseRemainder":"Escoge cómo pagar el resto si hace falta","correction.applied":"Corrección aplicada.","reports.subtitle":"Los reportes combinan tus beneficios registrados, tu presupuesto de compra y tu historial de transacciones.","reports.allStores":"Todas las tiendas","reports.allCategories":"Todas las categorías","reports.knownSpend":"Gasto con monto conocido","reports.unknownPriceItems":"Artículos sin precio","reports.fundingBreakdown":"Desglose por forma de pago","reports.wicQuantities":"Cantidades WIC usadas","reports.topStores":"Tiendas con mayor gasto","reports.categories":"Categorías","reports.export":"Exportar hoja","reports.print":"Imprimir / Guardar PDF","reports.noData":"No hay datos","reports.fromDate":"Fecha inicial","reports.toDate":"Fecha final","cards.subtitle":"Aquí puedes administrar tus beneficios y tu presupuesto de compra.","cards.snapCards":"Tarjetas PAN","cards.noSnap":"Sin tarjetas PAN","cards.wicCards":"Tarjetas y beneficios WIC","cards.addCard":"Añadir tarjeta","cards.noWic":"Sin tarjetas WIC","cards.allowance":"Beneficio","cards.noAllowances":"Sin beneficios","cards.manageSnap":"Administrar tarjeta PAN","cards.addSnap":"Añadir tarjeta PAN","cards.currentTrackedBalance":"Saldo actual registrado","cards.manageWic":"Administrar tarjeta WIC","cards.addWic":"Añadir tarjeta WIC","cards.prefillWic":"Usa los beneficios que ya están en esta tarjeta como base para no tener que ingresarlos nuevamente.","cards.editWicBenefit":"Editar beneficio WIC","cards.addWicBenefit":"Añadir beneficio WIC","cards.customLabel":"Nombre personalizado","cards.startingAmount":"Cantidad inicial","cards.remainingAmount":"Cantidad restante","cards.reactivateAllowance":"Reactivar beneficio","cards.retireAllowance":"Retirar beneficio","cards.reactivateCard":"Reactivar tarjeta","cards.retireCard":"Retirar tarjeta","cards.balanceNegative":"El saldo no puede ser negativo.","saved.subtitle":"Listas reutilizables de productos. Las formas de pago se seleccionan nuevamente al cargar una lista.","saved.noStore":"Sin tienda","saved.noSaved":"Aún no hay listas guardadas","saved.saveFromShop":"Guarda una lista desde la sección Compra después de añadir los productos que quieras reutilizar.","saved.saveTitle":"Guardar lista","saved.name":"Nombre de la lista","saved.defaultName":"Lista de compra","saved.paymentNotRetained":"Las formas de pago no se conservan. Cuando cargues esta lista, vuelve a escoger la forma de pago para cada producto.","saved.currentExists":"Ya tienes un carrito actual. ¿Quieres combinar los productos guardados o reemplazar el carrito?","saved.loadQuestion":"¿Cargar estos productos en el carrito?","saved.merge":"Combinar","saved.replace":"Reemplazar","saved.loadBasket":"Cargar lista","saved.saved":"Lista guardada.","saved.itemCount.one":"{count} artículo","saved.itemCount.other":"{count} artículos","settings.subtitle":"Configura las preferencias generales de la aplicación.","settings.privacyMode":"Modo de privacidad","settings.privacyBody":"Oculta los valores sensibles hasta que los muestres temporalmente.","settings.haptics":"Respuesta háptica","settings.hapticsBody":"Vibración sutil en dispositivos compatibles.","settings.language":"Idioma","settings.english":"English (United States)","settings.spanishPR":"Español (Puerto Rico)","help.subtitle":"Cómo funciona la aplicación.","help.whatTracks":"Qué registra esta aplicación","help.tracksBody":"PAN y WIC tienen saldos limitados que tú registras y administras. El presupuesto de compra es solo una meta de planificación, por lo que las transacciones en efectivo nunca se bloquean por excederlo.","help.privacy":"Privacidad","help.privacyBody":"No hay cuenta ni perfil. Los saldos, beneficios, artículos, presupuestos e Historial introducidos localmente no se envían como parámetros publicitarios.","help.independence":"Independencia","help.independenceBody":"Aplicación independiente: no está afiliada ni respaldada por USDA/FNS, ADSEF de Puerto Rico, una agencia de SNAP/PAN o WIC, un comercio ni un emisor de tarjeta. No ofrece saldos oficiales, decisiones de elegibilidad, aceptación de comercios ni autorización de productos. Prevalecen las fuentes oficiales.","onboarding.choosePrograms":"¿Qué beneficios usas?","onboarding.currentSnap":"Saldo actual de PAN","onboarding.trackedBalance":"Saldo que quieres registrar","onboarding.wicTitle":"¿Qué tienes en tu tarjeta WIC?","onboarding.wicBody":"Añade los beneficios uno por uno. Primero escoge la categoría, luego la unidad correspondiente, la cantidad disponible y las fechas si las usas.","onboarding.wicCategory":"Categoría WIC","onboarding.availableAmount":"Cantidad disponible","onboarding.amountExample":"Ejemplo: 36 o 1","onboarding.customCategoryName":"Nombre de la categoría personalizada","onboarding.enterCustomCategory":"Ingresa una categoría WIC personalizada","onboarding.benefitStartOptional":"Fecha de inicio del beneficio (opcional)","onboarding.expiryOptional":"Fecha límite de uso o vencimiento (opcional)","onboarding.unitAuto":"La unidad cambia automáticamente según la categoría. Puedes escoger otra unidad compatible antes de añadir el beneficio.","onboarding.addWic":"Añadir beneficio WIC","onboarding.noWic":"Aún no has añadido beneficios WIC","onboarding.openApp":"Abrir aplicación","onboarding.noPin":"No se requiere un PIN de EBT/WIC. No hay conexión con cuentas gubernamentales de beneficios.","onboarding.enterAmount":"Ingresa una cantidad.","onboarding.enterCategory":"Ingresa un nombre de categoría.","onboarding.languagePrompt":"Idioma","onboarding.languageHint":"Escoge tu idioma antes de ingresar datos.","data.clearQuestion":"¿Borrar todos los datos?","data.clearBody":"Esto elimina permanentemente los datos locales del rastreador y las copias temporales de exportación que aún queden en esta aplicación, cancela sus recordatorios locales programados y vuelve a la configuración inicial. Los archivos que guardaste o compartiste anteriormente en otras ubicaciones se almacenan por separado y no se eliminan. Tu compra de App Store se administra por separado y no se elimina.","data.clearAll":"Borrar todos los datos","cycle.weekly":"Semanal","cycle.biweekly":"Cada 2 semanas","cycle.monthly":"Mensual","cycle.custom":"Días personalizados","wic.category.produce":"Frutas y vegetales / CVB","wic.category.milk":"Leche","wic.category.eggs":"Huevos","wic.category.cheese":"Queso","wic.category.yogurt":"Yogur","wic.category.cereal":"Cereal para el desayuno","wic.category.grains":"Granos integrales","wic.category.juice":"Jugo 100 %","wic.category.beans":"Habichuelas / legumbres","wic.category.pb":"Mantequilla de maní","wic.category.fish":"Pescado enlatado","wic.category.tofu":"Tofu / soya","wic.category.formula":"Fórmula infantil","wic.category.infantCereal":"Cereal infantil","wic.category.infantProduce":"Frutas y vegetales para bebés","wic.category.infantMeat":"Carnes para bebés","wic.category.custom":"Categoría WIC personalizada","unit.dollar":"$","unit.gal":"gal","unit.qt":"qt","unit.half_gal":"½ galón","unit.dozen":"docena","unit.oz":"oz","unit.lb":"lb","unit.package":"paquete","unit.container":"envase","unit.box":"caja","unit.loaf":"pan","unit.fl_oz":"fl oz","unit.can":"lata","unit.jar":"frasco","unit.pouch":"bolsa","unit.each":"unidad","unit.half_gal.plural":"½ galones","unit.dozen.plural":"docenas","unit.package.plural":"paquetes","unit.container.plural":"envases","unit.box.plural":"cajas","unit.loaf.plural":"panes","unit.can.plural":"latas","unit.jar.plural":"frascos","unit.pouch.plural":"bolsas","unit.each.plural":"unidades","category.other":"Otros","validation.EMPTY_BASKET":"Añade al menos un producto al carrito antes de pagar.","validation.INVALID_ITEM":"Hay un producto inválido o sin nombre en el carrito.","validation.INVALID_QUANTITY":"La cantidad debe ser mayor que cero.","validation.UNRESOLVED_FUNDING":"Escoge PAN, WIC o efectivo antes de pagar.","validation.PRICE_REQUIRED":"Ingresa el precio del producto para esta forma de pago.","validation.SNAP_SOURCE_UNAVAILABLE":"La tarjeta PAN seleccionada no está disponible o está inactiva.","validation.INVALID_SPLIT":"La división entre PAN y efectivo debe sumar el total del producto.","validation.WIC_CARD_MISSING":"La tarjeta WIC seleccionada ya no existe.","validation.WIC_CARD_INACTIVE":"La tarjeta WIC seleccionada está inactiva.","validation.WIC_ALLOWANCE_MISSING":"El beneficio WIC seleccionado ya no existe.","validation.WIC_ALLOWANCE_INACTIVE":"El beneficio WIC seleccionado está inactivo.","validation.WIC_NOT_STARTED":"Este beneficio WIC todavía no ha comenzado.","validation.WIC_EXPIRED":"Este beneficio WIC está vencido.","validation.WIC_UNAVAILABLE":"El beneficio WIC seleccionado no está disponible para esta transacción.","validation.WIC_AMOUNT_REQUIRED":"Ingresa la cantidad del beneficio WIC que usarás para este producto.","validation.WIC_UNIT_MISMATCH":"La unidad WIC no coincide con el beneficio seleccionado.","validation.WIC_DOLLARS_EXCEED_PRICE":"La cantidad WIC en dólares no puede superar el total conocido del producto.","validation.WIC_REMAINDER_UNRESOLVED":"Escoge cómo pagar el resto del producto.","validation.WIC_PRICE_UNKNOWN":"No se ingresó el precio del producto. Los reportes mostrarán la cantidad WIC conocida e indicarán que el total de la compra está incompleto.","validation.SNAP_INSUFFICIENT":"El saldo de PAN no es suficiente para completar esta compra.","validation.WIC_INSUFFICIENT":"No queda suficiente cantidad en este beneficio WIC para completar la compra.","validation.CASH_OVER_BUDGET":"Con esta compra quedarás {amount} por encima de tu presupuesto de compra.","validation.SNAP_INSUFFICIENT_CORRECTION":"El saldo de PAN no es suficiente para esta corrección.","validation.WIC_INSUFFICIENT_CORRECTION":"No queda suficiente cantidad en este beneficio WIC para aplicar la corrección.","validation.WIC_EDIT_STARTING_NEGATIVE":"La cantidad inicial no puede ser negativa.","validation.WIC_EDIT_REMAINING_NEGATIVE":"La cantidad restante no puede ser negativa.","validation.WIC_EDIT_REMAINING_EXCEEDS_STARTING":"La cantidad restante no puede superar la cantidad inicial sin un ajuste explícito.","validation.WIC_EDIT_START_AFTER_EXPIRY":"La fecha de inicio no puede ser posterior a la fecha de vencimiento.","error.checkoutPlanInvalid":"No se pudo completar la compra. No se cambió nada.","error.snapLedgerChanged":"El saldo de PAN cambió antes de finalizar la compra. Revisa el carrito e inténtalo de nuevo.","error.wicLedgerChanged":"El saldo de WIC cambió antes de finalizar la compra. Revisa el carrito e inténtalo de nuevo.","error.historicalSnapMissing":"La fuente original de PAN ya no está disponible para esta corrección.","error.historicalWicMissing":"El beneficio WIC original ya no está disponible para esta corrección.","error.transactionNotFound":"No se encontró la transacción.","error.itemNotFound":"No se encontró el producto.","export.header.date":"Fecha","export.header.store":"Tienda","export.header.item":"Producto","export.header.category":"Categoría","export.header.funding":"Forma de pago","export.header.amount":"Monto asignado (USD)","export.header.priceKnown":"Precio del producto disponible","export.header.itemTotal":"Total del producto (USD)","export.header.wicUnit":"Unidad WIC","export.header.wicQuantity":"Cantidad WIC","export.yes":"Sí","export.no":"No","funding.snapWic":"PAN + WIC","cards.defaultSnapName":"PAN {index}","cards.defaultWicName":"WIC {index}","cards.reminder":"Recordatorio mensual","cards.wicBenefitDates":"{start} – {end}","cards.noDate":"Sin fecha","cards.prefillTitle":"Usa un beneficio existente como punto de partida","cards.addAnotherWic":"Añadir otro beneficio WIC","cards.saveBenefit":"Guardar beneficio","cards.saveCard":"Guardar tarjeta","cards.saveBalance":"Guardar saldo","cards.activeStatus":"Activa","cards.retiredStatus":"Retirada","cards.noReminder":"Sin recordatorio","history.noStore":"Tienda no ingresada","history.detailTitle":"Detalles de la transacción","reports.priceKnownYes":"Sí","reports.priceKnownNo":"No","reports.wicUnitUsage":"{amount}","reports.noStore":"Tienda no ingresada","reports.cashBudgetTarget":"Presupuesto de compra","reports.currentPeriod":"Período actual","correction.noEligibleWic":"No hay beneficios WIC disponibles para la fecha de la transacción.","correction.noEligibleSnap":"No hay tarjetas PAN activas disponibles.","common.from":"Desde","common.to":"Hasta","common.yes":"Sí","common.no":"No","common.remove":"Eliminar","common.all":"Todos","a11y.editItem":"Editar {item}","a11y.openWicBenefit":"Abrir beneficio WIC {name}","a11y.chooseSuggestion":"Elegir {name}","a11y.onboardingLanguage":"Escoger idioma de la aplicación","a11y.adBadge":"Anuncio","saved.generatedName":"Lista de compra","saved.deleted":"Lista guardada eliminada.","shop.catalogSuggestion":"Producto del catálogo","shop.recentSuggestion":"Producto reciente","shop.customItem":"Producto personalizado","checkout.unknownPricesSummary.one":"{count} artículo sin precio","checkout.unknownPricesSummary.other":"{count} artículos sin precio","reminder.none":"No hay recordatorios pendientes.","onboarding.languageEnglish":"English (United States)","onboarding.languageSpanishPR":"Español (Puerto Rico)","export.title":"Reporte de SNAP-EBT & WIC Benefits Tracker","export.filename":"reporte-snap-ebt-wic-benefits-tracker","export.pending":"Pendiente","export.categoryOther":"Otros","unit.fl_oz.plural":"fl oz","unit.gal.plural":"gal","unit.lb.plural":"lb","unit.oz.plural":"oz","unit.qt.plural":"qt","nav.removeAds":"Eliminar anuncios","drawer.removeAds":"Eliminar anuncios","drawer.adsRemoved":"Anuncios eliminados","a11y.removeAds":"Abrir Eliminar anuncios","settings.purchases":"Compras","purchase.title":"Eliminar anuncios para siempre","purchase.subtitle":"Compra única de App Store. Sin suscripción.","purchase.removeAdsBody":"Compra única. Elimina para siempre los anuncios de banner de esta aplicación mientras la compra siga siendo válida. Las funciones principales del rastreador siguen siendo gratis.","purchase.buyWithPrice":"Eliminar anuncios — {price}","purchase.loading":"Cargando opciones de compra…","purchase.unavailable":"Las opciones de compra no están disponibles ahora. Verifica tu conexión e inténtalo de nuevo.","purchase.browserOnly":"Las compras solo están disponibles en la aplicación instalada en el iPhone.","purchase.processing":"Esperando a App Store…","purchase.activeTitle":"Anuncios eliminados","purchase.activeBody":"Tu compra única para eliminar anuncios está activa. Los anuncios de banner están ocultos.","purchase.pending":"La compra está pendiente de aprobación. Los anuncios se eliminarán cuando Apple confirme la compra.","purchase.success":"Compra completada. Los anuncios de banner se eliminaron.","purchase.failed":"No se pudo confirmar la compra. Los anuncios no se eliminaron. Inténtalo de nuevo más tarde.","purchase.restore":"Restaurar compra","purchase.restoreBody":"Restaura una compra anterior para eliminar anuncios realizada con esta Cuenta de Apple.","purchase.restoring":"Buscando una compra anterior en esta Cuenta de Apple…","purchase.restoreSuccess":"Compra restaurada. Los anuncios de banner se eliminaron.","purchase.restoreNone":"No se encontró una compra anterior para eliminar anuncios en esta Cuenta de Apple.","purchase.restoreFailed":"No se pudo restaurar la compra ahora. Verifica tu conexión e inténtalo de nuevo.","purchase.alreadyActive":"Tu compra para eliminar anuncios ya está activa."}};
 
 Object.assign(MESSAGES['en-US'], {
   'shop.brand':'Brand (optional)',
@@ -900,98 +669,6 @@ Object.assign(MESSAGES['en-US'], {
   'onboarding.program.snapWic':'SNAP and WIC',
   'onboarding.program.snap':'SNAP',
   'onboarding.program.wic':'WIC',
-
-  'nav.resources':'Benefits & Support',
-
-  'resources.subtitle':'Benefits, discounts and trusted support resources.',
-  'resources.tabBenefits':'Benefits & Discounts',
-  'resources.tabSupport':'Support & Savings',
-  'resources.search':'Search resources',
-  'resources.program':'Program',
-  'resources.programAll':'All',
-  'resources.categoryAll':'All categories',
-  'resources.official':'Official website',
-  'resources.open':'Open resource',
-  'resources.emptyTitle':'No resources match',
-  'resources.emptyBody':'Try another program, category, or search.',
-  'resources.clearFilters':'Clear filters',
-  'resources.offline':'Internet connection needed to open this resource.',
-  'resources.independentTitle':'Independent resource directory',
-  'resources.independentBody':'These links are provided for convenience. SNAP-EBT & WIC Benefits Tracker is independent and is not affiliated with, endorsed by, or sponsored by the organizations listed here. Eligibility, availability and terms are determined by each organization.',
-  'resources.prProgramNote':'',
-  'a11y.openExternalResource':'Open {name} in an external website',
-  'a11y.resourceSearch':'Search benefits and support resources',
-
-  'resources.category.membership':'Membership savings',
-  'resources.category.family':'Family & recreation',
-  'resources.category.phoneInternet':'Phone & internet',
-  'resources.category.grocerySavings':'Grocery savings',
-  'resources.category.shopping':'Shopping',
-  'resources.category.wicHelp':'WIC help',
-  'resources.category.general':'General assistance',
-  'resources.category.local':'Local assistance',
-  'resources.category.utilities':'Utilities',
-  'resources.category.childcare':'Child care',
-  'resources.category.jobs':'Jobs & training',
-  'resources.category.mentalHealth':'Mental health',
-  'resources.category.housing':'Housing',
-  'resources.category.taxes':'Taxes',
-  'resources.category.health':'Health coverage',
-  'resources.category.food':'Food assistance',
-
-  'resources.amazon.title':'Amazon Prime Access',
-  'resources.amazon.body':'Discounted Prime membership for people who meet the program requirements.',
-
-  'resources.walmart.title':'Walmart+ Assist',
-  'resources.walmart.body':'Discounted Walmart+ membership for qualifying government-assistance participants.',
-
-  'resources.museums.title':'Museums for All',
-  'resources.museums.body':'Free or reduced admission at participating museums for eligible SNAP households.',
-
-  'resources.lifeline.title':'Lifeline',
-  'resources.lifeline.body':'Federal assistance that can reduce qualifying phone or internet costs.',
-
-  'resources.doubleUp.title':'Double Up Food Bucks',
-  'resources.doubleUp.body':'Participating locations may match SNAP spending on eligible fruits and vegetables.',
-
-  'resources.snapLocator.title':'USDA SNAP Retailer Locator',
-  'resources.snapLocator.body':'Find retailers currently authorized to accept SNAP.',
-
-  'resources.wic.title':'USDA WIC',
-  'resources.wic.body':'Official WIC information, eligibility information and routes to local support.',
-
-  'resources.usaBenefits.title':'USAGov Benefits',
-  'resources.usaBenefits.body':'Official starting point for government benefits and financial-assistance programs.',
-
-  'resources.211.title':'211',
-  'resources.211.body':'Find local help with food, housing, utilities and other essential needs.',
-
-  'resources.liheap.title':'LIHEAP',
-  'resources.liheap.body':'Information about assistance with qualifying household energy costs.',
-
-  'resources.childcare.title':'ChildCare.gov',
-  'resources.childcare.body':'Find child-care information and resources that may help with the cost of care.',
-
-  'resources.career.title':'CareerOneStop',
-  'resources.career.body':'Free job-search, training and career resources.',
-
-  'resources.988.title':'988 Lifeline',
-  'resources.988.body':'Free crisis support by call, text or chat.',
-
-  'resources.samhsa.title':'SAMHSA',
-  'resources.samhsa.body':'Mental-health, treatment and support resources.',
-
-  'resources.hud.title':'HUD Housing Counseling',
-  'resources.hud.body':'Find HUD-approved housing-counseling resources.',
-
-  'resources.irs.title':'IRS',
-  'resources.irs.body':'Official federal tax information and routes to free tax help.',
-
-  'resources.healthcare.title':'HealthCare.gov',
-  'resources.healthcare.body':'Official information about health coverage, Medicaid and CHIP.',
-
-  'resources.foodHelp.title':'USAGov Food Help',
-  'resources.foodHelp.body':'Official gateway to food-assistance programs and resources.'
 });
 
 Object.assign(MESSAGES['es-PR'], {
@@ -1005,98 +682,6 @@ Object.assign(MESSAGES['es-PR'], {
   'onboarding.program.snapWic':'PAN y WIC',
   'onboarding.program.snap':'PAN',
   'onboarding.program.wic':'WIC',
-
-  'nav.resources':'Beneficios y apoyo',
-
-  'resources.subtitle':'Descuentos, beneficios y recursos confiables de apoyo.',
-  'resources.tabBenefits':'Beneficios y descuentos',
-  'resources.tabSupport':'Ayuda y ahorros',
-  'resources.search':'Buscar recursos',
-  'resources.program':'Programa',
-  'resources.programAll':'Todos',
-  'resources.categoryAll':'Todas las categorías',
-  'resources.official':'Sitio oficial',
-  'resources.open':'Abrir recurso',
-  'resources.emptyTitle':'No hay recursos que coincidan',
-  'resources.emptyBody':'Prueba otro programa, categoría o término de búsqueda.',
-  'resources.clearFilters':'Borrar filtros',
-  'resources.offline':'Necesitas conexión a internet para abrir este recurso.',
-  'resources.independentTitle':'Directorio independiente de recursos',
-  'resources.independentBody':'Estos enlaces se ofrecen para tu conveniencia. SNAP-EBT & WIC Benefits Tracker es independiente y no está afiliada, respaldada ni patrocinada por las organizaciones que aparecen aquí. Cada organización determina sus requisitos, disponibilidad y condiciones.',
-  'resources.prProgramNote':'Algunos beneficios asociados con SNAP en los estados de EE. UU. pueden no estar disponibles para participantes de PAN en Puerto Rico. Verifica los requisitos de cada organización antes de solicitar el beneficio.',
-  'a11y.openExternalResource':'Abrir {name} en un sitio web externo',
-  'a11y.resourceSearch':'Buscar beneficios y recursos de apoyo',
-
-  'resources.category.membership':'Ahorros en membresías',
-  'resources.category.family':'Familia y recreación',
-  'resources.category.phoneInternet':'Teléfono e internet',
-  'resources.category.grocerySavings':'Ahorros en alimentos',
-  'resources.category.shopping':'Compras',
-  'resources.category.wicHelp':'Ayuda con WIC',
-  'resources.category.general':'Asistencia general',
-  'resources.category.local':'Ayuda local',
-  'resources.category.utilities':'Servicios del hogar',
-  'resources.category.childcare':'Cuidado infantil',
-  'resources.category.jobs':'Empleo y capacitación',
-  'resources.category.mentalHealth':'Salud mental',
-  'resources.category.housing':'Vivienda',
-  'resources.category.taxes':'Impuestos',
-  'resources.category.health':'Cobertura médica',
-  'resources.category.food':'Asistencia alimentaria',
-
-  'resources.amazon.title':'Amazon Prime Access',
-  'resources.amazon.body':'Membresía de Prime con precio reducido para personas que cumplen con los requisitos del programa.',
-
-  'resources.walmart.title':'Walmart+ Assist',
-  'resources.walmart.body':'Membresía de Walmart+ a precio reducido para participantes que cumplen con los requisitos de ciertos programas de asistencia.',
-
-  'resources.museums.title':'Museums for All',
-  'resources.museums.body':'Entrada gratis o a precio reducido en museos participantes para hogares elegibles que participan en SNAP.',
-
-  'resources.lifeline.title':'Lifeline',
-  'resources.lifeline.body':'Asistencia federal que puede reducir el costo de servicios de teléfono o internet para personas que cumplen con los requisitos.',
-
-  'resources.doubleUp.title':'Double Up Food Bucks',
-  'resources.doubleUp.body':'Algunos establecimientos participantes igualan el gasto de SNAP en frutas y vegetales elegibles.',
-
-  'resources.snapLocator.title':'USDA SNAP Retailer Locator',
-  'resources.snapLocator.body':'Encuentra comercios autorizados actualmente por el programa federal SNAP.',
-
-  'resources.wic.title':'USDA WIC',
-  'resources.wic.body':'Información oficial sobre WIC, requisitos y rutas para obtener apoyo local.',
-
-  'resources.usaBenefits.title':'USAGov Benefits',
-  'resources.usaBenefits.body':'Punto de partida oficial para beneficios gubernamentales y programas de ayuda económica.',
-
-  'resources.211.title':'211',
-  'resources.211.body':'Encuentra ayuda local para alimentos, vivienda, servicios del hogar y otras necesidades esenciales.',
-
-  'resources.liheap.title':'LIHEAP',
-  'resources.liheap.body':'Información sobre ayuda con los costos de energía del hogar para personas que cumplen con los requisitos.',
-
-  'resources.childcare.title':'ChildCare.gov',
-  'resources.childcare.body':'Encuentra información sobre cuidado infantil y recursos que pueden ayudar con su costo.',
-
-  'resources.career.title':'CareerOneStop',
-  'resources.career.body':'Recursos gratuitos para buscar empleo, capacitación y desarrollo profesional.',
-
-  'resources.988.title':'988 Lifeline',
-  'resources.988.body':'Apoyo gratuito en situaciones de crisis por llamada, texto o chat.',
-
-  'resources.samhsa.title':'SAMHSA',
-  'resources.samhsa.body':'Recursos de salud mental, tratamiento y apoyo.',
-
-  'resources.hud.title':'HUD Housing Counseling',
-  'resources.hud.body':'Encuentra servicios de orientación de vivienda aprobados por HUD.',
-
-  'resources.irs.title':'IRS',
-  'resources.irs.body':'Información oficial sobre impuestos federales y opciones de ayuda tributaria gratuita.',
-
-  'resources.healthcare.title':'HealthCare.gov',
-  'resources.healthcare.body':'Información oficial sobre cobertura médica, Medicaid y CHIP.',
-
-  'resources.foodHelp.title':'USAGov Food Help',
-  'resources.foodHelp.body':'Portal oficial para programas y recursos de asistencia alimentaria.'
 });
 Object.assign(MESSAGES['en-US'],{
   'reports.fullSplitLabel':'Show complete split payments',
@@ -2497,13 +2082,11 @@ Object.assign(MESSAGES['es-PR'], {
 
 
 Object.assign(MESSAGES['en-US'], {
-  'drawer.resources':'Benefits & Resources',
   'drawer.help':'App Help',
   'budget.notSet':'No budget set'
 });
 
 Object.assign(MESSAGES['es-PR'], {
-  'drawer.resources':'Beneficios y recursos',
   'drawer.help':'Ayuda de la aplicación',
   'budget.notSet':'Sin presupuesto configurado'
 });
@@ -2556,19 +2139,19 @@ Object.assign(MESSAGES['es-PR'], {
 
 
 Object.assign(MESSAGES['en-US'], {
-  'app.disclaimer':'Independent local-first tracker. No account, profile, or publisher-operated analytics or telemetry. Core tracker data is stored in the app on this device and is not uploaded to an operator-controlled server; exports and device backups are explained in the Privacy Policy. The free app displays a limited number of non-personalized banner ads. Google may process device and advertising data as explained in the Privacy Policy. The app never asks for an EBT/WIC PIN or connects to a government benefit account.',
+  'app.disclaimer':'Independent local-first tracker. No account, profile, or publisher-operated analytics or telemetry. Core tracker data is stored in the app on this device and is not uploaded to an operator-controlled server; exports and device backups are explained in the Privacy Policy. Without an active one-time Remove Ads purchase, the app displays one fixed non-personalized banner ad. Google may process device and advertising data as explained in the Privacy Policy. The app never asks for an EBT/WIC PIN or connects to a government benefit account.',
   'help.privacyBody':'Locally entered balances, benefits, grocery items, budgets, and History are not sent as ad parameters.',
   'help.independenceBody':'Independent app—not affiliated with or endorsed by USDA/FNS, Puerto Rico ADSEF, any SNAP/PAN or WIC agency, retailer, or card issuer. It does not provide official balances, eligibility decisions, retailer acceptance, or product authorization. Official sources control.',
   'onboarding.legalTitle':'Before you continue',
   'onboarding.ageConfirm':'I confirm that I am at least 18 years old.',
   'onboarding.termsConfirm':'I have read and agree to the Terms of Use and acknowledge the Privacy Policy.',
-  'onboarding.advertisingNotice':'The free app displays a limited number of non-personalized banner ads. Google AdMob may process your IP address/coarse location, device or app identifiers, app launches and ad interactions, advertising data, crash data, and performance data to request, deliver, secure, frequency-cap, and measure ads. Because the request comes from this SNAP/PAN and WIC tracker, Google may infer an interest in benefit programs. Privacy Choices controls any advertising-data options Google requires on this device; it does not remove ads from the free app.',
+  'onboarding.advertisingNotice':'Without an active one-time Remove Ads purchase, the app displays one fixed non-personalized banner ad. Google AdMob may process your IP address/coarse location, device or app identifiers, app launches and ad interactions, advertising data, crash data, and performance data to request, deliver, secure, frequency-cap, and measure ads. Because the request comes from this SNAP/PAN and WIC tracker, Google may infer an interest in benefit programs. Privacy Choices controls any advertising-data options Google requires on this device; it does not remove the banner. A separate one-time Remove Ads purchase is available after setup.',
   'onboarding.legalError':'You must confirm both items to use the app.',
   'onboarding.independentNotice':'Independent app—not affiliated with or endorsed by USDA/FNS, Puerto Rico ADSEF, any SNAP/PAN or WIC agency, retailer, or card issuer. It does not provide official balances, eligibility decisions, retailer acceptance, or product authorization. Official sources control.',
   'onboarding.reviewDocuments':'Review these documents before accepting:',
   'onboarding.acceptAndOpen':'Agree & open app',
   'onboarding.reacceptBody':'The Terms of Use have materially changed. Review them and confirm both items to continue using your locally stored data.',
-  'data.clearBody':'This permanently removes this app’s locally stored tracker data and surviving temporary export-cache copies from this device, cancels its scheduled local reminders, and returns you to initial setup. Files you previously saved or shared to other locations are stored separately and are not deleted.',
+  'data.clearBody':'This permanently removes this app’s locally stored tracker data and surviving temporary export-cache copies from this device, cancels its scheduled local reminders, and returns you to initial setup. Files you previously saved or shared to other locations are stored separately and are not deleted. Your App Store purchase is managed separately and is not deleted.',
   'data.clearNativeFailed':'Scheduled reminders or temporary export files could not be cleared. Your local tracker data was not cleared; try again.',
   'legal.title':'Legal & Support',
   'legal.privacyPolicy':'Privacy Policy',
@@ -2581,8 +2164,8 @@ Object.assign(MESSAGES['en-US'], {
   'legal.officialSourcesBody':'Government sources and information about this app\'s independent status.',
   'legal.privacyChoices':'Privacy Choices',
   'legal.privacyChoicesBody':'Review available advertising privacy choices.',
-  'legal.adSupported':'Ad-supported free app',
-  'legal.adSupportedBody':'The free version displays a limited number of non-personalized banner ads. Privacy Choices controls required advertising-data options; it does not remove ads.',
+  'legal.adSupported':'Advertising & Remove Ads',
+  'legal.adSupportedBody':'Without an active one-time Remove Ads purchase, the app may show one fixed non-personalized banner. Privacy Choices changes required advertising-data options; it is not a purchase or restore control.',
   'reports.maskingScope':'Masking hides financial amounts and WIC quantities only. Dates, stores, items, record identifiers, and other report details remain.',
   'legal.reportAd':'Report an Ad',
   'legal.reportAdBody':'Report inappropriate or age-inappropriate advertising.',
@@ -2592,19 +2175,19 @@ Object.assign(MESSAGES['en-US'], {
 });
 
 Object.assign(MESSAGES['es-PR'], {
-  'app.disclaimer':'Rastreador independiente y local. No requiere cuenta ni perfil y no contiene analítica o telemetría operada por el editor. Los datos principales del rastreador se almacenan en la aplicación en este dispositivo y no se cargan a un servidor controlado por el operador; las exportaciones y copias de seguridad se explican en la Política de Privacidad. La aplicación gratuita muestra una cantidad limitada de anuncios de banner no personalizados. Google puede procesar datos del dispositivo y de publicidad según se explica en la Política de Privacidad. La aplicación nunca solicita un PIN de EBT/WIC ni se conecta a una cuenta gubernamental de beneficios.',
+  'app.disclaimer':'Rastreador independiente y local. No requiere cuenta ni perfil y no contiene analítica o telemetría operada por el editor. Los datos principales del rastreador se almacenan en la aplicación en este dispositivo y no se cargan a un servidor controlado por el operador; las exportaciones y copias de seguridad se explican en la Política de Privacidad. Sin una compra única activa para eliminar anuncios, la aplicación muestra un anuncio fijo de banner no personalizado. Google puede procesar datos del dispositivo y de publicidad según se explica en la Política de Privacidad. La aplicación nunca solicita un PIN de EBT/WIC ni se conecta a una cuenta gubernamental de beneficios.',
   'help.privacyBody':'No hay cuenta ni perfil. Los saldos, beneficios, artículos, presupuestos e Historial introducidos localmente no se envían como parámetros publicitarios.',
   'help.independenceBody':'Aplicación independiente: no está afiliada ni respaldada por USDA/FNS, ADSEF de Puerto Rico, una agencia de SNAP/PAN o WIC, un comercio ni un emisor de tarjeta. No ofrece saldos oficiales, decisiones de elegibilidad, aceptación de comercios ni autorización de productos. Prevalecen las fuentes oficiales.',
   'onboarding.legalTitle':'Antes de continuar',
   'onboarding.ageConfirm':'Confirmo que tengo al menos 18 años.',
   'onboarding.termsConfirm':'He leído y acepto los Términos de Uso y reconozco la Política de Privacidad.',
-  'onboarding.advertisingNotice':'La aplicación gratuita muestra una cantidad limitada de anuncios de banner no personalizados. Google AdMob puede procesar tu dirección IP/ubicación aproximada, identificadores del dispositivo o la aplicación, aperturas de la aplicación e interacciones publicitarias, datos publicitarios, datos de fallos y datos de rendimiento para solicitar, entregar, proteger, limitar la frecuencia y medir anuncios. Como la solicitud proviene de este rastreador de SNAP/PAN y WIC, Google puede inferir un interés en programas de beneficios. Las opciones de privacidad controlan las opciones de datos publicitarios que Google requiera en este dispositivo; no eliminan los anuncios de la aplicación gratuita.',
+  'onboarding.advertisingNotice':'Sin una compra única activa para eliminar anuncios, la aplicación muestra un anuncio fijo de banner no personalizado. Google AdMob puede procesar tu dirección IP/ubicación aproximada, identificadores del dispositivo o la aplicación, aperturas de la aplicación e interacciones publicitarias, datos publicitarios, datos de fallos y datos de rendimiento para solicitar, entregar, proteger, limitar la frecuencia y medir anuncios. Como la solicitud proviene de este rastreador de SNAP/PAN y WIC, Google puede inferir un interés en programas de beneficios. Las opciones de privacidad controlan las opciones de datos publicitarios que Google requiera en este dispositivo; no eliminan el banner. Después de la configuración hay una compra única separada para eliminar anuncios.',
   'onboarding.legalError':'Debes confirmar ambos elementos para usar la aplicación.',
   'onboarding.independentNotice':'Aplicación independiente: no está afiliada ni respaldada por USDA/FNS, ADSEF de Puerto Rico, una agencia de SNAP/PAN o WIC, un comercio ni un emisor de tarjeta. No ofrece saldos oficiales, decisiones de elegibilidad, aceptación de comercios ni autorización de productos. Prevalecen las fuentes oficiales.',
   'onboarding.reviewDocuments':'Revisa estos documentos antes de aceptar:',
   'onboarding.acceptAndOpen':'Aceptar y abrir la aplicación',
   'onboarding.reacceptBody':'Los Términos de Uso cambiaron de manera sustancial. Revísalos y confirma ambos elementos para continuar usando tus datos almacenados localmente.',
-  'data.clearBody':'Esto elimina permanentemente los datos locales del rastreador y las copias temporales de exportación que aún queden en esta aplicación, cancela sus recordatorios locales programados y vuelve a la configuración inicial. Los archivos que guardaste o compartiste anteriormente en otras ubicaciones se almacenan por separado y no se eliminan.',
+  'data.clearBody':'Esto elimina permanentemente los datos locales del rastreador y las copias temporales de exportación que aún queden en esta aplicación, cancela sus recordatorios locales programados y vuelve a la configuración inicial. Los archivos que guardaste o compartiste anteriormente en otras ubicaciones se almacenan por separado y no se eliminan. Tu compra de App Store se administra por separado y no se elimina.',
   'data.clearNativeFailed':'No se pudieron borrar los recordatorios programados o los archivos temporales de exportación. Tus datos locales del rastreador no se borraron; inténtalo de nuevo.',
   'legal.title':'Legal y soporte',
   'legal.privacyPolicy':'Política de privacidad',
@@ -2617,8 +2200,8 @@ Object.assign(MESSAGES['es-PR'], {
   'legal.officialSourcesBody':'Fuentes gubernamentales e información sobre el carácter independiente de esta aplicación.',
   'legal.privacyChoices':'Opciones de privacidad',
   'legal.privacyChoicesBody':'Revisa las opciones de privacidad relacionadas con la publicidad.',
-  'legal.adSupported':'Aplicación gratuita con anuncios',
-  'legal.adSupportedBody':'La versión gratuita muestra una cantidad limitada de anuncios de banner no personalizados. Las opciones de privacidad controlan las opciones obligatorias de datos publicitarios; no eliminan los anuncios.',
+  'legal.adSupported':'Publicidad y eliminación de anuncios',
+  'legal.adSupportedBody':'Sin una compra única activa para eliminar anuncios, la aplicación puede mostrar un banner fijo no personalizado. Las opciones de privacidad cambian las opciones obligatorias de datos publicitarios; no compran ni restauran la eliminación de anuncios.',
   'reports.maskingScope':'El ocultamiento cubre únicamente los montos financieros y las cantidades de WIC. Permanecen las fechas, tiendas, artículos, identificadores de registros y otros detalles del reporte.',
   'legal.reportAd':'Reportar un anuncio',
   'legal.reportAdBody':'Reporta publicidad inapropiada o no adecuada para la edad.',
@@ -2627,250 +2210,68 @@ Object.assign(MESSAGES['es-PR'], {
   'legal.privacyChoicesUnavailable':'Las opciones de privacidad relacionadas con la publicidad están disponibles en la aplicación móvil instalada.'
 });
 
-const SUPPORT_RESOURCES = [
-  {
-    id:'amazon-prime-access',
-    section:'BENEFITS',
-    programs:['SNAP'],
-    category:'membership',
-    titleKey:'resources.amazon.title',
-    bodyKey:'resources.amazon.body',
-    url:'https://www.amazon.com/qualify',
-    icon:'gift',
-    tone:'blue',
-    commercial:false
-  },
-  {
-    id:'walmart-assist',
-    section:'BENEFITS',
-    programs:['SNAP','WIC'],
-    category:'membership',
-    titleKey:'resources.walmart.title',
-    bodyKey:'resources.walmart.body',
-    url:'https://www.walmart.com/plus/assist',
-    icon:'gift',
-    tone:'blue',
-    commercial:false
-  },
-  {
-    id:'museums-for-all',
-    section:'BENEFITS',
-    programs:['SNAP'],
-    category:'family',
-    titleKey:'resources.museums.title',
-    bodyKey:'resources.museums.body',
-    url:'https://museums4all.org/',
-    icon:'family',
-    tone:'purple',
-    commercial:false
-  },
-  {
-    id:'lifeline',
-    section:'BENEFITS',
-    programs:['SNAP'],
-    category:'phoneInternet',
-    titleKey:'resources.lifeline.title',
-    bodyKey:'resources.lifeline.body',
-    url:'https://www.lifelinesupport.org/',
-    icon:'phone',
-    tone:'blue',
-    commercial:false
-  },
-  {
-    id:'double-up-food-bucks',
-    section:'BENEFITS',
-    programs:['SNAP'],
-    category:'grocerySavings',
-    titleKey:'resources.doubleUp.title',
-    bodyKey:'resources.doubleUp.body',
-    url:'https://doubleupamerica.org/',
-    icon:'food',
-    tone:'green',
-    commercial:false
-  },
-  {
-    id:'snap-retailer-locator',
-    section:'BENEFITS',
-    programs:['SNAP'],
-    category:'shopping',
-    titleKey:'resources.snapLocator.title',
-    bodyKey:'resources.snapLocator.body',
-    url:'https://www.fns.usda.gov/snap/retailer-locator',
-    icon:'shop',
-    tone:'green',
-    commercial:false
-  },
-  {
-    id:'usda-wic',
-    section:'BENEFITS',
-    programs:['WIC'],
-    category:'wicHelp',
-    titleKey:'resources.wic.title',
-    bodyKey:'resources.wic.body',
-    url:'https://www.fns.usda.gov/wic',
-    icon:'food',
-    tone:'green',
-    commercial:false
-  },
 
-  {
-    id:'usagov-benefits',
-    section:'SUPPORT',
-    programs:[],
-    category:'general',
-    titleKey:'resources.usaBenefits.title',
-    bodyKey:'resources.usaBenefits.body',
-    url:'https://www.usa.gov/benefits',
-    icon:'resources',
-    tone:'blue',
-    commercial:false
-  },
-  {
-    id:'211',
-    section:'SUPPORT',
-    programs:[],
-    category:'local',
-    titleKey:'resources.211.title',
-    bodyKey:'resources.211.body',
-    url:'https://www.211.org/',
-    icon:'resources',
-    tone:'blue',
-    commercial:false
-  },
-  {
-    id:'liheap',
-    section:'SUPPORT',
-    programs:[],
-    category:'utilities',
-    titleKey:'resources.liheap.title',
-    bodyKey:'resources.liheap.body',
-    url:'https://www.acf.hhs.gov/ocs/programs/liheap',
-    icon:'utility',
-    tone:'amber',
-    commercial:false
-  },
-  {
-    id:'childcare',
-    section:'SUPPORT',
-    programs:[],
-    category:'childcare',
-    titleKey:'resources.childcare.title',
-    bodyKey:'resources.childcare.body',
-    url:'https://www.childcare.gov/',
-    icon:'family',
-    tone:'purple',
-    commercial:false
-  },
-  {
-    id:'career-one-stop',
-    section:'SUPPORT',
-    programs:[],
-    category:'jobs',
-    titleKey:'resources.career.title',
-    bodyKey:'resources.career.body',
-    url:'https://www.careeronestop.org/',
-    icon:'job',
-    tone:'blue',
-    commercial:false
-  },
-  {
-    id:'988',
-    section:'SUPPORT',
-    programs:[],
-    category:'mentalHealth',
-    titleKey:'resources.988.title',
-    bodyKey:'resources.988.body',
-    url:'https://988lifeline.org/',
-    icon:'health',
-    tone:'purple',
-    commercial:false
-  },
-  {
-    id:'samhsa',
-    section:'SUPPORT',
-    programs:[],
-    category:'mentalHealth',
-    titleKey:'resources.samhsa.title',
-    bodyKey:'resources.samhsa.body',
-    url:'https://www.samhsa.gov/',
-    icon:'health',
-    tone:'purple',
-    commercial:false
-  },
-  {
-    id:'hud-housing',
-    section:'SUPPORT',
-    programs:[],
-    category:'housing',
-    titleKey:'resources.hud.title',
-    bodyKey:'resources.hud.body',
-    url:'https://www.hud.gov/counseling',
-    icon:'housing',
-    tone:'amber',
-    commercial:false
-  },
-  {
-    id:'irs',
-    section:'SUPPORT',
-    programs:[],
-    category:'taxes',
-    titleKey:'resources.irs.title',
-    bodyKey:'resources.irs.body',
-    url:'https://www.irs.gov/',
-    icon:'tax',
-    tone:'blue',
-    commercial:false
-  },
-  {
-    id:'healthcare-gov',
-    section:'SUPPORT',
-    programs:[],
-    category:'health',
-    titleKey:'resources.healthcare.title',
-    bodyKey:'resources.healthcare.body',
-    url:'https://www.healthcare.gov/',
-    icon:'health',
-    tone:'green',
-    commercial:false
-  },
-  {
-    id:'usagov-food',
-    section:'SUPPORT',
-    programs:[],
-    category:'food',
-    titleKey:'resources.foodHelp.title',
-    bodyKey:'resources.foodHelp.body',
-    url:'https://www.usa.gov/food-help',
-    icon:'food',
-    tone:'green',
-    commercial:false
-  }
-];
+Object.assign(MESSAGES['en-US'], {
+  "nav.removeAds": "Remove Ads",
+  "drawer.removeAds": "Remove Ads",
+  "drawer.adsRemoved": "Ads Removed",
+  "a11y.removeAds": "Open Remove Ads",
+  "settings.purchases": "Purchases",
+  "purchase.title": "Remove Ads Forever",
+  "purchase.subtitle": "One-time App Store purchase. No subscription.",
+  "purchase.removeAdsBody": "One-time purchase. Removes this app’s banner ads forever while the purchase remains valid. Core tracker features remain free.",
+  "purchase.buyWithPrice": "Remove Ads — {price}",
+  "purchase.loading": "Loading purchase options…",
+  "purchase.unavailable": "Purchase options are unavailable right now. Check your connection and try again.",
+  "purchase.browserOnly": "Purchases are available only in the installed iPhone app.",
+  "purchase.processing": "Waiting for the App Store…",
+  "purchase.activeTitle": "Ads Removed",
+  "purchase.activeBody": "Your one-time Remove Ads purchase is active. Banner ads are hidden.",
+  "purchase.pending": "Purchase pending approval. Ads will be removed after Apple confirms the purchase.",
+  "purchase.success": "Purchase complete. Banner ads are now removed.",
+  "purchase.failed": "The purchase could not be confirmed. Ads have not been removed. Try again later.",
+  "purchase.restore": "Restore Purchase",
+  "purchase.restoreBody": "Restore a previous Remove Ads purchase made with this Apple Account.",
+  "purchase.restoring": "Checking this Apple Account for a previous purchase…",
+  "purchase.restoreSuccess": "Purchase restored. Banner ads are now removed.",
+  "purchase.restoreNone": "No previous Remove Ads purchase was found for this Apple Account.",
+  "purchase.restoreFailed": "The purchase could not be restored right now. Check your connection and try again.",
+  "purchase.alreadyActive": "Your Remove Ads purchase is already active."
+});
+Object.assign(MESSAGES['es-PR'], {
+  "nav.removeAds": "Eliminar anuncios",
+  "drawer.removeAds": "Eliminar anuncios",
+  "drawer.adsRemoved": "Anuncios eliminados",
+  "a11y.removeAds": "Abrir Eliminar anuncios",
+  "settings.purchases": "Compras",
+  "purchase.title": "Eliminar anuncios para siempre",
+  "purchase.subtitle": "Compra única de App Store. Sin suscripción.",
+  "purchase.removeAdsBody": "Compra única. Elimina para siempre los anuncios de banner de esta aplicación mientras la compra siga siendo válida. Las funciones principales del rastreador siguen siendo gratis.",
+  "purchase.buyWithPrice": "Eliminar anuncios — {price}",
+  "purchase.loading": "Cargando opciones de compra…",
+  "purchase.unavailable": "Las opciones de compra no están disponibles ahora. Verifica tu conexión e inténtalo de nuevo.",
+  "purchase.browserOnly": "Las compras solo están disponibles en la aplicación instalada en el iPhone.",
+  "purchase.processing": "Esperando a App Store…",
+  "purchase.activeTitle": "Anuncios eliminados",
+  "purchase.activeBody": "Tu compra única para eliminar anuncios está activa. Los anuncios de banner están ocultos.",
+  "purchase.pending": "La compra está pendiente de aprobación. Los anuncios se eliminarán cuando Apple confirme la compra.",
+  "purchase.success": "Compra completada. Los anuncios de banner se eliminaron.",
+  "purchase.failed": "No se pudo confirmar la compra. Los anuncios no se eliminaron. Inténtalo de nuevo más tarde.",
+  "purchase.restore": "Restaurar compra",
+  "purchase.restoreBody": "Restaura una compra anterior para eliminar anuncios realizada con esta Cuenta de Apple.",
+  "purchase.restoring": "Buscando una compra anterior en esta Cuenta de Apple…",
+  "purchase.restoreSuccess": "Compra restaurada. Los anuncios de banner se eliminaron.",
+  "purchase.restoreNone": "No se encontró una compra anterior para eliminar anuncios en esta Cuenta de Apple.",
+  "purchase.restoreFailed": "No se pudo restaurar la compra ahora. Verifica tu conexión e inténtalo de nuevo.",
+  "purchase.alreadyActive": "Tu compra para eliminar anuncios ya está activa."
+});
 
-let resourceFilters = {
-  section:'BENEFITS',
-  program:'ALL',
-  category:'ALL',
-  query:''
-};
 const ICONS={
  menu:'<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>',home:'<svg viewBox="0 0 24 24"><path d="M3 11 12 3l9 8v10h-6v-6H9v6H3z"/></svg>',shop:'<svg viewBox="0 0 24 24"><path d="M6 8h12l1 13H5L6 8zm3 0V6a3 3 0 0 1 6 0v2"/></svg>',history:'<svg viewBox="0 0 24 24"><path d="M4 4v6h6M5.5 9A8 8 0 1 1 5 15M12 7v5l3 2"/></svg>',report:'<svg viewBox="0 0 24 24"><path d="M5 19V9h3v10H5zm6 0V4h3v15h-3zm6 0v-7h3v7h-3z"/></svg>',cards:'<svg viewBox="0 0 24 24"><path d="M3 6h18v12H3zM3 10h18M7 15h4"/></svg>',save:'<svg viewBox="0 0 24 24"><path d="M5 3h14l2 2v16H3V3h2zm2 0v6h10V3M7 21v-8h10v8"/></svg>',settings:'<svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm8 4 2-1-2-4-2 1a8 8 0 0 0-2-1l-.5-2h-5L10 7a8 8 0 0 0-2 1L6 7l-2 4 2 1v2l-2 1 2 4 2-1a8 8 0 0 0 2 1l.5 2h5l.5-2a8 8 0 0 0 2-1l2 1 2-4-2-1v-2z"/></svg>',help:'<svg viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zm0-5v.01M9.8 9a2.4 2.4 0 1 1 4.4 1.3c-.9 1-2.2 1.3-2.2 2.7v.5"/></svg>',eye:'<svg viewBox="0 0 24 24"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12zm10 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg>',plus:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',close:'<svg viewBox="0 0 24 24"><path d="m5 5 14 14M19 5 5 19"/></svg>',chevron:'<svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg>',basket:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10h14l-2 10H7L5 10zM8 10l4-6 4 6M9 14v3M12 14v3M15 14v3"/></svg>'
 };
 const brandLogoMount=document.querySelector('.drawer-logo');
 ICONS.brandLogo=brandLogoMount?brandLogoMount.innerHTML:'';
-Object.assign(ICONS,{
-  resources:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="m5.6 5.6 4.3 4.3M14.1 14.1l4.3 4.3M18.4 5.6l-4.3 4.3M9.9 14.1l-4.3 4.3"/></svg>',
-  external:'<svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9"/><path d="M19 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h6"/></svg>',
-  gift:'<svg viewBox="0 0 24 24"><path d="M4 10h16v10H4zM3 7h18v3H3zM12 7v13"/><path d="M12 7H8.5A2.5 2.5 0 1 1 11 4.5L12 7zm0 0h3.5A2.5 2.5 0 1 0 13 4.5L12 7z"/></svg>',
-  phone:'<svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M10 5h4M11 18h2"/></svg>',
-  family:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2"/><path d="M3 20c.5-4 2.6-6 6-6s5.5 2 6 6M15 15c3.3 0 5.2 1.7 5.7 5"/></svg>',
-  food:'<svg viewBox="0 0 24 24"><path d="M12 21c5-3 7-7 7-11-4 0-7 2-7 6"/><path d="M12 21C7 18 5 14 5 10c4 0 7 2 7 6M12 4v17"/></svg>',
-  utility:'<svg viewBox="0 0 24 24"><path d="m13 2-7 11h6l-1 9 7-12h-6z"/></svg>',
-  job:'<svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V4h6v3M3 12h18M10 12v2h4v-2"/></svg>',
-  health:'<svg viewBox="0 0 24 24"><path d="M12 20s-7-4.1-8.7-8.2C1.8 8.1 4 5 7.2 5c2 0 3.7 1.2 4.8 3 1.1-1.8 2.8-3 4.8-3 3.2 0 5.4 3.1 3.9 6.8C19 15.9 12 20 12 20z"/></svg>',
-  housing:'<svg viewBox="0 0 24 24"><path d="M3 11 12 3l9 8v10h-6v-6H9v6H3z"/></svg>',
-  tax:'<svg viewBox="0 0 24 24"><path d="M6 2h9l4 4v16H6zM15 2v5h5M9 11h6M9 15h6M9 19h4"/></svg>'
-});
+ICONS.noAds='<svg viewBox="0 0 24 24"><path d="M5 5l14 14M4 12a8 8 0 0 1 12.8-6.4M20 12a8 8 0 0 1-12.8 6.4"/><path d="M8 12h8"/></svg>';
 ICONS.shop=`
   <svg viewBox="0 0 24 24">
     <path d="M3 4h2l2.2 10.1a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 1.9-1.4L21 8H7"/>
@@ -3051,7 +2452,7 @@ function setRoute(name){
     'reports',
     'cards',
     'saved',
-    'resources',
+    'removeAds',
     'settings',
     'help'
   ];
@@ -3116,7 +2517,7 @@ function route(){
     reports:'nav.reports',
     cards:'nav.cards',
     saved:'nav.saved',
-    resources:'nav.resources',
+    removeAds:'purchase.title',
     settings:'nav.settings',
     help:'nav.help'
   };
@@ -3163,7 +2564,7 @@ function route(){
     reports:renderReports,
     cards:renderCards,
     saved:renderSaved,
-    resources:renderResources,
+    removeAds:renderRemoveAds,
     settings:renderSettings,
     help:renderHelp
   };
@@ -3171,6 +2572,69 @@ function route(){
   (renderers[state.route]||renderHome)();
 }
 function renderApp(){route();notifyNativeLegalReady();}
+
+const PURCHASE_RUNTIME_STATUS=new Set(['checking','ready','purchasing','restoring','active','unavailable']);
+let purchaseRuntime={
+ status:window.ReactNativeWebView?.postMessage?'checking':'unavailable',
+ adsRemoved:false,
+ displayPrice:'',
+ canPurchase:false,
+ canRestore:false
+};
+function setPurchaseRuntimeState(next){
+ if(!next||typeof next!=='object')return false;
+ purchaseRuntime={
+  status:PURCHASE_RUNTIME_STATUS.has(next.status)?next.status:'unavailable',
+  adsRemoved:next.adsRemoved===true,
+  displayPrice:String(next.displayPrice||'').slice(0,80),
+  canPurchase:next.canPurchase===true,
+  canRestore:next.canRestore===true
+ };
+ if(state.onboarded&&hasCurrentLegalAcceptance(state)){
+  if(state.route==='removeAds')renderRemoveAds();
+  if(state.route==='settings')renderSettings();
+  renderChrome();
+ }
+ syncAdPresentation();
+ return true;
+}
+function completePurchaseRuntimeAction(action,result){
+ if(action!=='purchase'&&action!=='restore')return false;
+ if(result==='success'){
+  purchaseRuntime.adsRemoved=true;
+  purchaseRuntime.status='active';
+ }
+ const key={
+  'purchase:success':'purchase.success',
+  'purchase:already-active':'purchase.alreadyActive',
+  'purchase:pending':'purchase.pending',
+  'purchase:failed':'purchase.failed',
+  'restore:success':'purchase.restoreSuccess',
+  'restore:already-active':'purchase.alreadyActive',
+  'restore:none':'purchase.restoreNone',
+  'restore:failed':'purchase.restoreFailed'
+ }[action+':'+result];
+ if(key)toast(tr(key));
+ if(state.route==='removeAds')renderRemoveAds();
+ if(state.route==='settings')renderSettings();
+ renderChrome();
+ syncAdPresentation();
+ return true;
+}
+function postPurchaseIntent(type){
+ if(type!=='purchase-remove-ads'&&type!=='restore-remove-ads')return;
+ const native=window.ReactNativeWebView;
+ if(typeof native?.postMessage!=='function'){
+  toast(tr('purchase.browserOnly'));
+  return;
+ }
+ native.postMessage(JSON.stringify({type}));
+}
+window.GBTPurchaseRuntime=Object.freeze({
+ setState:setPurchaseRuntimeState,
+ complete:completePurchaseRuntimeAction
+});
+
 const AD_MODE=Object.freeze({PREVIEW:'PREVIEW',REAL:'REAL'});
 const AD_STATE=Object.freeze({AD_DISABLED:'AD_DISABLED',AD_LOADING:'AD_LOADING',AD_LOADED:'AD_LOADED',AD_UNAVAILABLE:'AD_UNAVAILABLE',AD_TEMPORARILY_HIDDEN:'AD_TEMPORARILY_HIDDEN'});
 const AD_CONSENT=Object.freeze({UNRESOLVED:'UNRESOLVED',REQUEST_PERMITTED:'REQUEST_PERMITTED',REQUEST_BLOCKED:'REQUEST_BLOCKED'});
@@ -3179,11 +2643,11 @@ const AD_SEPARATOR_HEIGHT=10;
 const CRITICAL_AD_MODAL_KINDS=new Set(['price','checkout','success','report-export-privacy','privacy-choices-info']);
 let adRuntime={mode:AD_MODE.PREVIEW,state:AD_STATE.AD_LOADED,runtimeHeight:PREVIEW_AD_FALLBACK_HEIGHT,checkoutCommit:false,printMode:false,consentStatus:AD_CONSENT.UNRESOLVED,resizeObserver:null};
 function updatePreviewAdPlaceholder(){const title=el('adBannerTitle'),sub=el('adBannerSub');if(title)title.textContent=tr('ads.sponsoredSpace');if(sub)sub.textContent=tr('ads.neverInterruptShopping');}
-function adPlacementAllowed(){return state.route!=='cards'&&!modalState;}
-function canRequestRealAd(){return adRuntime.mode===AD_MODE.REAL&&adRuntime.consentStatus===AD_CONSENT.REQUEST_PERMITTED&&state.onboarded&&hasCurrentLegalAcceptance(state)&&adPlacementAllowed();}
+function adPlacementAllowed(){return state.route!=='cards'&&state.route!=='removeAds'&&!modalState;}
+function canRequestRealAd(){return !purchaseRuntime.adsRemoved&&adRuntime.mode===AD_MODE.REAL&&adRuntime.consentStatus===AD_CONSENT.REQUEST_PERMITTED&&state.onboarded&&hasCurrentLegalAcceptance(state)&&adPlacementAllowed();}
 function criticalAdFlowActive(){return drawerOpen||!adPlacementAllowed()||!!moneyPadState||adRuntime.checkoutCommit||adRuntime.printMode||CRITICAL_AD_MODAL_KINDS.has(modalState);}
 function effectiveAdState(){
- if(!state.onboarded||!hasCurrentLegalAcceptance(state))return AD_STATE.AD_DISABLED;
+ if(purchaseRuntime.adsRemoved||!state.onboarded||!hasCurrentLegalAcceptance(state))return AD_STATE.AD_DISABLED;
  if(adRuntime.mode===AD_MODE.REAL&&adRuntime.consentStatus===AD_CONSENT.REQUEST_BLOCKED)return AD_STATE.AD_DISABLED;
  if(criticalAdFlowActive()&&adRuntime.state!==AD_STATE.AD_DISABLED)return AD_STATE.AD_TEMPORARILY_HIDDEN;
  return adRuntime.state;
@@ -3236,14 +2700,14 @@ function renderChrome(){
   const secondary=[
     {route:'cards',key:'nav.cards',icon:'cards'},
     {route:'saved',key:'nav.saved',icon:'save'},
-    {route:'resources',key:'drawer.resources',icon:'resources'},
+    {route:'removeAds',key:purchaseRuntime.adsRemoved?'drawer.adsRemoved':'drawer.removeAds',icon:'noAds',a11yKey:'a11y.removeAds'},
     {route:'settings',key:'nav.settings',icon:'settings'},
     {route:'help',key:'drawer.help',icon:'help'}
   ];
 
   el('drawerLinks').innerHTML=secondary.map(item=>{
     if(item.route)return `<button data-route="${item.route}" ${state.route===item.route?'aria-current="page"':''} class="drawer-link ${state.route===item.route?'active':''}">${icon(item.icon)}<span>${tr(item.key)}</span></button>`;
-    return `<button data-action="${item.action}" class="drawer-link" aria-label="${esc(tr('a11y.shareApp'))}">${icon(item.icon)}<span>${tr(item.key)}</span></button>`;
+    return `<button data-action="${item.action}" class="drawer-link" aria-label="${esc(tr(item.a11yKey||item.key))}">${icon(item.icon)}<span>${tr(item.key)}</span></button>`;
   }).join('');
 
   const privacyControlRelevant=['home','shop','history','reports','cards'].includes(state.route||'home');
@@ -3657,367 +3121,32 @@ function loadSavedPrompt(id){const s=state.savedBaskets.find(x=>x.id===id);if(!s
 function strictSavedQuantity(item){const raw=typeof item.quantityRaw==='string'?item.quantityRaw:(Number.isFinite(item.quantity)?decimalRawFromNumber(item.quantity):'');const parsed=R.parseQuantityRaw(raw,{locale:locale(),allowZero:false,maxFractionDigits:inferredQuantityPrecision(item.quantityUnit||'each')});if(!parsed.ok)throw R.err(R.ERROR.INVALID_NUMBER,'saved.quantity');return {raw,value:parsed.value};}
 async function applySaved(id,mode){const saved=state.savedBaskets.find(x=>x.id===id);if(!saved)return;const applyValid=!!el('savedApplyValidFunding')?.checked,remap=el('savedRemapMode')?.value||'UNRESOLVED';let incoming;try{incoming=saved.items.map(i=>{const q=strictSavedQuantity(i),suggested=i.suggestedFunding?C.clone(i.suggestedFunding):null,status=savedFundingSuggestionStatus(suggested),funding={mode:'UNSURE',needsResolution:true};if(suggested&&status.available&&!status.needsReview&&applyValid){if(status.mode==='CASH')Object.assign(funding,{mode:'CASH',needsResolution:false});if(status.mode==='SNAP')Object.assign(funding,{mode:'SNAP',snapCardId:suggested.snapCardId,needsResolution:false});}else if(suggested&&!status.available){if(remap==='CASH')Object.assign(funding,{mode:'CASH',needsResolution:false});else if(remap.startsWith('SNAP:'))Object.assign(funding,{mode:'SNAP',snapCardId:remap.slice(5),needsResolution:false});}return {id:C.id(),name:i.name||'',brand:String(i.brand||'').trim(),catalogItemId:i.catalogItemId||null,systemNameKey:i.systemNameKey||null,quantity:q.value,quantityRaw:q.raw,quantityUnit:i.quantityUnit||'each',previousPriceCents:i.previousPriceCents??i.unitPriceCents??null,previousPriceEntryMode:i.previousPriceEntryMode==='LINE_TOTAL'?'LINE_TOTAL':'UNIT_PRICE',previousLineTotalCents:Number.isSafeInteger(i.previousLineTotalCents)?i.previousLineTotalCents:null,unitPriceCents:null,priceKnown:false,category:C.normalizeCategoryId(i.category),snapEligibility:i.snapEligibility||'UNSURE',funding,suggestedFunding:suggested};});}catch(err){toast(userVisibleError(err));return;}const next=C.clone(state);if(mode==='replace'){next.basket={store:saved.store||'',transactionDate:today(),items:incoming};}else{next.basket.store=next.basket.store||saved.store||'';next.basket.transactionDate=next.basket.transactionDate||today();const byKey=new Map(next.basket.items.map((x,i)=>[savedDuplicateKey(x),i]));for(const item of incoming){const key=savedDuplicateKey(item),idx=byKey.get(key);if(idx==null){byKey.set(key,next.basket.items.length);next.basket.items.push(item);continue;}if(mode==='merge-skip')continue;if(mode==='merge-combine'){const existing=next.basket.items[idx],a=R.parseQuantityRaw(String(existing.quantityRaw??(Number.isFinite(existing.quantity)?decimalRawFromNumber(existing.quantity):'')),{locale:locale(),allowZero:false,maxFractionDigits:inferredQuantityPrecision(existing.quantityUnit||'each')}),b=R.parseQuantityRaw(String(item.quantityRaw??''),{locale:locale(),allowZero:false,maxFractionDigits:inferredQuantityPrecision(item.quantityUnit||'each')});if(a.ok&&b.ok&&(existing.quantityUnit||'each')===(item.quantityUnit||'each')){const qRaw=addQuantityRawExact(a.normalized,b.normalized),sum=parseEntryQuantity(qRaw,{allowZero:false,maxFractionDigits:inferredQuantityPrecision(existing.quantityUnit||'each')});if(!sum.ok)throw R.err(R.ERROR.INVALID_NUMBER,'saved.merge.quantity');existing.quantityRaw=qRaw;existing.quantity=sum.value;existing.priceKnown=false;existing.unitPriceCents=null;existing.previousPriceCents=existing.previousPriceCents??item.previousPriceCents;existing.previousPriceEntryMode='UNIT_PRICE';existing.previousLineTotalCents=null;continue;}}next.basket.items.push(item);}}next.entryDrafts={...(next.entryDrafts||{}),shop:null};if(await commitCritical(next)){shopDraft=newShopDraft();closeModal();setRoute('shop');}else storageAlert(tr('entry.notSaved'),{retry:true});}
 
-function resourceCategoryLabel(id){
-  return tr(`resources.category.${id}`);
-}
-
-function resourceSearchText(resource){
-  return normalizeSearch([
-    tr(resource.titleKey),
-    tr(resource.bodyKey),
-    resourceCategoryLabel(resource.category)
-  ].join(' '));
-}
-
-function resourceCategories(){
-  const base=SUPPORT_RESOURCES.filter(resource=>
-    resource.section===resourceFilters.section &&
-    (
-      resourceFilters.section!=='BENEFITS' ||
-      resourceFilters.program==='ALL' ||
-      resource.programs.includes(resourceFilters.program)
-    )
-  );
-
-  return [...new Set(base.map(resource=>resource.category))]
-    .sort((a,b)=>
-      resourceCategoryLabel(a).localeCompare(
-        resourceCategoryLabel(b),
-        locale()
-      )
-    );
-}
-
-function filteredSupportResources(){
-  const query=normalizeSearch(resourceFilters.query);
-
-  return SUPPORT_RESOURCES.filter(resource=>{
-    if(resource.section!==resourceFilters.section){
-      return false;
-    }
-
-    if(
-      resource.section==='BENEFITS' &&
-      resourceFilters.program!=='ALL' &&
-      !resource.programs.includes(resourceFilters.program)
-    ){
-      return false;
-    }
-
-    if(
-      resourceFilters.category!=='ALL' &&
-      resource.category!==resourceFilters.category
-    ){
-      return false;
-    }
-
-    if(
-      query &&
-      !resourceSearchText(resource).includes(query)
-    ){
-      return false;
-    }
-
-    return true;
-  });
-}
-
-function resourceProgramTags(resource){
-  if(!resource.programs?.length){
-    return '';
-  }
-
-  return resource.programs.map(code=>
-    `<span class="resource-tag program">
-      ${esc(programLabel(code))}
-    </span>`
-  ).join('');
-}
-
-function resourceCardHtml(resource){
-  const name=tr(resource.titleKey);
-
-  return `
-    <button
-      class="resource-card tone-${resource.tone||'blue'}"
-      data-action="open-resource"
-      data-id="${esc(resource.id)}"
-      aria-label="${esc(
-        tr('a11y.openExternalResource',{name})
-      )}"
-    >
-      <span
-        class="resource-icon"
-        aria-hidden="true"
-      >
-        ${icon(resource.icon||'resources')}
-      </span>
-
-      <span class="resource-copy">
-        <span class="resource-title">
-          ${esc(name)}
-        </span>
-
-        <span class="resource-body">
-          ${esc(tr(resource.bodyKey))}
-        </span>
-
-        <span class="resource-meta">
-          <span class="resource-tag">
-            ${esc(tr('resources.official'))}
-          </span>
-
-          ${resourceProgramTags(resource)}
-
-          <span class="resource-tag">
-            ${esc(resourceCategoryLabel(resource.category))}
-          </span>
-        </span>
-
-        <span class="resource-open">
-          ${esc(tr('resources.open'))}
-          ${icon('external')}
-        </span>
-      </span>
-
-      <span
-        class="resource-chevron"
-        aria-hidden="true"
-      >
-        ${icon('chevron')}
-      </span>
-    </button>
-  `;
-}
-
-function renderResources(){
-  const benefits=
-    resourceFilters.section==='BENEFITS';
-
-  const categories=
-    resourceCategories();
-
-  if(
-    resourceFilters.category!=='ALL' &&
-    !categories.includes(resourceFilters.category)
-  ){
-    resourceFilters.category='ALL';
-  }
-
-  const rows=
-    filteredSupportResources();
-
-  const programFilters=benefits
-    ? `
-      <div class="resources-filters">
-        <div class="resources-filter-label">
-          ${tr('resources.program')}
-        </div>
-
-        <div class="resources-filter-chips">
-
-          ${[
-            ['ALL',tr('resources.programAll')],
-            ['SNAP',programLabel('SNAP')],
-            ['WIC',programLabel('WIC')]
-          ].map(([value,label])=>`
-            <button
-              data-action="resource-program"
-              data-value="${value}"
-              class="${resourceFilters.program===value?'active':''}"
-              aria-pressed="${resourceFilters.program===value?'true':'false'}"
-            >
-              ${esc(label)}
-            </button>
-          `).join('')}
-
-        </div>
-      </div>
-    `
-    : '';
-
-  const categoryFilters=`
-    <div class="resources-filters">
-
-      <div class="resources-filter-label">
-        ${tr('common.category')}
-      </div>
-
-      <div class="resources-filter-chips">
-
-        <button
-          data-action="resource-category"
-          data-value="ALL"
-          class="${resourceFilters.category==='ALL'?'active':''}"
-          aria-pressed="${resourceFilters.category==='ALL'?'true':'false'}"
-        >
-          ${tr('resources.categoryAll')}
-        </button>
-
-        ${categories.map(id=>`
-          <button
-            data-action="resource-category"
-            data-value="${esc(id)}"
-            class="${resourceFilters.category===id?'active':''}"
-            aria-pressed="${resourceFilters.category===id?'true':'false'}"
-          >
-            ${esc(resourceCategoryLabel(id))}
-          </button>
-        `).join('')}
-
-      </div>
-    </div>
-  `;
-
-  const puertoRicoNote=
-    benefits && locale()==='es-PR'
-      ? `
-        <div class="resources-note">
-          ${tr('resources.prProgramNote')}
-        </div>
-      `
-      : '';
-
-  el('main').innerHTML=`
-    <section class="page resources-page">
-
-      <div class="page-head">
-        <div>
-          <h1>${tr('nav.resources')}</h1>
-          <p>${tr('resources.subtitle')}</p>
-        </div>
-      </div>
-
-      <div class="resources-controls">
-
-        <div
-          class="resources-segment"
-          role="group"
-        >
-
-          <button
-            data-action="resource-section"
-            data-value="BENEFITS"
-            class="${benefits?'active':''}"
-            aria-pressed="${benefits?'true':'false'}"
-          >
-            ${tr('resources.tabBenefits')}
-          </button>
-
-          <button
-            data-action="resource-section"
-            data-value="SUPPORT"
-            class="${!benefits?'active':''}"
-            aria-pressed="${!benefits?'true':'false'}"
-          >
-            ${tr('resources.tabSupport')}
-          </button>
-
-        </div>
-
-        <input
-          id="resourceSearch"
-          type="search"
-          value="${esc(resourceFilters.query)}"
-          placeholder="${esc(tr('resources.search'))}"
-          aria-label="${esc(tr('a11y.resourceSearch'))}"
-          autocomplete="off"
-        >
-
-        ${programFilters}
-
-        ${categoryFilters}
-
-        ${puertoRicoNote}
-
-      </div>
-
-      ${
-        rows.length
-          ? `
-            <div class="resource-grid">
-              ${rows.map(resourceCardHtml).join('')}
-            </div>
-          `
-          : `
-            <div class="section-card empty-state">
-              ${icon('resources')}
-
-              <b>
-                ${tr('resources.emptyTitle')}
-              </b>
-
-              <span>
-                ${tr('resources.emptyBody')}
-              </span>
-
-              <button
-                data-action="resource-clear"
-                class="small-btn"
-              >
-                ${tr('resources.clearFilters')}
-              </button>
-            </div>
-          `
-      }
-
-      <div class="section-card resource-trust">
-
-        ${icon('resources')}
-
-        <div>
-          <b>
-            ${tr('resources.independentTitle')}
-          </b>
-
-          <p>
-            ${tr('resources.independentBody')}
-          </p>
-        </div>
-
-      </div>
-
-    </section>
-  `;
-}
-
-function openSupportResource(id){
-  const resource=
-    SUPPORT_RESOURCES.find(x=>x.id===id);
-
-  if(!resource){
-    return;
-  }
-
-  let target;
-
-  try{
-    target=new URL(resource.url);
-  }catch(_){
-    return;
-  }
-
-  if(target.protocol!=='https:'){
-    return;
-  }
-
-  if(navigator.onLine===false){
-    toast(tr('resources.offline'));
-    return;
-  }
-
-  const link=document.createElement('a');
-
-  link.href=target.href;
-  link.target='_blank';
-  link.rel='noopener noreferrer external';
-  link.referrerPolicy='no-referrer';
-
-  document.body.appendChild(link);
-
-  link.click();
-
-  link.remove();
+function renderRemoveAds(){
+ const active=purchaseRuntime.adsRemoved;
+ const busy=purchaseRuntime.status==='purchasing'||purchaseRuntime.status==='restoring';
+ const statusKey=active
+  ? 'purchase.activeBody'
+  : purchaseRuntime.status==='checking'
+    ? 'purchase.loading'
+    : purchaseRuntime.status==='purchasing'
+      ? 'purchase.processing'
+      : purchaseRuntime.status==='unavailable'
+        ? 'purchase.unavailable'
+        : '';
+ const buyButton=!active&&purchaseRuntime.displayPrice
+  ? `<button type="button" data-action="purchase-remove-ads" class="btn full" ${purchaseRuntime.canPurchase&&!busy?'':"disabled"} aria-busy="${busy?'true':'false'}">${tr('purchase.buyWithPrice',{price:purchaseRuntime.displayPrice})}</button>`
+  : '';
+ el('main').innerHTML=`<section class="page">
+  <div class="page-head"><div><h1>${tr('purchase.title')}</h1><p>${tr('purchase.subtitle')}</p></div></div>
+  <div class="section-card purchase-card">
+   <div class="purchase-hero">
+    <div class="purchase-hero-icon" aria-hidden="true">${icon('noAds')}</div>
+    <div><h2>${active?tr('purchase.activeTitle'):tr('purchase.title')}</h2><p>${tr('purchase.removeAdsBody')}</p></div>
+   </div>
+   ${statusKey?`<div class="purchase-status ${active?'success':''}" role="status">${tr(statusKey)}</div>`:''}
+   ${buyButton}
+  </div>
+ </section>`;
 }
 
 function renderSettings(){
@@ -4026,11 +3155,20 @@ function renderSettings(){
       <span><b>${tr(titleKey)}</b><small>${tr(bodyKey)}</small></span>
       ${icon('chevron')}
     </button>`;
+  const restoring=purchaseRuntime.status==='restoring';
+  const restoreDisabled=!purchaseRuntime.canRestore||purchaseRuntime.status==='purchasing'||restoring;
   el('main').innerHTML=`<section class="page">
     <div class="page-head"><div><h1>${tr('nav.settings')}</h1><p>${tr('settings.subtitle')}</p></div></div>
     <div class="section-card settings-list">
       <label class="setting-row"><span><b>${tr('settings.privacyMode')}</b><small>${tr('settings.privacyBody')}</small></span><input id="privacySetting" type="checkbox" ${state.settings.privacyEnabled?'checked':''}></label>
       <div class="setting-row"><span><b>${tr('settings.language')}</b><small>${state.settings.language==='es-PR'?tr('settings.spanishPR'):tr('settings.english')}</small></span><select id="languageSetting"><option value="en-US" ${state.settings.language==='en-US'?'selected':''}>${tr('settings.english')}</option><option value="es-PR" ${state.settings.language==='es-PR'?'selected':''}>${tr('settings.spanishPR')}</option></select></div><div class="setting-row"><div><b>${tr('settings.programJurisdiction')}</b><small>${tr('settings.programJurisdictionBody')}</small></div><select id="programJurisdictionSetting"><option value="US_SNAP" ${currentJurisdiction()==='US_SNAP'?'selected':''}>${tr('settings.usSnap')}</option><option value="PUERTO_RICO_PAN" ${currentJurisdiction()==='PUERTO_RICO_PAN'?'selected':''}>${tr('settings.prPan')}</option></select></div>
+    </div>
+    <div class="section-card purchase-settings">
+      <div class="legal-settings-head"><h2>${tr('settings.purchases')}</h2></div>
+      <button type="button" data-action="restore-remove-ads" class="setting-row legal-link-row" ${restoreDisabled?'disabled':''} aria-busy="${restoring?'true':'false'}">
+        <span><b>${tr('purchase.restore')}</b><small>${restoring?tr('purchase.restoring'):tr('purchase.restoreBody')}</small></span>
+        ${icon('chevron')}
+      </button>
     </div>
     <div class="section-card legal-settings">
       <div class="legal-settings-head"><h2>${tr('legal.title')}</h2></div>
@@ -4103,46 +3241,8 @@ async function handleClick(e){
  else if(a==='legal-sources'){openLegalUrl('sources');}
  else if(a==='privacy-choices'){openAdvertisingPrivacyChoices();}
  else if(a==='report-ad'){reportAd();}
- else if(a==='resource-section'){
-  resourceFilters.section=
-    btn.dataset.value==='SUPPORT'
-      ? 'SUPPORT'
-      : 'BENEFITS';
-
-  resourceFilters.program='ALL';
-  resourceFilters.category='ALL';
-
-  renderResources();
-}
-else if(a==='resource-program'){
-  resourceFilters.program=
-    ['ALL','SNAP','WIC'].includes(btn.dataset.value)
-      ? btn.dataset.value
-      : 'ALL';
-
-  resourceFilters.category='ALL';
-
-  renderResources();
-}
-else if(a==='resource-category'){
-  resourceFilters.category=
-    btn.dataset.value||'ALL';
-
-  renderResources();
-}
-else if(a==='resource-clear'){
-  resourceFilters={
-    section:resourceFilters.section,
-    program:'ALL',
-    category:'ALL',
-    query:''
-  };
-
-  renderResources();
-}
-else if(a==='open-resource'){
-  openSupportResource(btn.dataset.id);
-}
+ else if(a==='purchase-remove-ads'){postPurchaseIntent('purchase-remove-ads');}
+ else if(a==='restore-remove-ads'){postPurchaseIntent('restore-remove-ads');}
  else if(a==='open-snap'){cardsFocus='snap';setRoute('cards');}else if(a==='open-wic'){cardsFocus='wic';setRoute('cards');}else if(a==='open-cash'){cardsFocus='cash';setRoute('cards');}
  else if(a==='choose-suggestion'){const type=btn.dataset.kind,st=suggestionState[type],idx=Number(btn.dataset.index);applySuggestion(type,Number.isInteger(idx)&&st?.items?.[idx]?st.items[idx]:{label:btn.dataset.value,catalogItemId:btn.dataset.catalogId||null});}
  else if(a==='set-funding'){syncShopDraftFromDom();const d=ensureShopDraft();d.fundingMode=btn.dataset.value;if(d.fundingMode==='SNAP'&&!d.snapCardId)d.snapCardId=C.getActiveSnapCards(state)[0]?.id||'';scheduleDraftPersistence('shop',d);renderShop();}
@@ -4196,24 +3296,7 @@ function handleInput(e){
       }
     },200);
   }
-  else if(e.target.id==='resourceSearch'){
-    resourceFilters.query=e.target.value;
 
-    renderResources();
-
-    setTimeout(()=>{
-      const input=el('resourceSearch');
-
-      if(input){
-        input.focus();
-
-        input.setSelectionRange(
-          input.value.length,
-          input.value.length
-        );
-      }
-    },0);
-  }
 }
 function handleChange(e){
  if(e.target.id==='shopTransactionDate'){const d=ensureShopDraft();d.transactionDate=e.target.value;scheduleDraftPersistence('shop',d);renderShop();}else if(e.target.id==='snapCardSelect'){const d=ensureShopDraft();d.snapCardId=e.target.value;scheduleDraftPersistence('shop',d);}else if(e.target.id==='snapPartInput'){const d=ensureShopDraft();d.snapPartRaw=e.target.value;scheduleDraftPersistence('shop',d);renderShop();}else if(e.target.id==='wicQtyInput'){const d=ensureShopDraft();d.wicQuantityRaw=e.target.value;scheduleDraftPersistence('shop',d);renderShop();}else if(e.target.id==='wicRemainderType'){const d=ensureShopDraft();d.remainderType=e.target.value;scheduleDraftPersistence('shop',d);renderShop();}else if(e.target.id==='wicRemainderSnap'){const d=ensureShopDraft();d.remainderSnapCardId=e.target.value;scheduleDraftPersistence('shop',d);}
@@ -4254,3 +3337,4 @@ window.GBTApp={getState:()=>C.clone(state),setStateForTest:s=>{state=R.migrateSt
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
 </script></body></html>
+
