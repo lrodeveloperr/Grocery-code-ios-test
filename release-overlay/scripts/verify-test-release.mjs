@@ -11,7 +11,10 @@ const EXPECTED_BRAND_LOGO_SHA256 =
 const EXPECTED_BRAND_MASTER_SHA256 =
   "6dc4daf09634cf419056c20be1ccbcfb3af9694a66909d579194100a1e740ff0";
 const TEST_APP_ID = "ca-app-pub-3940256099942544~1458002511";
-const TEST_BANNER_ID = "ca-app-pub-3940256099942544/2934735716";
+
+if (process.env.EXPO_PUBLIC_AD_PROFILE !== "test") {
+  throw new Error("Test-release verifier requires the explicit test ad profile.");
+}
 
 const read = (path) => readFile(path, "utf8");
 const readBytes = (path) => readFile(path);
@@ -1005,9 +1008,30 @@ forbidText(drawerSource, "share-app", "navigation drawer");
 requireText(drawerSource, "{route:'removeAds'", "Remove Ads drawer destination");
 forbidText(drawerSource, "resources", "removed drawer resource destination");
 
-requireText(app, TEST_APP_ID, "native wrapper test app ID marker");
-requireText(app, TEST_BANNER_ID, "native wrapper test banner marker");
-requireText(app, "process.env.EXPO_PUBLIC_AD_PROFILE === \"production\"", "ad profile gate");
+requireText(app, 'const testAds = adProfile === "test";', "explicit test ad profile");
+requireText(app, 'const productionAds = adProfile === "production";', "ad profile gate");
+if (
+  !/const bannerUnitId\s*=\s*testAds\s*\?\s*TestIds\.BANNER\s*:\s*productionAds\s*\?\s*productionBannerId\s*:\s*"";/.test(
+    app,
+  )
+) {
+  throw new Error(
+    "Ad unit selection must use test inventory only for the explicit test profile and fail closed otherwise.",
+  );
+}
+for (const unsafeFallback of [
+  "productionAds ? productionBannerId : TestIds.BANNER",
+  "if (!productionAds) return ensureAdsInitialized();",
+  "{!productionAds ? (",
+]) {
+  forbidText(app, unsafeFallback, "implicit test-ad fallback");
+}
+requireText(app, "{testAds ? (", "test-profile-only build marker");
+if ((app.match(/TestIds\.BANNER/g) || []).length !== 1) {
+  throw new Error(
+    "Google test banner must have exactly one explicit, profile-gated selection point.",
+  );
+}
 requireText(app, "unitId={bannerUnitId}", "native banner");
 requireText(app, "size={BannerAdSize.BANNER}", "fixed 320x50 banner");
 requireText(app, "const AD_SLOT_BOTTOM = 66", "HTML/native banner alignment");
@@ -1018,7 +1042,7 @@ requireText(app, 'type: "legal-ready"; ready: boolean', "native legal-readiness 
 requireText(app, 'if (legalReady && privacyChoicesRequired) void showPrivacyChoices();', "UMP-required privacy-choice gate");
 requireText(
   app,
-  'const showBanner =\n    removeAdsEntitlement === "not-entitled" &&\n    legalReady &&',
+  'const showBanner =\n    adProfileConfigured &&\n    removeAdsEntitlement === "not-entitled" &&\n    legalReady &&',
   "banner StoreKit and legal gate",
 );
 requireText(app, 'consentState === "permitted"', "banner UMP gate");
@@ -1044,6 +1068,17 @@ forbidText(app, "AppTrackingTransparency", "tracking-free wrapper");
 forbidText(app, "requestTrackingAuthorization", "tracking-free wrapper");
 forbidText(app, "ATTrackingManager", "tracking-free wrapper");
 requireText(app, "startAdsIfAllowed", "shared consent ad gate");
+requireText(
+  app,
+  "if (testAds) {",
+  "official demo-ad UMP isolation",
+);
+requireText(
+  app,
+  "if (!productionAdsConfigured) return false;",
+  "unconfigured ad-profile fail-close",
+);
+requireText(app, "if (!adProfileConfigured) return false;", "SDK profile fail-close");
 requireText(app, "return ensureAdsInitialized();", "idempotent SDK initialization");
 requireText(app, "await mobileAds().initialize()", "SDK initialization");
 requireText(
@@ -1160,6 +1195,38 @@ if (
   throw new Error("A StoreKit transaction may be finished before verified delivery.");
 }
 
+const adGateStart = app.indexOf("const startAdsIfAllowed");
+const adGateEnd = app.indexOf("\n\n  useEffect(() => {", adGateStart);
+const adGateSource = app.slice(adGateStart, adGateEnd);
+const bypassIndex = adGateSource.indexOf("if (testAds) {");
+const bypassInitIndex = adGateSource.indexOf(
+  "return ensureAdsInitialized();",
+  bypassIndex,
+);
+const infoIndex = adGateSource.indexOf("AdsConsent.getConsentInfo()");
+const assignIndex = adGateSource.indexOf(
+  "canRequestAds = currentInfo.canRequestAds;",
+);
+const rejectIndex = adGateSource.indexOf("!canRequestAds");
+const initIndex = adGateSource.lastIndexOf("return ensureAdsInitialized();");
+if (
+  !(
+    adGateStart >= 0 &&
+    adGateEnd > adGateStart &&
+    bypassIndex >= 0 &&
+    bypassInitIndex > bypassIndex &&
+    infoIndex > bypassIndex &&
+    infoIndex > bypassInitIndex &&
+    assignIndex > infoIndex &&
+    rejectIndex > assignIndex &&
+    initIndex > rejectIndex
+  )
+) {
+  throw new Error(
+    "Only test ads may bypass UMP; production must enforce canRequestAds before SDK initialization.",
+  );
+}
+
 const gatherIndex = app.indexOf("AdsConsent.gatherConsent()");
 const gatherEffectIndex = app.lastIndexOf("useEffect(() => {", gatherIndex);
 const gatherGateSource = app.slice(gatherEffectIndex, gatherIndex);
@@ -1173,6 +1240,19 @@ if (
   sharedGateIndex < gatherIndex
 ) {
   throw new Error("The initial UMP update does not gate SDK initialization.");
+}
+if (
+  !gatherGateSource.includes("if (testAds)") ||
+  !gatherGateSource.includes("startAdsIfAllowed(true)")
+) {
+  throw new Error(
+    "The internal Google demo-ad path is not isolated from publisher UMP.",
+  );
+}
+const testStart = gatherGateSource.indexOf("startAdsIfAllowed(true)");
+const testReturn = gatherGateSource.indexOf("return;", testStart);
+if (testStart < 0 || testReturn < testStart || gatherIndex < testReturn) {
+  throw new Error("The test-ad path does not return before production UMP gathering.");
 }
 if ((app.match(/AdsConsent\.gatherConsent\(\)/g) || []).length !== 1) {
   throw new Error("UMP gathering must have one legal-gated entry point.");
@@ -1279,5 +1359,5 @@ if (!iconBytes.equals(brandLogo)) {
 }
 
 console.log(
-  `Release checks passed: ${scripts.length} scripts, ${skadIds.length} SKAdNetwork IDs, verified StoreKit Remove Ads entitlement, one NPA + UMP-gated banner, Benefits & Resources removed, and file/link/reminder bridges.`,
+  `Release checks passed: ${scripts.length} scripts, ${skadIds.length} SKAdNetwork IDs, verified StoreKit Remove Ads entitlement, one internal NPA demo banner with production UMP fail-closed, Benefits & Resources removed, and file/link/reminder bridges.`,
 );
