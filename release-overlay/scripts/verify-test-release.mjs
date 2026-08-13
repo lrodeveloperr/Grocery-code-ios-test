@@ -185,6 +185,16 @@ const legacyProduct = Reports.LEGACY_PRODUCT_NAMES[0];
 if (currentFormat !== "grocery-benefits-tracker-history" || currentProduct !== "Grocery Benefits Tracker") {
   throw new Error("The canonical generic transfer identity changed.");
 }
+if (legacyFormat !== ["snap","ebt","wic","history"].join("-") || legacyProduct !== ["SNAP-EBT & WIC","Benefits Tracker"].join(" ")) {
+  throw new Error("The exact legacy transfer identity changed.");
+}
+for (const parserWiring of [
+  "!isAcceptedTransferFormat(raw.format)",
+  "!isAcceptedProductName(raw.appName)",
+  "!isAcceptedEncryptedTransferFormat(raw.format)",
+]) {
+  requireText(html, parserWiring, "legacy transfer parser wiring");
+}
 if (!Reports.isAcceptedTransferFormat(currentFormat) || !Reports.isAcceptedTransferFormat(legacyFormat)) {
   throw new Error("Current or legacy plain transfer compatibility is missing.");
 }
