@@ -827,7 +827,7 @@ if (oversizedPdfCode !== Reports.ERROR.PDF_TOO_LARGE) {
 }
 
 requireText(html, "window.GBTAdRuntime=Object.freeze", "web ad runtime");
-requireText(html, "downloadBlob('grocery-benefits-local-recovery.txt',blob)", "recovery export");
+requireText(html, "downloadBlob('grocery-benefits-tracker-local-recovery.txt',blob)", "recovery export");
 requireText(html, "R.prefixSearchMatch(entry.label,query)", "item prefix-only suggestions");
 requireText(html, "R.prefixSearchMatch(name,query)", "store prefix-only suggestions");
 requireText(html, 'data-action="money-pad-cents" data-cents="00"', "quick .00 money entry");
@@ -1000,7 +1000,7 @@ for (const requiredPublicMarker of [
   ["Rastreador de Beneficios", "current Spanish product name"],
   ["https://lrodeveloperr.github.io/grocery-benefits-tracker/privacy/", "current English privacy URL"],
   ["https://lrodeveloperr.github.io/grocery-benefits-tracker/es/privacidad/", "current Spanish privacy URL"],
-  ["grocery-benefits-local-recovery.txt", "current recovery filename"],
+  ["grocery-benefits-tracker-local-recovery.txt", "current recovery filename"],
   ["id=\"drawerAppTitle\"", "localized drawer title binding"],
   ["isAcceptedProductName(raw.appName)", "backward-compatible backup app-name validation"],
   ["transferFormat:'grocery-benefits-tracker-history'", "current cross-platform backup wire-format identifier"],
