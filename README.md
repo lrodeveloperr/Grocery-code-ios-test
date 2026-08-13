@@ -1,6 +1,6 @@
-# SNAP-EBT & WIC Benefits Tracker — iOS
+# Grocery Benefits Tracker — iOS
 
-This private repository contains the iOS build and release overlay for **SNAP-EBT & WIC Benefits Tracker**.
+This private repository contains the iOS build and release overlay for **Grocery Benefits Tracker**.
 
 ## Current product model
 
@@ -19,13 +19,13 @@ This private repository contains the iOS build and release overlay for **SNAP-EB
 
 ## Canonical legal pages
 
-- [Legal and Support Center](https://lrodeveloperr.github.io/snap-wic-benefits-tracker-legal/)
-- [Privacy Policy](https://lrodeveloperr.github.io/snap-wic-benefits-tracker-legal/privacy/)
-- [Terms of Use](https://lrodeveloperr.github.io/snap-wic-benefits-tracker-legal/terms/)
-- [Support](https://lrodeveloperr.github.io/snap-wic-benefits-tracker-legal/support/)
-- [Official Government Sources](https://lrodeveloperr.github.io/snap-wic-benefits-tracker-legal/official-sources/)
+- [Legal and Support Center](https://lrodeveloperr.github.io/grocery-benefits-tracker/)
+- [Privacy Policy](https://lrodeveloperr.github.io/grocery-benefits-tracker/privacy/)
+- [Terms of Use](https://lrodeveloperr.github.io/grocery-benefits-tracker/terms/)
+- [Support](https://lrodeveloperr.github.io/grocery-benefits-tracker/support/)
+- [Official Government Sources](https://lrodeveloperr.github.io/grocery-benefits-tracker/official-sources/)
 
-The active release overlay uses these canonical URLs. The former `SNAP-EBT-Grocery-Tracker` legal site is retired and must not be used for new code or metadata.
+The active release overlay uses these canonical clean URLs. Legacy legal-site paths are supported only as redirects for existing bookmarks and must not be used in new code or store metadata.
 
 ## Build notes
 
