@@ -57,7 +57,7 @@ RUBY
 
 grep -Fq 'com.apple.InAppPurchase' "$project_path/project.pbxproj"
 
-"$plist_buddy" -c "Set :CFBundleDisplayName SNAP-EBT & WIC Tracker QA" "$plist_path"
+"$plist_buddy" -c "Set :CFBundleDisplayName Grocery Benefits Tracker" "$plist_path"
 "$plist_buddy" -c "Set :GADApplicationIdentifier $test_app_id" "$plist_path"
 "$plist_buddy" -c "Delete :GADDelayAppMeasurementInit" "$plist_path" 2>/dev/null || true
 "$plist_buddy" -c "Add :GADDelayAppMeasurementInit bool true" "$plist_path"
