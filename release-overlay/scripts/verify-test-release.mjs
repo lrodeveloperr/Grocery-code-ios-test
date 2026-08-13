@@ -1041,6 +1041,9 @@ for (const requiredPublicMarker of [
   ["transferFormat:'grocery-benefits-tracker-history'", "current cross-platform backup wire-format identifier"],
   ["LEGACY_TRANSFER_FORMATS", "legacy transfer compatibility list"],
   ["isAcceptedEncryptedTransferFormat(raw.format)", "legacy encrypted transfer compatibility"],
+  ["function publicProductName(value){return R.isAcceptedProductName(value)?APP_METADATA.productName:String(value||APP_METADATA.productName);}", "legacy public product-name mapper"],
+  ["esc(publicProductName(b.sourceProduct))", "generic import-batch product rendering"],
+  ["esc(publicProductName(x.sourceProduct))", "generic import-review product rendering"],
 ]) {
   requireText(html, requiredPublicMarker[0], requiredPublicMarker[1]);
 }
