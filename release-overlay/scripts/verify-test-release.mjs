@@ -920,7 +920,7 @@ for (const [label, value, expectedOccurrences] of [
   ["English Privacy supplement", "Locally entered balances, benefits, grocery items, budgets, and History are not sent as ad parameters.", 2],
   ["Puerto Rico Spanish Privacy supplement", "No hay cuenta ni perfil. Los saldos, beneficios, artículos, presupuestos e Historial introducidos localmente no se envían como parámetros publicitarios.", 2],
   ["English independence copy", "Independent app—not affiliated with or endorsed by USDA Food and Nutrition Administration (FNA; formerly FNS), Puerto Rico ADSEF, any SNAP/PAN or WIC agency, retailer, or card issuer. It does not provide official balances, eligibility decisions, retailer acceptance, or product authorization. Official sources control.", 3],
-  ["Puerto Rico Spanish independence copy", "Aplicación independiente: no está afiliada ni respaldada por la Administración de Alimentos y Nutrición del USDA (FNA; anteriormente FNS), ADSEF de Puerto Rico, una agencia de SNAP/PAN o WIC, un comercio ni un emisor de tarjeta. No ofrece saldos oficiales, decisiones de elegibilidad, aceptación de comercios ni autorización de productos. Prevalecen las fuentes oficiales.", 3],
+  ["Puerto Rico Spanish independence copy", "Aplicación independiente: no está afiliada ni respaldada por Administración de Alimentos y Nutrición del USDA (FNA; anteriormente FNS), ADSEF de Puerto Rico, una agencia de SNAP/PAN o WIC, un comercio ni un emisor de tarjeta. No ofrece saldos oficiales, decisiones de elegibilidad, aceptación de comercios ni autorización de productos. Prevalecen las fuentes oficiales.", 3],
 ]) {
   if ((html.split(value).length - 1) !== expectedOccurrences) {
     throw new Error(`${label} must remain synchronized across its required placements.`);
@@ -984,8 +984,8 @@ for (const removedResource of [
 for (const priceLiteral of ["$4.99", "$9.99", "$12.99"]) {
   forbidText(html, priceLiteral, "hard-coded App Store price");
 }
-requireText(html, "USDA FNA (formerly FNS)", "current English agency attribution");
-requireText(html, "USDA FNA (antes FNS)", "current Spanish agency attribution");
+requireText(html, "USDA Food and Nutrition Administration (FNA; formerly FNS)", "current English agency attribution");
+requireText(html, "Administración de Alimentos y Nutrición del USDA (FNA; anteriormente FNS)", "current Spanish agency attribution");
 forbidText(html, "USDA/FNS", "obsolete agency attribution");
 for (const legacyPublicMarker of [
   ["snap-wic-benefits-tracker-legal", "legacy public legal URL"],
