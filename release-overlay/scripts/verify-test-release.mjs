@@ -1005,7 +1005,9 @@ for (const requiredPublicMarker of [
   ["grocery-benefits-local-recovery.txt", "current recovery filename"],
   ["id=\"drawerAppTitle\"", "localized drawer title binding"],
   ["isAcceptedProductName(raw.appName)", "backward-compatible backup app-name validation"],
-  ["transferFormat:'snap-ebt-wic-history'", "stable backup wire-format identifier"],
+  ["transferFormat:'grocery-benefits-tracker-history'", "current cross-platform backup wire-format identifier"],
+  ["LEGACY_TRANSFER_FORMATS", "legacy transfer compatibility list"],
+  ["isAcceptedEncryptedTransferFormat(raw.format)", "legacy encrypted transfer compatibility"],
 ]) {
   requireText(html, requiredPublicMarker[0], requiredPublicMarker[1]);
 }
@@ -1488,6 +1490,9 @@ for (const noticeGate of [
 }
 
 const appConfig = JSON.parse(await read("app.json"));
+if (appConfig?.expo?.name !== "Grocery Benefits Tracker") {
+  throw new Error("The public Expo app name must be Grocery Benefits Tracker.");
+}
 const configuredPlugins = appConfig?.expo?.plugins || [];
 let expoIapPluginCount = 0;
 for (const plugin of configuredPlugins) {
