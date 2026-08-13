@@ -178,6 +178,31 @@ const Core = sandbox.GBTCore;
 const Reports = sandbox.GBTRemediation;
 if (!Core || !Reports) throw new Error("Could not load pure application/report logic.");
 
+const currentFormat = Reports.APP_METADATA.transferFormat;
+const legacyFormat = Reports.LEGACY_TRANSFER_FORMATS[0];
+const currentProduct = Reports.APP_METADATA.productName;
+const legacyProduct = Reports.LEGACY_PRODUCT_NAMES[0];
+if (currentFormat !== "grocery-benefits-tracker-history" || currentProduct !== "Grocery Benefits Tracker") {
+  throw new Error("The canonical generic transfer identity changed.");
+}
+if (!Reports.isAcceptedTransferFormat(currentFormat) || !Reports.isAcceptedTransferFormat(legacyFormat)) {
+  throw new Error("Current or legacy plain transfer compatibility is missing.");
+}
+if (
+  !Reports.isAcceptedEncryptedTransferFormat(currentFormat + "-encrypted") ||
+  !Reports.isAcceptedEncryptedTransferFormat(legacyFormat + "-encrypted")
+) {
+  throw new Error("Current or legacy encrypted transfer compatibility is missing.");
+}
+if (!Reports.isAcceptedProductName(currentProduct) || !Reports.isAcceptedProductName(legacyProduct)) {
+  throw new Error("Current or legacy product-name compatibility is missing.");
+}
+for (const wrongValue of ["third-party-history", "Other Application"]) {
+  if (Reports.isAcceptedTransferFormat(wrongValue) || Reports.isAcceptedEncryptedTransferFormat(wrongValue) || Reports.isAcceptedProductName(wrongValue)) {
+    throw new Error("An unrelated transfer identity was accepted.");
+  }
+}
+
 const legacyAdState = Core.canonicalState();
 const legacyAdOn = Core.clone(legacyAdState);
 const legacyAdOff = Core.clone(legacyAdState);
