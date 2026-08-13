@@ -376,17 +376,22 @@ jobs:
           project_path="$app_root/ios/$SCHEME.xcodeproj/project.pbxproj"
           plist_buddy=/usr/libexec/PlistBuddy
 
-          "$plist_buddy" -c "Set :CFBundleDisplayName SNAP-EBT WIC Tracker" "$plist_path"
+          "$plist_buddy" -c "Set :CFBundleDisplayName Grocery Benefits Tracker" "$plist_path"
           "$plist_buddy" -c "Set :CFBundleShortVersionString $MARKETING_VERSION" "$plist_path"
           "$plist_buddy" -c "Set :CFBundleVersion $BUILD_NUMBER" "$plist_path"
           "$plist_buddy" -c "Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 $IOS_BUNDLE_ID" "$plist_path"
           /usr/bin/sed -i '' \
-            's/SNAP-EBT & WIC Tracker QA/SNAP-EBT WIC Tracker/g' \
+            's/CFBundleDisplayName = .*/CFBundleDisplayName = "Grocery Benefits Tracker";/' \
+            "$app_root/ios/$SCHEME/Supporting/en.lproj/InfoPlist.strings"
+          /usr/bin/sed -i '' \
+            's/CFBundleDisplayName = .*/CFBundleDisplayName = "Rastreador de Beneficios";/' \
+            "$app_root/ios/$SCHEME/Supporting/es-PR.lproj/InfoPlist.strings"
+          /usr/bin/plutil -lint \
             "$app_root/ios/$SCHEME/Supporting/en.lproj/InfoPlist.strings" \
             "$app_root/ios/$SCHEME/Supporting/es-PR.lproj/InfoPlist.strings"
-          grep -Fq 'CFBundleDisplayName = "SNAP-EBT WIC Tracker";' \
+          grep -Fxq 'CFBundleDisplayName = "Grocery Benefits Tracker";' \
             "$app_root/ios/$SCHEME/Supporting/en.lproj/InfoPlist.strings"
-          grep -Fq 'CFBundleDisplayName = "SNAP-EBT WIC Tracker";' \
+          grep -Fxq 'CFBundleDisplayName = "Rastreador de Beneficios";' \
             "$app_root/ios/$SCHEME/Supporting/es-PR.lproj/InfoPlist.strings"
 
           developer_signing='"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";'
