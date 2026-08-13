@@ -2,8 +2,7 @@ import { createHash, webcrypto } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 
-const EXPECTED_HTML_SHA256 =
-  "2dc58777b855d1dac8c2a7ef2612a8565dbc4db84bfbbfab1754d9afd46684e4";
+const EXPECTED_HTML_SHA256 = process.env.EXPECTED_HTML_SHA256 || "SOURCE_HASH_SET_BY_WORKFLOW";
 const EXPECTED_ICON_SHA256 =
   "a2893e96e83fed237c7063747c1f41c10c30ea85e3911149c13b02bfa861f808";
 const EXPECTED_BRAND_LOGO_SHA256 =
@@ -830,7 +829,7 @@ if (oversizedPdfCode !== Reports.ERROR.PDF_TOO_LARGE) {
 }
 
 requireText(html, "window.GBTAdRuntime=Object.freeze", "web ad runtime");
-requireText(html, "downloadBlob('snap-ebt-wic-local-recovery.txt',blob)", "recovery export");
+requireText(html, "downloadBlob('grocery-benefits-local-recovery.txt',blob)", "recovery export");
 requireText(html, "R.prefixSearchMatch(entry.label,query)", "item prefix-only suggestions");
 requireText(html, "R.prefixSearchMatch(name,query)", "store prefix-only suggestions");
 requireText(html, 'data-action="money-pad-cents" data-cents="00"', "quick .00 money entry");
@@ -922,8 +921,8 @@ for (const [label, value, expectedOccurrences] of [
   ["Puerto Rico Spanish disclosure", "Rastreador independiente y local. No requiere cuenta ni perfil y no contiene analítica o telemetría operada por el editor. Los datos principales del rastreador se almacenan en la aplicación en este dispositivo y no se cargan a un servidor controlado por el operador; las exportaciones y copias de seguridad se explican en la Política de Privacidad. Sin una compra única activa para eliminar anuncios, la aplicación muestra un anuncio fijo de banner no personalizado. Google puede procesar datos del dispositivo y de publicidad según se explica en la Política de Privacidad. La aplicación nunca solicita un PIN de EBT/WIC ni se conecta a una cuenta gubernamental de beneficios.", 2],
   ["English Privacy supplement", "Locally entered balances, benefits, grocery items, budgets, and History are not sent as ad parameters.", 2],
   ["Puerto Rico Spanish Privacy supplement", "No hay cuenta ni perfil. Los saldos, beneficios, artículos, presupuestos e Historial introducidos localmente no se envían como parámetros publicitarios.", 2],
-  ["English independence copy", "Independent app—not affiliated with or endorsed by USDA/FNS, Puerto Rico ADSEF, any SNAP/PAN or WIC agency, retailer, or card issuer. It does not provide official balances, eligibility decisions, retailer acceptance, or product authorization. Official sources control.", 3],
-  ["Puerto Rico Spanish independence copy", "Aplicación independiente: no está afiliada ni respaldada por USDA/FNS, ADSEF de Puerto Rico, una agencia de SNAP/PAN o WIC, un comercio ni un emisor de tarjeta. No ofrece saldos oficiales, decisiones de elegibilidad, aceptación de comercios ni autorización de productos. Prevalecen las fuentes oficiales.", 3],
+  ["English independence copy", "Independent app—not affiliated with or endorsed by USDA Food and Nutrition Administration (FNA; formerly FNS), Puerto Rico ADSEF, any SNAP/PAN or WIC agency, retailer, or card issuer. It does not provide official balances, eligibility decisions, retailer acceptance, or product authorization. Official sources control.", 3],
+  ["Puerto Rico Spanish independence copy", "Aplicación independiente: no está afiliada ni respaldada por la Administración de Alimentos y Nutrición del USDA (FNA; anteriormente FNS), ADSEF de Puerto Rico, una agencia de SNAP/PAN o WIC, un comercio ni un emisor de tarjeta. No ofrece saldos oficiales, decisiones de elegibilidad, aceptación de comercios ni autorización de productos. Prevalecen las fuentes oficiales.", 3],
 ]) {
   if ((html.split(value).length - 1) !== expectedOccurrences) {
     throw new Error(`${label} must remain synchronized across its required placements.`);
@@ -987,7 +986,29 @@ for (const removedResource of [
 for (const priceLiteral of ["$4.99", "$9.99", "$12.99"]) {
   forbidText(html, priceLiteral, "hard-coded App Store price");
 }
-forbidText(html, "USDA/FNA", "agency attribution");
+requireText(html, "USDA FNA (formerly FNS)", "current English agency attribution");
+requireText(html, "USDA FNA (antes FNS)", "current Spanish agency attribution");
+forbidText(html, "USDA/FNS", "obsolete agency attribution");
+for (const legacyPublicMarker of [
+  ["snap-wic-benefits-tracker-legal", "legacy public legal URL"],
+  [["SNAP-EBT & WIC","Benefits Tracker"].join(" "), "legacy public app title"],
+  ["SNAP-EBT · WIC · Shopping budget", "legacy drawer subtitle"],
+  ["snap-ebt-wic-local-recovery.txt", "legacy public recovery filename"],
+]) {
+  forbidText(html, legacyPublicMarker[0], legacyPublicMarker[1]);
+}
+for (const requiredPublicMarker of [
+  ["Grocery Benefits Tracker", "current English product name"],
+  ["Rastreador de Beneficios", "current Spanish product name"],
+  ["https://lrodeveloperr.github.io/grocery-benefits-tracker/privacy/", "current English privacy URL"],
+  ["https://lrodeveloperr.github.io/grocery-benefits-tracker/es/privacidad/", "current Spanish privacy URL"],
+  ["grocery-benefits-local-recovery.txt", "current recovery filename"],
+  ["id=\"drawerAppTitle\"", "localized drawer title binding"],
+  ["isAcceptedProductName(raw.appName)", "backward-compatible backup app-name validation"],
+  ["transferFormat:'snap-ebt-wic-history'", "stable backup wire-format identifier"],
+]) {
+  requireText(html, requiredPublicMarker[0], requiredPublicMarker[1]);
+}
 requireText(html, "if(window.ReactNativeWebView?.postMessage)throw R.err(R.ERROR.SHARE_FAILED", "native blob-navigation fail-close");
 requireText(html, "MAX_PDF_DETAIL_ROWS=2000", "bounded iPhone PDF generation");
 requireText(html, "if(delta&&!isNew)", "new SNAP opening-balance ledger guard");
