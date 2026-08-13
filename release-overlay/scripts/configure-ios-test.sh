@@ -24,7 +24,9 @@ node - "$app_json_path" <<'NODE'
 const fs = require("node:fs");
 const path = process.argv[2];
 const document = JSON.parse(fs.readFileSync(path, "utf8"));
-const plugins = document?.expo?.plugins;
+if (!document?.expo) throw new Error("app.json expo is missing");
+document.expo.name = "Grocery Benefits Tracker";
+const plugins = document.expo.plugins;
 if (!Array.isArray(plugins)) throw new Error("app.json expo.plugins is missing");
 document.expo.plugins = plugins.filter((plugin) => {
   const name = Array.isArray(plugin) ? plugin[0] : plugin;
@@ -33,6 +35,11 @@ document.expo.plugins = plugins.filter((plugin) => {
 document.expo.plugins.push("expo-iap");
 fs.writeFileSync(path, `${JSON.stringify(document, null, 2)}\n`);
 NODE
+
+if ! grep -Fq '"name": "Grocery Benefits Tracker"' "$app_json_path"; then
+  echo "The public Expo app name is not generic." >&2
+  exit 1
+fi
 
 if [[ "$(grep -Fc '"expo-iap"' "$app_json_path")" != "1" ]] ||
   grep -Fq 'react-native-iap' "$app_json_path"; then
