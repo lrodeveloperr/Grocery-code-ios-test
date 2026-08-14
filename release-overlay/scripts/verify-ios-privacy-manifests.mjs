@@ -76,12 +76,15 @@ function componentFor(file) {
 
 function validateTrackingShape(document, label) {
   const domains = document.NSPrivacyTrackingDomains;
+  if (domains !== undefined && !Array.isArray(domains)) {
+    throw new Error(`${label}: NSPrivacyTrackingDomains must be an array.`);
+  }
   if (document.NSPrivacyTracking === true) {
-    if (!Array.isArray(domains) || domains.length === 0) {
+    if (!domains || domains.length === 0) {
       throw new Error(`${label}: NSPrivacyTracking=true requires nonempty NSPrivacyTrackingDomains.`);
     }
-  } else if (domains !== undefined) {
-    throw new Error(`${label}: tracking domains cannot exist unless NSPrivacyTracking=true.`);
+  } else if (domains && domains.length > 0) {
+    throw new Error(`${label}: nonempty tracking domains require NSPrivacyTracking=true.`);
   }
   for (const domain of domains || []) {
     if (
@@ -120,8 +123,9 @@ async function inventory(root, scope) {
   const entries = [];
   for (const file of await walk(root)) {
     const component = componentFor(file);
+    const relativePath = normalized(path.relative(root, file));
     const document = parsePlist(file);
-    validateTrackingShape(document, `${scope} ${component} manifest`);
+    validateTrackingShape(document, `${scope} ${relativePath}`);
     const digest = sha256(await readFile(file));
     if (
       Object.prototype.hasOwnProperty.call(
@@ -136,7 +140,7 @@ async function inventory(root, scope) {
       scope,
       component,
       classified: component !== "Unclassified",
-      relativePath: normalized(path.relative(root, file)),
+      relativePath,
       sha256: digest,
       ...summarize(document),
     });
@@ -188,7 +192,7 @@ if ("NSPrivacyTrackingDomains" in appDocument) {
 if ("NSPrivacyCollectedDataTypes" in appDocument) {
   throw new Error("The app-owned privacy manifest must not duplicate SDK collection rows.");
 }
-validateTrackingShape(appDocument, "app-owned manifest");
+validateTrackingShape(appDocument, `app-owned ${normalized(appManifestPath)`);
 
 const installed = await inventory(sdkRoot, "installed");
 const packaged = bundleRoot ? await inventory(bundleRoot, "packaged") : [];
