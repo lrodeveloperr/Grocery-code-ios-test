@@ -162,6 +162,33 @@ jobs:
             COMPILER_INDEX_STORE_ENABLE=NO \
             clean build | xcbeautify
 
+      - name: Archive unsigned device build and validate packaged privacy manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive_path="$RUNNER_TEMP/Grocery-Benefits-Tracker-Unsigned.xcarchive"
+          xcodebuild \
+            -workspace "$APP_ROOT/ios/SNAPEBTGroceryTrackerQA.xcworkspace" \
+            -scheme SNAPEBTGroceryTrackerQA \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath "$archive_path" \
+            -derivedDataPath "$RUNNER_TEMP/ArchiveDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            clean archive | xcbeautify
+
+          archive_app="$(find "$archive_path/Products/Applications" -maxdepth 1 \
+            -type d -name '*.app' -print -quit)"
+          test -n "$archive_app"
+          node "$APP_ROOT/scripts/verify-ios-privacy-manifests.mjs" \
+            --app-manifest "$archive_app/PrivacyInfo.xcprivacy" \
+            --sdk-root "$APP_ROOT/ios/Pods" \
+            --bundle-root "$archive_app" \
+            --report "$RUNNER_TEMP/privacy-manifest-archive.json"
+
       - name: Package simulator application
         shell: bash
         run: |
@@ -174,6 +201,7 @@ jobs:
           artifact_root="$RUNNER_TEMP/artifact"
           mkdir -p "$artifact_root"
           cp "$RUNNER_TEMP/privacy-manifest-installed.json" "$artifact_root/"
+          cp "$RUNNER_TEMP/privacy-manifest-archive.json" "$artifact_root/"
           node "$APP_ROOT/scripts/verify-ios-privacy-manifests.mjs" \
             --app-manifest "$app_path/PrivacyInfo.xcprivacy" \
             --sdk-root "$APP_ROOT/ios/Pods" \

@@ -52,6 +52,7 @@ async function walk(root) {
 }
 
 function parsePlist(file) {
+  execFileSync("/usr/bin/plutil", ["-lint", file], { stdio: "pipe" });
   const output = execFileSync(
     "/usr/bin/plutil",
     ["-convert", "json", "-o", "-", file],
