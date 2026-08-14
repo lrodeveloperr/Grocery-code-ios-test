@@ -192,7 +192,7 @@ if ("NSPrivacyTrackingDomains" in appDocument) {
 if ("NSPrivacyCollectedDataTypes" in appDocument) {
   throw new Error("The app-owned privacy manifest must not duplicate SDK collection rows.");
 }
-validateTrackingShape(appDocument, `app-owned ${normalized(appManifestPath)`);
+validateTrackingShape(appDocument, `app-owned ${normalized(appManifestPath)}`);
 
 const installed = await inventory(sdkRoot, "installed");
 const packaged = bundleRoot ? await inventory(bundleRoot, "packaged") : [];
