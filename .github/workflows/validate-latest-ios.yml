@@ -107,6 +107,8 @@ jobs:
           npm run generate:notices
           grep -Fq -- 'expo-iap@5.2.4' THIRD_PARTY_NOTICES.txt
           grep -Fq -- 'expo-iap@5.2.4' src/thirdPartyNotices.ts
+          grep -Fq -- 'expo-tracking-transparency@57.0.1' THIRD_PARTY_NOTICES.txt
+          grep -Fq -- 'expo-tracking-transparency@57.0.1' src/thirdPartyNotices.ts
 
       - name: Verify source, privacy gates, and bridges
         shell: bash
@@ -129,9 +131,11 @@ jobs:
           pod install --repo-update
           grep -Fq 'ExpoIap (5.2.4)' Podfile.lock
           grep -Fq 'openiap (3.1.1)' Podfile.lock
+          grep -Fq 'ExpoTrackingTransparency (57.0.1)' Podfile.lock
           node "$APP_ROOT/scripts/finalize-ios-notices.mjs"
           grep -Fq 'iOS CocoaPods acknowledgements' "$APP_ROOT/THIRD_PARTY_NOTICES.txt"
           grep -Fqi 'openiap' "$APP_ROOT/src/thirdPartyNotices.ts"
+          grep -Fqi 'ExpoTrackingTransparency' "$APP_ROOT/src/thirdPartyNotices.ts"
 
       - name: Compile release app for iOS Simulator
         shell: bash
@@ -167,6 +171,10 @@ jobs:
             "$app_path/Info.plist" | grep -Fx "ca-app-pub-3940256099942544~1458002511"
           /usr/libexec/PlistBuddy -c "Print :GADDelayAppMeasurementInit" \
             "$app_path/Info.plist" | grep -Fx "true"
+          /usr/libexec/PlistBuddy -c "Print :NSUserTrackingUsageDescription" \
+            "$app_path/Info.plist" | grep -Fx "Your permission allows this app and its advertising partners to use a device identifier to measure non-personalized ads. Denying permission does not limit app features."
+          /usr/libexec/PlistBuddy -c "Print :NSPrivacyTracking" \
+            "$app_path/PrivacyInfo.xcprivacy" | grep -Fx "true"
 
       - name: Upload simulator application
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

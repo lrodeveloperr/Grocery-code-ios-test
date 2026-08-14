@@ -46,7 +46,7 @@ if (!existsSync(noticePath)) {
 }
 
 const nativeNotices = readFileSync(appAcknowledgements[0], "utf8").trim();
-for (const component of ["openiap"]) {
+for (const component of ["openiap", "ExpoTrackingTransparency"]) {
   if (!nativeNotices.toLowerCase().includes(component.toLowerCase())) {
     throw new Error(`CocoaPods acknowledgements are missing ${component}.`);
   }
@@ -57,6 +57,9 @@ const npmNotices = readFileSync(noticePath, "utf8")
   .trimEnd();
 if (!npmNotices.includes("expo-iap@5.2.4")) {
   throw new Error("The npm third-party notices are missing expo-iap@5.2.4.");
+}
+if (!npmNotices.includes("expo-tracking-transparency@57.0.1")) {
+  throw new Error("The npm third-party notices are missing expo-tracking-transparency@57.0.1.");
 }
 
 const combinedNotices = `${npmNotices}\n\n${marker}\n\n${nativeNotices}\n`;

@@ -433,6 +433,8 @@ jobs:
           npm run generate:notices
           grep -Fq -- 'expo-iap@5.2.4' THIRD_PARTY_NOTICES.txt
           grep -Fq -- 'expo-iap@5.2.4' src/thirdPartyNotices.ts
+          grep -Fq -- 'expo-tracking-transparency@57.0.1' THIRD_PARTY_NOTICES.txt
+          grep -Fq -- 'expo-tracking-transparency@57.0.1' src/thirdPartyNotices.ts
           npm run typecheck
           npm run test:logic
           npm run test:ui
@@ -448,9 +450,11 @@ jobs:
           pod install --repo-update
           grep -Fq 'ExpoIap (5.2.4)' Podfile.lock
           grep -Fq 'openiap (3.1.1)' Podfile.lock
+          grep -Fq 'ExpoTrackingTransparency (57.0.1)' Podfile.lock
           node "$APP_ROOT/scripts/finalize-ios-notices.mjs"
           grep -Fq 'iOS CocoaPods acknowledgements' "$APP_ROOT/THIRD_PARTY_NOTICES.txt"
           grep -Fqi 'openiap' "$APP_ROOT/src/thirdPartyNotices.ts"
+          grep -Fqi 'ExpoTrackingTransparency' "$APP_ROOT/src/thirdPartyNotices.ts"
 
       - name: Sign, validate, and upload internal TestFlight build
         shell: bash
@@ -516,6 +520,8 @@ jobs:
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")" == "$BUILD_NUMBER" ]]
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :GADApplicationIdentifier' "$plist")" == "$GOOGLE_TEST_APP_ID" ]]
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :GADDelayAppMeasurementInit' "$plist")" == "true" ]]
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :NSUserTrackingUsageDescription' "$plist")" == "Your permission allows this app and its advertising partners to use a device identifier to measure non-personalized ads. Denying permission does not limit app features." ]]
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :NSPrivacyTracking' "$app_path/PrivacyInfo.xcprivacy")" == "true" ]]
           grep -aFq "$GOOGLE_TEST_BANNER_ID" "$app_path/main.jsbundle"
           grep -aFq 'requestNonPersonalizedAdsOnly' "$app_path/main.jsbundle"
 
@@ -549,7 +555,7 @@ jobs:
             echo "- Bundle ID: $IOS_BUNDLE_ID"
             echo "- Version: $MARKETING_VERSION ($BUILD_NUMBER)"
             echo "- Owner-authorized build: $BUILD_NUMBER"
-            echo "- Ads: official Google test IDs; non-personalized treatment forced"
+            echo "- Ads: official Google test IDs; non-personalized treatment forced; ATT resolved before SDK initialization"
             echo "- Distribution: permanently internal TestFlight only"
             echo
             echo "Wait for Apple processing, then add this build to an internal tester group."

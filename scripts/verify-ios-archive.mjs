@@ -28,9 +28,9 @@ assert.match(scheme, /BuildableName = "SNAPEBTGroceryTrackerQA\.app"/);
 assert.match(info, /<string>SNAP &amp; EBT Grocery Tracker QA<\/string>/);
 assert.match(info, /ca-app-pub-3940256099942544~1458002511/);
 assert.match(info, /<key>GADDelayAppMeasurementInit<\/key>\s*<true\/>/);
+assert.match(info, /<key>NSUserTrackingUsageDescription<\/key>/);
 assert.match(info, /<key>ITSAppUsesNonExemptEncryption<\/key>\s*<false\/>/);
-assert.match(privacyManifest, /NSPrivacyTracking/);
-assert.match(privacyManifest, /<false\/>/);
+assert.match(privacyManifest, /<key>NSPrivacyTracking<\/key>\s*<true\/>/);
 
 const appDelegateEnd = appDelegate.indexOf("\nclass ReactNativeDelegate");
 const helper = appDelegate.indexOf(
@@ -53,5 +53,5 @@ for (const name of [
 }
 
 console.log(
-  "iOS archive verification passed: QA identity, deployment target, scheme, test ads, privacy manifest, local-only backup handling, and release documents are present.",
+  "iOS archive verification passed: QA identity, deployment target, scheme, test ads, ATT disclosure, tracking privacy manifest, local-only backup handling, and release documents are present.",
 );

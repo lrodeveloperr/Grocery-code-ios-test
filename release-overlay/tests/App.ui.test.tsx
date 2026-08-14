@@ -25,7 +25,7 @@ function sourceSection(source: string, start: string, end: string): string {
   return source.slice(startIndex, endIndex);
 }
 
-test("keeps one non-personalized banner behind StoreKit, legal, and UMP gates", () => {
+test("keeps one non-personalized banner behind StoreKit, legal, UMP, and ATT gates", () => {
   for (const obsolete of [
     "publisherAdsAllowed",
     "publisher-ad-choice",
@@ -43,6 +43,8 @@ test("keeps one non-personalized banner behind StoreKit, legal, and UMP gates", 
 
   expect(occurrences(nativeSource, "AdsConsent.gatherConsent()")).toBe(1);
   expect(occurrences(nativeSource, "mobileAds().initialize()")).toBe(1);
+  expect(occurrences(nativeSource, "getTrackingPermissionsAsync()")).toBe(1);
+  expect(occurrences(nativeSource, "requestTrackingPermissionsAsync()")).toBe(1);
   expect(occurrences(nativeSource, "<BannerAd")).toBe(1);
   expect(occurrences(nativeSource, "requestNonPersonalizedAdsOnly: true")).toBe(1);
   expect(nativeSource).toContain('const testAds = adProfile === "test";');
@@ -116,6 +118,28 @@ test("keeps one non-personalized banner behind StoreKit, legal, and UMP gates", 
   );
   expect(sharedAdGate).not.toContain("reportedCanRequestAds");
 
+  const trackingGate = sourceSection(
+    nativeSource,
+    "  const resolveTrackingAuthorization =",
+    "  const ensureAdsInitialized =",
+  );
+  expect(trackingGate).toContain("getTrackingPermissionsAsync()");
+  expect(trackingGate).toContain('current.status !== "undetermined"');
+  expect(trackingGate).toContain("requestTrackingPermissionsAsync()");
+  expect(trackingGate).toContain('result.status !== "undetermined"');
+
+  const initializationGate = sourceSection(
+    nativeSource,
+    "  const ensureAdsInitialized =",
+    "  const startAdsIfAllowed =",
+  );
+  expect(initializationGate.indexOf("await resolveTrackingAuthorization()")).toBeLessThan(
+    initializationGate.indexOf("mobileAds().setRequestConfiguration"),
+  );
+  expect(initializationGate.indexOf("mobileAds().setRequestConfiguration")).toBeLessThan(
+    initializationGate.indexOf("mobileAds().initialize()"),
+  );
+
   const consentEffect = sourceSection(
     nativeSource,
     '  useEffect(() => {\n    if (\n      removeAdsEntitlement !== "not-entitled"',
@@ -156,7 +180,7 @@ test("keeps one non-personalized banner behind StoreKit, legal, and UMP gates", 
   expect(bannerStyle).toContain("right: 0");
   expect(nativeSource).toContain("BannerAdSize.BANNER");
   expect(nativeSource).not.toMatch(/\b(?:InterstitialAd|RewardedAd|RewardedInterstitialAd|AppOpenAd|NativeAd)\b/);
-  expect(nativeSource).not.toMatch(/AppTrackingTransparency|requestTrackingAuthorization|ATTrackingManager/);
+  expect(nativeSource).toContain('from "expo-tracking-transparency"');
 
   expect(nativeSource).toContain("AdsConsentPrivacyOptionsRequirementStatus.REQUIRED");
   expect(nativeSource).toContain(

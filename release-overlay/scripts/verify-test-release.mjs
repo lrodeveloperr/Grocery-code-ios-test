@@ -32,7 +32,7 @@ function forbidText(haystack, needle, label) {
   }
 }
 
-const [html, app, purchase, iosNotices, delegate, plist, embedded, packageJson, packageLock, skadText, iconBase64, brandLogo, brandMaster] =
+const [html, app, purchase, iosNotices, delegate, plist, embedded, packageJson, packageLock, skadText, iconBase64, brandLogo, brandMaster, privacyManifest, englishInfoPlist, spanishInfoPlist] =
   await Promise.all([
     read("app.html"),
     read("App.tsx"),
@@ -47,6 +47,9 @@ const [html, app, purchase, iosNotices, delegate, plist, embedded, packageJson, 
     read("assets/app-icon.png.base64"),
     readBytes("assets/brand-logo-ui.png"),
     readBytes("assets/brand-logo-master.jpeg"),
+    read("ios/SNAPEBTGroceryTrackerQA/PrivacyInfo.xcprivacy"),
+    read("ios/SNAPEBTGroceryTrackerQA/Supporting/en.lproj/InfoPlist.strings"),
+    read("ios/SNAPEBTGroceryTrackerQA/Supporting/es-PR.lproj/InfoPlist.strings"),
   ]);
 
 const EXPECTED_HTML_SHA256 = sha256(html);
@@ -1462,6 +1465,46 @@ for (const match of app.matchAll(/startAdsIfAllowed\(([^)]*)\)/g)) {
   }
 }
 
+
+const trackingGateStart = app.indexOf("const resolveTrackingAuthorization");
+const trackingGateEnd = app.indexOf("\n\n  const ensureAdsInitialized", trackingGateStart);
+const trackingGateSource = app.slice(trackingGateStart, trackingGateEnd);
+if (
+  trackingGateStart < 0 ||
+  trackingGateEnd <= trackingGateStart ||
+  !trackingGateSource.includes("getTrackingPermissionsAsync()") ||
+  !trackingGateSource.includes('current.status !== "undetermined"') ||
+  !trackingGateSource.includes("requestTrackingPermissionsAsync()") ||
+  !trackingGateSource.includes('result.status !== "undetermined"')
+) {
+  throw new Error("ATT must resolve every authorization outcome without treating denial as an app-functionality block.");
+}
+if ((app.match(/getTrackingPermissionsAsync\(\)/g) || []).length !== 1) {
+  throw new Error("ATT status must have one shared read path.");
+}
+if ((app.match(/requestTrackingPermissionsAsync\(\)/g) || []).length !== 1) {
+  throw new Error("ATT must have one shared request path.");
+}
+const initializationGateStart = app.indexOf("const ensureAdsInitialized");
+const initializationGateEnd = app.indexOf("\n\n  const startAdsIfAllowed", initializationGateStart);
+const initializationGateSource = app.slice(initializationGateStart, initializationGateEnd);
+const trackingResolutionIndex = initializationGateSource.indexOf(
+  "await resolveTrackingAuthorization()",
+);
+const requestConfigurationIndex = initializationGateSource.indexOf(
+  "mobileAds().setRequestConfiguration",
+);
+const mobileAdsInitializationIndex = initializationGateSource.indexOf(
+  "mobileAds().initialize()",
+);
+if (
+  trackingResolutionIndex < 0 ||
+  requestConfigurationIndex <= trackingResolutionIndex ||
+  mobileAdsInitializationIndex <= requestConfigurationIndex
+) {
+  throw new Error("Google Mobile Ads configuration and initialization must remain behind resolved ATT.");
+}
+
 requireText(
   delegate,
   "publisherPrivacyPersonalizationState = .disabled",
@@ -1481,7 +1524,13 @@ if (!/<key>GADDelayAppMeasurementInit<\/key>\s*<true\s*\/>/.test(plist)) {
   throw new Error("Info.plist must delay Google app measurement until UMP permits ad requests.");
 }
 requireText(plist, "<key>SKAdNetworkItems</key>", "Info.plist SKAdNetwork list");
-forbidText(plist, "NSUserTrackingUsageDescription", "non-tracking test build");
+requireText(plist, "<key>NSUserTrackingUsageDescription</key>", "ATT usage-description key");
+requireText(plist, "Your permission allows this app and its advertising partners to use a device identifier to measure non-personalized ads. Denying permission does not limit app features.", "base ATT usage description");
+requireText(englishInfoPlist, "NSUserTrackingUsageDescription = \"Your permission allows this app and its advertising partners to use a device identifier to measure non-personalized ads. Denying permission does not limit app features.\";", "English ATT localization");
+requireText(spanishInfoPlist, "NSUserTrackingUsageDescription = \"Tu permiso permite que esta app y sus socios publicitarios usen un identificador del dispositivo para medir anuncios no personalizados. Negarte no limita las funciones de la app.\";", "Spanish ATT localization");
+if (!/<key>NSPrivacyTracking<\/key>\s*<true\s*\/>/.test(privacyManifest)) {
+  throw new Error("The app privacy manifest must truthfully declare tracking.");
+}
 forbidText(plist, "WKAppBoundDomains", "Google Mobile Ads compatibility");
 
 const skadIds = skadText.split(/\r?\n/).filter(Boolean);
@@ -1504,6 +1553,12 @@ if (parsedPackage.dependencies?.["expo-notifications"] !== "~57.0.10") {
 if (parsedPackage.dependencies?.["expo-iap"] !== "5.2.4") {
   throw new Error("expo-iap must be an exact 5.2.4 runtime dependency.");
 }
+if (parsedPackage.dependencies?.["expo-tracking-transparency"] !== "~57.0.0") {
+  throw new Error("expo-tracking-transparency must stay compatible with Expo 57.");
+}
+if (parsedLock.packages?.["node_modules/expo-tracking-transparency"]?.version !== "57.0.1") {
+  throw new Error("The lockfile must pin expo-tracking-transparency 57.0.1.");
+}
 if (parsedLock.packages?.["node_modules/expo-iap"]?.version !== "5.2.4") {
   throw new Error("The lockfile must pin expo-iap 5.2.4.");
 }
@@ -1517,8 +1572,9 @@ if (
 for (const noticeGate of [
   "Pods-SNAPEBTGroceryTrackerQA-acknowledgements.markdown",
   'const marker = "iOS CocoaPods acknowledgements (generated from Podfile.lock)";',
-  'for (const component of ["openiap"])',
+  'for (const component of ["openiap", "ExpoTrackingTransparency"])',
   'npmNotices.includes("expo-iap@5.2.4")',
+  'npmNotices.includes("expo-tracking-transparency@57.0.1")',
   'writeFileSync(noticePath, combinedNotices)',
   'writeFileSync(\n  sourcePath,',
 ]) {
@@ -1563,5 +1619,5 @@ if (!iconBytes.equals(brandLogo)) {
 }
 
 console.log(
-  `Release checks passed: ${scripts.length} scripts, ${skadIds.length} SKAdNetwork IDs, verified StoreKit Remove Ads entitlement, one internal NPA demo banner with production UMP fail-closed, Benefits & Resources removed, and file/link/reminder bridges.`,
+  `Release checks passed: ${scripts.length} scripts, ${skadIds.length} SKAdNetwork IDs, verified StoreKit Remove Ads entitlement, localized ATT before Google Mobile Ads, one internal NPA demo banner with production UMP fail-closed, Benefits & Resources removed, and file/link/reminder bridges.`,
 );

@@ -5,6 +5,7 @@ app_root="${1:-.}"
 app_json_path="$app_root/app.json"
 target_name="SNAPEBTGroceryTrackerQA"
 plist_path="$app_root/ios/$target_name/Info.plist"
+privacy_manifest_path="$app_root/ios/$target_name/PrivacyInfo.xcprivacy"
 project_path="$app_root/ios/$target_name.xcodeproj"
 skad_ids_path="$app_root/ios/skadnetwork-ids.txt"
 icon_b64_path="$app_root/assets/app-icon.png.base64"
@@ -13,7 +14,7 @@ plist_buddy="/usr/libexec/PlistBuddy"
 
 test_app_id="ca-app-pub-3940256099942544~1458002511"
 
-if [[ ! -f "$app_json_path" || ! -f "$plist_path" || ! -f "$skad_ids_path" || ! -f "$icon_b64_path" ]]; then
+if [[ ! -f "$app_json_path" || ! -f "$plist_path" || ! -f "$privacy_manifest_path" || ! -f "$skad_ids_path" || ! -f "$icon_b64_path" ]]; then
   echo "Required iOS test-release inputs are missing." >&2
   exit 1
 fi
@@ -69,6 +70,9 @@ grep -Fq 'com.apple.InAppPurchase' "$project_path/project.pbxproj"
 "$plist_buddy" -c "Delete :GADDelayAppMeasurementInit" "$plist_path" 2>/dev/null || true
 "$plist_buddy" -c "Add :GADDelayAppMeasurementInit bool true" "$plist_path"
 "$plist_buddy" -c "Delete :NSUserTrackingUsageDescription" "$plist_path" 2>/dev/null || true
+"$plist_buddy" -c "Add :NSUserTrackingUsageDescription string Your permission allows this app and its advertising partners to use a device identifier to measure non-personalized ads. Denying permission does not limit app features." "$plist_path"
+"$plist_buddy" -c "Delete :NSPrivacyTracking" "$privacy_manifest_path" 2>/dev/null || true
+"$plist_buddy" -c "Add :NSPrivacyTracking bool true" "$privacy_manifest_path"
 "$plist_buddy" -c "Delete :WKAppBoundDomains" "$plist_path" 2>/dev/null || true
 "$plist_buddy" -c "Delete :SKAdNetworkItems" "$plist_path" 2>/dev/null || true
 "$plist_buddy" -c "Add :SKAdNetworkItems array" "$plist_path"
@@ -96,4 +100,4 @@ decoded_icon="$RUNNER_TEMP/snap-ebt-wic-app-icon.png"
 /usr/bin/sips -z 528 528 "$decoded_icon" \
   --out "$asset_root/SplashScreenLogo.imageset/image@3x.png" >/dev/null
 
-echo "Configured StoreKit IAP, delayed Google measurement, official test app ID, $skad_index SKAdNetwork IDs, and release artwork."
+echo "Configured StoreKit IAP, delayed Google measurement, localized ATT disclosure, tracking privacy manifest, official test app ID, $skad_index SKAdNetwork IDs, and release artwork."
