@@ -13,7 +13,7 @@ This private repository contains the iOS build and release overlay for **Grocery
 - Restore UI: **Restore Purchase** is always present in Settings
 - Privacy choices: shown only when required by Google UMP; they change advertising data treatment, not banner visibility
 - App Tracking Transparency: on iOS, requested only after legal acceptance, Google's applicable UMP process, and a verified non-entitled StoreKit state; denial or restriction keeps IDFA unavailable without limiting core features or IDFA-less non-personalized ads
-- Privacy-manifest ownership: the app-owned manifest does not duplicate SDK collection or tracking; CI inventories and hashes the installed and packaged Google Mobile Ads and UMP manifests, including the SDK-owned tracking domains, for App Store privacy-label reconciliation
+- Privacy-manifest ownership: the app-owned manifest does not duplicate SDK collection or tracking; CI pins and inventories the exact installed and packaged Google Mobile Ads and UMP manifests and verifies Google Mobile Ads' linked Device ID tracking row. Google Mobile Ads 13.5.0 does not declare top-level tracking domains, so none are invented; App Store privacy labels must be reconciled to the packaged manifest report
 - App Review note recommendation: tell the reviewer that ad reporting is available at **Settings → Report an Ad**, which opens the canonical support page and its dedicated inappropriate-ad email action in English or Spanish
 - Subscription: none
 - Benefits & Resources directory: not included

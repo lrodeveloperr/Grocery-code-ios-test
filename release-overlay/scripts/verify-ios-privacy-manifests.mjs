@@ -4,6 +4,16 @@ import { execFileSync } from "node:child_process";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+const EXPECTED_VENDOR_MANIFEST_SHA256 = Object.freeze({
+  GoogleMobileAds: "69fb112582fc23fc06c635c961d262a3f7b4b5654d284787491de3000dadf9d2",
+  UserMessagingPlatform: "45b7adb99fcd2d962a1c800fbfcc1325b57a7fa4165f416182323bb5ffe9c900",
+});
+const EXPECTED_GMA_DEVICE_ID_PURPOSES = Object.freeze([
+  "NSPrivacyCollectedDataTypePurposeAnalytics",
+  "NSPrivacyCollectedDataTypePurposeDeveloperAdvertising",
+  "NSPrivacyCollectedDataTypePurposeThirdPartyAdvertising",
+]);
+
 const values = new Map();
 for (let index = 2; index < process.argv.length; index += 2) {
   const key = process.argv[index];
@@ -109,29 +119,43 @@ async function inventory(root, scope) {
     if (!component) continue;
     const document = parsePlist(file);
     validateTrackingShape(document, `${scope} ${component} manifest`);
+    const digest = sha256(await readFile(file));
+    if (digest !== EXPECTED_VENDOR_MANIFEST_SHA256[component]) {
+      throw new Error(`${scope}: unexpected ${component} privacy-manifest hash ${digest}.`);
+    }
     entries.push({
       scope,
       component,
       relativePath: normalized(path.relative(root, file)),
-      sha256: sha256(await readFile(file)),
+      sha256: digest,
       ...summarize(document),
     });
   }
   for (const component of ["GoogleMobileAds", "UserMessagingPlatform"]) {
     if (!entries.some((entry) => entry.component === component)) {
-      throw new Error(`${scope}: packaged manifest for ${component} was not found.`);
+      throw new Error(`${scope}: ${component} privacy manifest was not found.`);
     }
   }
-  const googleTracking = entries.filter(
-    (entry) =>
-      entry.component === "GoogleMobileAds" &&
-      entry.tracking &&
-      entry.trackingDomains.length > 0,
-  );
-  if (googleTracking.length === 0) {
-    throw new Error(
-      `${scope}: GoogleMobileAds must carry its own tracking declaration and domains.`,
+  for (const entry of entries.filter((item) => item.component === "GoogleMobileAds")) {
+    const deviceID = entry.collectedDataTypes.find(
+      (item) => item.dataType === "NSPrivacyCollectedDataTypeDeviceID",
     );
+    if (
+      !deviceID ||
+      !deviceID.linked ||
+      !deviceID.tracking ||
+      JSON.stringify(deviceID.purposes) !==
+        JSON.stringify(EXPECTED_GMA_DEVICE_ID_PURPOSES)
+    ) {
+      throw new Error(
+        `${scope}: GoogleMobileAds Device ID tracking disclosure changed.`,
+      );
+    }
+    if (entry.tracking || entry.trackingDomains.length > 0) {
+      throw new Error(
+        `${scope}: GoogleMobileAds 13.5.0 unexpectedly gained top-level tracking domains.`,
+      );
+    }
   }
   return entries;
 }
@@ -160,7 +184,21 @@ const report = {
   installed,
   packaged,
   aggregate: {
-    tracking: allVendorEntries.some((entry) => entry.tracking),
+    tracking: allVendorEntries.some(
+      (entry) =>
+        entry.tracking || entry.collectedDataTypes.some((item) => item.tracking),
+    ),
+    deviceIDLinkedAndUsedForTracking: allVendorEntries.some((entry) =>
+      entry.collectedDataTypes.some(
+        (item) =>
+          item.dataType === "NSPrivacyCollectedDataTypeDeviceID" &&
+          item.linked &&
+          item.tracking,
+      ),
+    ),
+    topLevelTrackingDomainsDeclaredByVendor: allVendorEntries.some(
+      (entry) => entry.trackingDomains.length > 0,
+    ),
     trackingDomains: [
       ...new Set(allVendorEntries.flatMap((entry) => entry.trackingDomains)),
     ].sort(),
@@ -178,6 +216,6 @@ const report = {
 await mkdir(path.dirname(reportPath), { recursive: true });
 await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`);
 console.log(
-  `Privacy manifest verification passed: app-owned tracking=false; ${installed.length} installed and ${packaged.length} packaged Google/UMP manifests inventoried.`,
+  `Privacy manifest verification passed: app-owned tracking=false; exact Google/UMP manifest hashes and GoogleMobileAds Device ID tracking semantics verified across ${installed.length} installed and ${packaged.length} packaged manifests.`,
 );
 console.log(JSON.stringify(report, null, 2));
