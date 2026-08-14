@@ -144,7 +144,7 @@ jobs:
           node "$APP_ROOT/scripts/finalize-ios-notices.mjs"
           grep -Fq 'iOS CocoaPods acknowledgements' "$APP_ROOT/THIRD_PARTY_NOTICES.txt"
           grep -Fqi 'openiap' "$APP_ROOT/src/thirdPartyNotices.ts"
-          grep -Fqi 'ExpoTrackingTransparency' "$APP_ROOT/src/thirdPartyNotices.ts"
+          grep -Fqi 'expo-tracking-transparency' "$APP_ROOT/src/thirdPartyNotices.ts"
 
       - name: Compile release app for iOS Simulator
         shell: bash
