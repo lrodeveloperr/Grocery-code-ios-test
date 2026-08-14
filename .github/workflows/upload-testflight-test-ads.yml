@@ -358,6 +358,8 @@ jobs:
             "$app_root/scripts/verify-test-release.mjs"
           cp release-overlay/scripts/finalize-ios-notices.mjs \
             "$app_root/scripts/finalize-ios-notices.mjs"
+          cp release-overlay/scripts/verify-ios-privacy-manifests.mjs \
+            "$app_root/scripts/verify-ios-privacy-manifests.mjs"
           test -d "$app_root/tests"
           cp release-overlay/tests/App.ui.test.tsx \
             "$app_root/tests/App.ui.test.tsx"
@@ -377,6 +379,7 @@ jobs:
           plist_buddy=/usr/libexec/PlistBuddy
 
           "$plist_buddy" -c "Set :CFBundleDisplayName Grocery Benefits Tracker" "$plist_path"
+          "$plist_buddy" -c "Set :CFBundleName Grocery Benefits Tracker" "$plist_path"
           "$plist_buddy" -c "Set :CFBundleShortVersionString $MARKETING_VERSION" "$plist_path"
           "$plist_buddy" -c "Set :CFBundleVersion $BUILD_NUMBER" "$plist_path"
           "$plist_buddy" -c "Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 $IOS_BUNDLE_ID" "$plist_path"
@@ -451,6 +454,12 @@ jobs:
           grep -Fq 'ExpoIap (5.2.4)' Podfile.lock
           grep -Fq 'openiap (3.1.1)' Podfile.lock
           grep -Fq 'ExpoTrackingTransparency (57.0.1)' Podfile.lock
+          grep -Fq 'Google-Mobile-Ads-SDK (13.5.0)' Podfile.lock
+          grep -Fq 'GoogleUserMessagingPlatform (3.1.0)' Podfile.lock
+          node "$APP_ROOT/scripts/verify-ios-privacy-manifests.mjs" \
+            --app-manifest "$APP_ROOT/ios/$SCHEME/PrivacyInfo.xcprivacy" \
+            --sdk-root "$APP_ROOT/ios/Pods" \
+            --report "$RUNNER_TEMP/privacy-manifest-installed.json"
           node "$APP_ROOT/scripts/finalize-ios-notices.mjs"
           grep -Fq 'iOS CocoaPods acknowledgements' "$APP_ROOT/THIRD_PARTY_NOTICES.txt"
           grep -Fqi 'openiap' "$APP_ROOT/src/thirdPartyNotices.ts"
@@ -476,7 +485,7 @@ jobs:
           [[ "$ASC_ISSUER_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]
 
           key_path="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
-          archive_path="$RUNNER_TEMP/SNAP-EBT-WIC-Tracker.xcarchive"
+          archive_path="$RUNNER_TEMP/Grocery-Benefits-Tracker.xcarchive"
           export_path="$RUNNER_TEMP/testflight-upload"
           export_options="$RUNNER_TEMP/ExportOptions.plist"
           cleanup() {
@@ -521,7 +530,29 @@ jobs:
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :GADApplicationIdentifier' "$plist")" == "$GOOGLE_TEST_APP_ID" ]]
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :GADDelayAppMeasurementInit' "$plist")" == "true" ]]
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :NSUserTrackingUsageDescription' "$plist")" == "Your permission allows this app and its advertising partners to use a device identifier to measure non-personalized ads. Denying permission does not limit app features." ]]
-          [[ "$(/usr/libexec/PlistBuddy -c 'Print :NSPrivacyTracking' "$app_path/PrivacyInfo.xcprivacy")" == "true" ]]
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$plist")" == "Grocery Benefits Tracker" ]]
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$plist")" == "Grocery Benefits Tracker" ]]
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :NSPrivacyTracking' "$app_path/PrivacyInfo.xcprivacy")" == "false" ]]
+          if /usr/libexec/PlistBuddy -c 'Print :NSPrivacyTrackingDomains' \
+            "$app_path/PrivacyInfo.xcprivacy" >/dev/null 2>&1 || \
+            /usr/libexec/PlistBuddy -c 'Print :NSPrivacyCollectedDataTypes' \
+            "$app_path/PrivacyInfo.xcprivacy" >/dev/null 2>&1; then
+            echo "The packaged app manifest duplicates SDK privacy declarations." >&2
+            exit 1
+          fi
+          node "$APP_ROOT/scripts/verify-ios-privacy-manifests.mjs" \
+            --app-manifest "$app_path/PrivacyInfo.xcprivacy" \
+            --sdk-root "$APP_ROOT/ios/Pods" \
+            --bundle-root "$app_path" \
+            --report "$RUNNER_TEMP/privacy-manifest-packaged.json"
+          legacy_identity_pattern="SNAP & EBT Grocery Tracker QA|SNAP-EBT & WIC Benefits Tracker|SNAP-EBT WIC Tracker"
+          while IFS= read -r metadata_file; do
+            if /usr/bin/plutil -convert xml1 -o - "$metadata_file" 2>/dev/null | \
+              grep -Eiq "$legacy_identity_pattern"; then
+              echo "Legacy public identity remains in packaged metadata: $metadata_file" >&2
+              exit 1
+            fi
+          done < <(find "$app_path" -type f \( -name "*.plist" -o -name "*.strings" \) -print)
           grep -aFq "$GOOGLE_TEST_BANNER_ID" "$app_path/main.jsbundle"
           grep -aFq 'requestNonPersonalizedAdsOnly' "$app_path/main.jsbundle"
 

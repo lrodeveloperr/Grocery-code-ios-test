@@ -37,6 +37,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Assemble latest application source
         shell: bash
@@ -80,6 +81,8 @@ jobs:
             "$app_root/scripts/verify-test-release.mjs"
           cp release-overlay/scripts/finalize-ios-notices.mjs \
             "$app_root/scripts/finalize-ios-notices.mjs"
+          cp release-overlay/scripts/verify-ios-privacy-manifests.mjs \
+            "$app_root/scripts/verify-ios-privacy-manifests.mjs"
           test -d "$app_root/tests"
           cp release-overlay/tests/App.ui.test.tsx \
             "$app_root/tests/App.ui.test.tsx"
@@ -132,6 +135,12 @@ jobs:
           grep -Fq 'ExpoIap (5.2.4)' Podfile.lock
           grep -Fq 'openiap (3.1.1)' Podfile.lock
           grep -Fq 'ExpoTrackingTransparency (57.0.1)' Podfile.lock
+          grep -Fq 'Google-Mobile-Ads-SDK (13.5.0)' Podfile.lock
+          grep -Fq 'GoogleUserMessagingPlatform (3.1.0)' Podfile.lock
+          node "$APP_ROOT/scripts/verify-ios-privacy-manifests.mjs" \
+            --app-manifest "$APP_ROOT/ios/SNAPEBTGroceryTrackerQA/PrivacyInfo.xcprivacy" \
+            --sdk-root "$APP_ROOT/ios/Pods" \
+            --report "$RUNNER_TEMP/privacy-manifest-installed.json"
           node "$APP_ROOT/scripts/finalize-ios-notices.mjs"
           grep -Fq 'iOS CocoaPods acknowledgements' "$APP_ROOT/THIRD_PARTY_NOTICES.txt"
           grep -Fqi 'openiap' "$APP_ROOT/src/thirdPartyNotices.ts"
@@ -164,7 +173,13 @@ jobs:
 
           artifact_root="$RUNNER_TEMP/artifact"
           mkdir -p "$artifact_root"
-          artifact_zip="$artifact_root/SNAP-EBT-WIC-Tracker-iOS-Test.app.zip"
+          cp "$RUNNER_TEMP/privacy-manifest-installed.json" "$artifact_root/"
+          node "$APP_ROOT/scripts/verify-ios-privacy-manifests.mjs" \
+            --app-manifest "$app_path/PrivacyInfo.xcprivacy" \
+            --sdk-root "$APP_ROOT/ios/Pods" \
+            --bundle-root "$app_path" \
+            --report "$artifact_root/privacy-manifest-packaged.json"
+          artifact_zip="$artifact_root/Grocery-Benefits-Tracker-iOS-Test.app.zip"
           /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$app_path" "$artifact_zip"
           shasum -a 256 "$artifact_zip" > "$artifact_zip.sha256"
           /usr/libexec/PlistBuddy -c "Print :GADApplicationIdentifier" \
@@ -173,13 +188,32 @@ jobs:
             "$app_path/Info.plist" | grep -Fx "true"
           /usr/libexec/PlistBuddy -c "Print :NSUserTrackingUsageDescription" \
             "$app_path/Info.plist" | grep -Fx "Your permission allows this app and its advertising partners to use a device identifier to measure non-personalized ads. Denying permission does not limit app features."
+          /usr/libexec/PlistBuddy -c "Print :CFBundleName" \
+            "$app_path/Info.plist" | grep -Fx "Grocery Benefits Tracker"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleDisplayName" \
+            "$app_path/Info.plist" | grep -Fx "Grocery Benefits Tracker"
           /usr/libexec/PlistBuddy -c "Print :NSPrivacyTracking" \
-            "$app_path/PrivacyInfo.xcprivacy" | grep -Fx "true"
+            "$app_path/PrivacyInfo.xcprivacy" | grep -Fx "false"
+          if /usr/libexec/PlistBuddy -c "Print :NSPrivacyTrackingDomains" \
+            "$app_path/PrivacyInfo.xcprivacy" >/dev/null 2>&1 || \
+            /usr/libexec/PlistBuddy -c "Print :NSPrivacyCollectedDataTypes" \
+            "$app_path/PrivacyInfo.xcprivacy" >/dev/null 2>&1; then
+            echo "The packaged app manifest duplicates SDK privacy declarations." >&2
+            exit 1
+          fi
+          legacy_identity_pattern="SNAP & EBT Grocery Tracker QA|SNAP-EBT & WIC Benefits Tracker|SNAP-EBT WIC Tracker"
+          while IFS= read -r metadata_file; do
+            if /usr/bin/plutil -convert xml1 -o - "$metadata_file" 2>/dev/null | \
+              grep -Eiq "$legacy_identity_pattern"; then
+              echo "Legacy public identity remains in packaged metadata: $metadata_file" >&2
+              exit 1
+            fi
+          done < <(find "$app_path" -type f \( -name "*.plist" -o -name "*.strings" \) -print)
 
       - name: Upload simulator application
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: SNAP-EBT-WIC-Tracker-iOS-Test-${{ github.sha }}
+          name: Grocery-Benefits-Tracker-iOS-Test-${{ github.event.pull_request.head.sha || github.sha }}
           path: ${{ runner.temp }}/artifact/*
           if-no-files-found: error
           retention-days: 7

@@ -13,6 +13,7 @@ This private repository contains the iOS build and release overlay for **Grocery
 - Restore UI: **Restore Purchase** is always present in Settings
 - Privacy choices: shown only when required by Google UMP; they change advertising data treatment, not banner visibility
 - App Tracking Transparency: on iOS, requested only after legal acceptance, Google's applicable UMP process, and a verified non-entitled StoreKit state; denial or restriction keeps IDFA unavailable without limiting core features or IDFA-less non-personalized ads
+- Privacy-manifest ownership: the app-owned manifest does not duplicate SDK collection or tracking; CI inventories and hashes the installed and packaged Google Mobile Ads and UMP manifests, including the SDK-owned tracking domains, for App Store privacy-label reconciliation
 - Subscription: none
 - Benefits & Resources directory: not included
 - Account or cloud synchronization: none
@@ -38,7 +39,7 @@ The app never hard-codes US$9.99 in its purchase screen. App Store Connect owns 
 
 StoreKit's verified current entitlement is authoritative. A verified purchase or restore removes the banner immediately; cancellation, pending approval, an unverified transaction, or a failed restore never grants the entitlement. Refund or revocation returns the app to the normal UMP-gated banner path. Clear All Data removes tracker data but does not delete an App Store purchase.
 
-Both release workflows regenerate the npm third-party inventory after installing the reviewed lockfile, then append the final CocoaPods acknowledgements before compilation. The gates require the `expo-iap@5.2.4` and `expo-tracking-transparency@57.0.1` npm notices plus the installed `ExpoIap (5.2.4)`, `openiap (3.1.1)`, and `ExpoTrackingTransparency (57.0.1)` pods, including their native acknowledgements, so the StoreKit and ATT implementations cannot ship against stale notices.
+Both release workflows regenerate the npm third-party inventory after installing the reviewed lockfile, then append the available CocoaPods acknowledgements before compilation. The gates require the `expo-iap@5.2.4` and `expo-tracking-transparency@57.0.1` npm notices, the installed `ExpoIap (5.2.4)`, `openiap (3.1.1)`, and `ExpoTrackingTransparency (57.0.1)` pods, and the native `openiap` acknowledgement. CocoaPods does not emit a separate ExpoTrackingTransparency acknowledgement, so its pinned npm notice and pod lock entry are the authoritative license/version gates.
 
 No Apple certificate, private key, provisioning profile, live advertising identifier, payment credential, or production secret should be committed to this repository.
 

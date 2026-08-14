@@ -1051,6 +1051,12 @@ for (const requiredPublicMarker of [
   requireText(html, requiredPublicMarker[0], requiredPublicMarker[1]);
 }
 requireText(html, "if(window.ReactNativeWebView?.postMessage)throw R.err(R.ERROR.SHARE_FAILED", "native blob-navigation fail-close");
+requireText(html, "\'legal.reportAd\':\'Report an Ad\'", "English Report an Ad label");
+requireText(html, "\'legal.reportAdBody\':\'Report inappropriate or age-inappropriate advertising.\'", "English inappropriate-ad disclosure");
+requireText(html, "\'legal.reportAd\':\'Reportar un anuncio\'", "Spanish Report an Ad label");
+requireText(html, "\'legal.reportAdBody\':\'Reporta publicidad inapropiada o no adecuada para la edad.\'", "Spanish inappropriate-ad disclosure");
+requireText(html, "function reportAd(){\n  openLegalUrl(\'support\');\n}", "Report an Ad support route");
+requireText(html, "else if(a===\'report-ad\'){reportAd();}", "Report an Ad action");
 requireText(html, "MAX_PDF_DETAIL_ROWS=2000", "bounded iPhone PDF generation");
 requireText(html, "if(delta&&!isNew)", "new SNAP opening-balance ledger guard");
 requireText(html, "k==='CHECKOUT'||k==='PURCHASE'", "explicit purchase ledger classification");
@@ -1525,12 +1531,17 @@ if (!/<key>GADDelayAppMeasurementInit<\/key>\s*<true\s*\/>/.test(plist)) {
 }
 requireText(plist, "<key>SKAdNetworkItems</key>", "Info.plist SKAdNetwork list");
 requireText(plist, "<key>NSUserTrackingUsageDescription</key>", "ATT usage-description key");
+if (!/<key>CFBundleName<\/key>\s*<string>Grocery Benefits Tracker<\/string>/.test(plist)) {
+  throw new Error("CFBundleName must use the generic public product identity.");
+}
 requireText(plist, "Your permission allows this app and its advertising partners to use a device identifier to measure non-personalized ads. Denying permission does not limit app features.", "base ATT usage description");
 requireText(englishInfoPlist, "NSUserTrackingUsageDescription = \"Your permission allows this app and its advertising partners to use a device identifier to measure non-personalized ads. Denying permission does not limit app features.\";", "English ATT localization");
 requireText(spanishInfoPlist, "NSUserTrackingUsageDescription = \"Tu permiso permite que esta app y sus socios publicitarios usen un identificador del dispositivo para medir anuncios no personalizados. Negarte no limita las funciones de la app.\";", "Spanish ATT localization");
-if (!/<key>NSPrivacyTracking<\/key>\s*<true\s*\/>/.test(privacyManifest)) {
-  throw new Error("The app privacy manifest must truthfully declare tracking.");
+if (!/<key>NSPrivacyTracking<\/key>\s*<false\s*\/>/.test(privacyManifest)) {
+  throw new Error("The app-owned privacy manifest must not claim SDK-owned tracking.");
 }
+forbidText(privacyManifest, "NSPrivacyTrackingDomains", "app-owned tracking domains");
+forbidText(privacyManifest, "NSPrivacyCollectedDataTypes", "SDK collection rows in the app-owned manifest");
 forbidText(plist, "WKAppBoundDomains", "Google Mobile Ads compatibility");
 
 const skadIds = skadText.split(/\r?\n/).filter(Boolean);

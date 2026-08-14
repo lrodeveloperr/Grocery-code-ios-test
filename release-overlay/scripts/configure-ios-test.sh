@@ -66,13 +66,22 @@ RUBY
 grep -Fq 'com.apple.InAppPurchase' "$project_path/project.pbxproj"
 
 "$plist_buddy" -c "Set :CFBundleDisplayName Grocery Benefits Tracker" "$plist_path"
+"$plist_buddy" -c "Set :CFBundleName Grocery Benefits Tracker" "$plist_path"
 "$plist_buddy" -c "Set :GADApplicationIdentifier $test_app_id" "$plist_path"
 "$plist_buddy" -c "Delete :GADDelayAppMeasurementInit" "$plist_path" 2>/dev/null || true
 "$plist_buddy" -c "Add :GADDelayAppMeasurementInit bool true" "$plist_path"
 "$plist_buddy" -c "Delete :NSUserTrackingUsageDescription" "$plist_path" 2>/dev/null || true
 "$plist_buddy" -c "Add :NSUserTrackingUsageDescription string Your permission allows this app and its advertising partners to use a device identifier to measure non-personalized ads. Denying permission does not limit app features." "$plist_path"
 "$plist_buddy" -c "Delete :NSPrivacyTracking" "$privacy_manifest_path" 2>/dev/null || true
-"$plist_buddy" -c "Add :NSPrivacyTracking bool true" "$privacy_manifest_path"
+"$plist_buddy" -c "Add :NSPrivacyTracking bool false" "$privacy_manifest_path"
+"$plist_buddy" -c "Delete :NSPrivacyTrackingDomains" "$privacy_manifest_path" 2>/dev/null || true
+"$plist_buddy" -c "Delete :NSPrivacyCollectedDataTypes" "$privacy_manifest_path" 2>/dev/null || true
+if [[ "$("$plist_buddy" -c "Print :NSPrivacyTracking" "$privacy_manifest_path")" != "false" ]] ||
+  "$plist_buddy" -c "Print :NSPrivacyTrackingDomains" "$privacy_manifest_path" >/dev/null 2>&1 ||
+  "$plist_buddy" -c "Print :NSPrivacyCollectedDataTypes" "$privacy_manifest_path" >/dev/null 2>&1; then
+  echo "The app-owned privacy manifest must not duplicate Google SDK tracking or collection declarations." >&2
+  exit 1
+fi
 "$plist_buddy" -c "Delete :WKAppBoundDomains" "$plist_path" 2>/dev/null || true
 "$plist_buddy" -c "Delete :SKAdNetworkItems" "$plist_path" 2>/dev/null || true
 "$plist_buddy" -c "Add :SKAdNetworkItems array" "$plist_path"
@@ -100,4 +109,4 @@ decoded_icon="$RUNNER_TEMP/snap-ebt-wic-app-icon.png"
 /usr/bin/sips -z 528 528 "$decoded_icon" \
   --out "$asset_root/SplashScreenLogo.imageset/image@3x.png" >/dev/null
 
-echo "Configured StoreKit IAP, delayed Google measurement, localized ATT disclosure, tracking privacy manifest, official test app ID, $skad_index SKAdNetwork IDs, and release artwork."
+echo "Configured StoreKit IAP, generic bundle identity, delayed Google measurement, localized ATT disclosure, app-owned non-tracking privacy manifest, official test app ID, $skad_index SKAdNetwork IDs, and release artwork."

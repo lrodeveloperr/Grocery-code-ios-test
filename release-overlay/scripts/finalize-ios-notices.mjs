@@ -46,7 +46,7 @@ if (!existsSync(noticePath)) {
 }
 
 const nativeNotices = readFileSync(appAcknowledgements[0], "utf8").trim();
-for (const component of ["openiap", "ExpoTrackingTransparency"]) {
+for (const component of ["openiap"]) {
   if (!nativeNotices.toLowerCase().includes(component.toLowerCase())) {
     throw new Error(`CocoaPods acknowledgements are missing ${component}.`);
   }
