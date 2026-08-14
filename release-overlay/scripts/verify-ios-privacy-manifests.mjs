@@ -62,13 +62,16 @@ function parsePlist(file) {
 }
 
 function componentFor(file) {
+  if (path.resolve(file) === path.resolve(appManifestPath)) {
+    return "AppOwned";
+  }
   if (/Google(?:-Mobile-Ads-SDK|MobileAds)/i.test(file)) {
     return "GoogleMobileAds";
   }
   if (/GoogleUserMessagingPlatform|UserMessagingPlatform/i.test(file)) {
     return "UserMessagingPlatform";
   }
-  return null;
+  return "Unclassified";
 }
 
 function validateTrackingShape(document, label) {
@@ -91,7 +94,7 @@ function validateTrackingShape(document, label) {
       domain.includes(":") ||
       !domain.includes(".")
     ) {
-      throw new Error(`${label}: malformed tracking domain in vendor manifest.`);
+      throw new Error(`${label}: malformed tracking domain in privacy manifest.`);
     }
   }
 }
@@ -116,17 +119,23 @@ function summarize(document) {
 async function inventory(root, scope) {
   const entries = [];
   for (const file of await walk(root)) {
-    const component = componentFor(normalized(file));
-    if (!component) continue;
+    const component = componentFor(file);
     const document = parsePlist(file);
     validateTrackingShape(document, `${scope} ${component} manifest`);
     const digest = sha256(await readFile(file));
-    if (digest !== EXPECTED_VENDOR_MANIFEST_SHA256[component]) {
+    if (
+      Object.prototype.hasOwnProperty.call(
+        EXPECTED_VENDOR_MANIFEST_SHA256,
+        component,
+      ) &&
+      digest !== EXPECTED_VENDOR_MANIFEST_SHA256[component]
+    ) {
       throw new Error(`${scope}: unexpected ${component} privacy-manifest hash ${digest}.`);
     }
     entries.push({
       scope,
       component,
+      classified: component !== "Unclassified",
       relativePath: normalized(path.relative(root, file)),
       sha256: digest,
       ...summarize(document),
@@ -158,6 +167,14 @@ async function inventory(root, scope) {
       );
     }
   }
+  const unclassifiedPaths = entries
+    .filter((entry) => !entry.classified)
+    .map((entry) => entry.relativePath);
+  if (unclassifiedPaths.length > 0) {
+    console.warn(
+      `${scope}: included ${unclassifiedPaths.length} unclassified privacy manifests: ${unclassifiedPaths.join(", ")}`,
+    );
+  }
   return entries;
 }
 
@@ -175,7 +192,10 @@ validateTrackingShape(appDocument, "app-owned manifest");
 
 const installed = await inventory(sdkRoot, "installed");
 const packaged = bundleRoot ? await inventory(bundleRoot, "packaged") : [];
-const allVendorEntries = [...installed, ...packaged];
+const allManifestEntries = [...installed, ...packaged];
+const vendorEntries = allManifestEntries.filter(
+  (entry) => entry.component !== "AppOwned",
+);
 const report = {
   appOwnedManifest: {
     relativePath: path.basename(appManifestPath),
@@ -184,12 +204,22 @@ const report = {
   },
   installed,
   packaged,
+  inventory: {
+    installedManifestCount: installed.length,
+    packagedManifestCount: packaged.length,
+    unclassifiedInstalledPaths: installed
+      .filter((entry) => !entry.classified)
+      .map((entry) => entry.relativePath),
+    unclassifiedPackagedPaths: packaged
+      .filter((entry) => !entry.classified)
+      .map((entry) => entry.relativePath),
+  },
   aggregate: {
-    tracking: allVendorEntries.some(
+    tracking: allManifestEntries.some(
       (entry) =>
         entry.tracking || entry.collectedDataTypes.some((item) => item.tracking),
     ),
-    deviceIDLinkedAndUsedForTracking: allVendorEntries.some((entry) =>
+    deviceIDLinkedAndUsedForTracking: allManifestEntries.some((entry) =>
       entry.collectedDataTypes.some(
         (item) =>
           item.dataType === "NSPrivacyCollectedDataTypeDeviceID" &&
@@ -197,15 +227,15 @@ const report = {
           item.tracking,
       ),
     ),
-    topLevelTrackingDomainsDeclaredByVendor: allVendorEntries.some(
+    topLevelTrackingDomainsDeclaredByVendor: vendorEntries.some(
       (entry) => entry.trackingDomains.length > 0,
     ),
     trackingDomains: [
-      ...new Set(allVendorEntries.flatMap((entry) => entry.trackingDomains)),
+      ...new Set(allManifestEntries.flatMap((entry) => entry.trackingDomains)),
     ].sort(),
     collectedDataTypes: [
       ...new Set(
-        allVendorEntries.flatMap((entry) =>
+        allManifestEntries.flatMap((entry) =>
           entry.collectedDataTypes.map((item) => item.dataType),
         ),
       ),
