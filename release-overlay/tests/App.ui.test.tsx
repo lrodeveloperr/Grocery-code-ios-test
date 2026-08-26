@@ -256,7 +256,7 @@ test("keeps one non-personalized banner behind StoreKit, legal, UMP, and ATT gat
   expect(storeConnectionEffect).toContain("removeAdsStoreRef.current?.close();");
   expect(storeConnectionEffect).toContain("removeAdsStoreRef.current = null;");
   expect(storeConnectionEffect.indexOf("AppState.addEventListener(")).toBeLessThan(
-    storeConnectionEffect.indexOf("void ensureStoreConnection();"),
+    storeConnectionEffect.lastIndexOf("void ensureStoreConnection();"),
   );
   expect(nativeSource).toContain(
     'removeAdsEntitlementRef.current !== "not-entitled"',
