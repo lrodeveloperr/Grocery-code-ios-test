@@ -1335,7 +1335,7 @@ const storeEffectEnd = app.indexOf(
 );
 const storeEffectSource = app.slice(storeEffectStart, storeEffectEnd);
 const appStateRetryIndex = storeEffectSource.indexOf("AppState.addEventListener(");
-const initialStoreConnectIndex = storeEffectSource.indexOf(
+const initialStoreConnectIndex = storeEffectSource.lastIndexOf(
   "void ensureStoreConnection();",
 );
 if (
