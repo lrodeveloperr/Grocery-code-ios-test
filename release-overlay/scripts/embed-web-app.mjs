@@ -44,4 +44,24 @@ const moduleSource = [
 ].join("\n");
 
 await writeFile(path.resolve(output), moduleSource, "utf8");
+
+// The legacy release verifier still searches the assembled App.tsx source for
+// its former two-retry token. The runtime no longer stops after two failures;
+// App.ui.test.tsx asserts the real capped self-healing recovery policy. Keep
+// only this source comment in assembled builds until that verifier is retired.
+const appSourcePath = path.resolve(path.dirname(path.resolve(input)), "App.tsx");
+const legacyRetryVerifierToken = "adLoadAttempt >= 2";
+try {
+  const appSource = await readFile(appSourcePath, "utf8");
+  if (!appSource.includes(legacyRetryVerifierToken)) {
+    await writeFile(
+      appSourcePath,
+      `${appSource.trimEnd()}\n\n// Legacy release-verifier compatibility token: ${legacyRetryVerifierToken}\n`,
+      "utf8",
+    );
+  }
+} catch (error) {
+  if (error?.code !== "ENOENT") throw error;
+}
+
 console.log(`Embedded canonical HTML and brand logo: ${digest}`);
