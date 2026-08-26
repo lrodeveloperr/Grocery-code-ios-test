@@ -1905,11 +1905,26 @@ export default function App() {
       );
       return;
     }
+    // Reserve the operation synchronously before any product lookup can yield.
+    // This prevents rapid Purchase/Restore messages from starting overlapping
+    // StoreKit operations while the product catalog is refreshing.
+    const action: RemoveAdsActionContext = {
+      kind: "purchase",
+      token: ++removeAdsActionSequenceRef.current,
+    };
+    removeAdsActionRef.current = action;
+    setRemoveAdsOperationState("purchasing");
     const product =
       removeAdsProductState === "ready" && removeAdsProduct
         ? removeAdsProduct
         : await refreshRemoveAdsProduct();
+    // A replayed verified transaction can complete this action while the
+    // product lookup is outstanding. Never issue a second StoreKit request
+    // after another callback has consumed the operation token.
+    if (removeAdsActionRef.current !== action) return;
     if (!product) {
+      removeAdsActionRef.current = null;
+      setRemoveAdsOperationState("idle");
       completeRemoveAdsAction("purchase", "failed");
       Alert.alert(
         "Purchase unavailable",
@@ -1917,12 +1932,6 @@ export default function App() {
       );
       return;
     }
-    const action: RemoveAdsActionContext = {
-      kind: "purchase",
-      token: ++removeAdsActionSequenceRef.current,
-    };
-    removeAdsActionRef.current = action;
-    setRemoveAdsOperationState("purchasing");
     try {
       await requestRemoveAdsPurchase();
     } catch (error) {
