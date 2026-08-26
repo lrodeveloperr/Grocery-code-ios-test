@@ -151,8 +151,8 @@ export async function fetchRemoveAdsProductWithValidation(
 
   // StoreKit always owns the customer-facing localized price. Only compare the
   // numeric price when StoreKit says this storefront is USD. A Canadian tester
-  // can legitimately see CA$12.99 for a US$9.99 base price, so comparing the
-  // raw display string to "$9.99" would create a false production alarm.
+  // can legitimately see a localized Canadian price for a USD 9.99 base price,
+  // so comparing the raw display string would create a false production alarm.
   const priceMatchesExpected =
     currency === "USD" && price !== null
       ? Math.abs(price - expectedUsdPrice) < 0.005
@@ -180,7 +180,7 @@ export async function fetchRemoveAdsProductWithValidation(
 
 export async function fetchRemoveAdsProduct(): Promise<RemoveAdsProduct | null> {
   const configuredExpectedPrice =
-    process.env.EXPO_PUBLIC_REMOVE_ADS_EXPECTED_USD_PRICE?.trim() || "$9.99";
+    process.env.EXPO_PUBLIC_REMOVE_ADS_EXPECTED_USD_PRICE?.trim() || "9.99";
   return fetchRemoveAdsProductWithValidation(configuredExpectedPrice);
 }
 
@@ -220,7 +220,9 @@ export async function finishVerifiedRemoveAdsPurchase(
   // StoreKit finishing fails transiently, retry it here; otherwise StoreKit will
   // replay the unfinished transaction on a later launch.
   await withRetry(
-    () => finishTransaction({ purchase, isConsumable: false }),
+    async () => {
+      await finishTransaction({ purchase, isConsumable: false });
+    },
     {
       attempts: 3,
       baseDelayMs: 500,
