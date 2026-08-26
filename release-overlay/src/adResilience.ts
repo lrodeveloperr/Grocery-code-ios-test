@@ -29,6 +29,8 @@ export type AdDiagnostics = {
   lastFailureAt: number | null;
 };
 
+// Diagnostics are process-local only: no analytics, identifiers, or network
+// reporting is introduced by this recovery layer.
 export function createAdDiagnostics(): AdDiagnostics {
   return {
     attempts: 0,
