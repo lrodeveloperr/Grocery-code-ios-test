@@ -163,6 +163,16 @@ try {
       '    const initialized = await initialization;\n    if (initialized) {\n      adStartupTransientFailureRef.current = false;\n      setAdStartupRetryAttempt(0);\n    }\n    if (!initialized && adsInitializationRef.current === initialization) {',
     );
 
+    const gatherConsentCatchNeedle =
+      '      } catch {}\n      if (!active) return;';
+    if (!appSource.includes(gatherConsentCatchNeedle)) {
+      throw new Error("Could not locate initial UMP gathering failure path in App.tsx");
+    }
+    appSource = appSource.replace(
+      gatherConsentCatchNeedle,
+      '      } catch {\n        // Consent gathering can fail when production starts offline.\n        // Fail closed, retain a transient marker, and let the bounded\n        // reachability/foreground path re-enter the complete UMP gate.\n        adStartupTransientFailureRef.current = true;\n        if (active) setConsentState("blocked");\n        return;\n      }\n      if (!active) return;',
+    );
+
     const consentInfoCatchNeedle =
       '      } catch {\n        return false;\n      }\n      if (\n        !currentInfo.canRequestAds';
     if (!appSource.includes(consentInfoCatchNeedle)) {
