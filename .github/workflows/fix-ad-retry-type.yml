@@ -1,0 +1,37 @@
+name: Fix ad retry type
+
+on:
+  push:
+    branches:
+      - fix/ios-iap-ad-qa-hardening-20260826
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[retry-type-fixed]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out patch branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: fix/ios-iap-ad-qa-hardening-20260826
+          fetch-depth: 0
+
+      - name: Apply retry type fix
+        run: node scripts/fix-ad-retry-type.mjs
+
+      - name: Commit App.tsx
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "No source changes required."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add release-overlay/App.tsx
+          git commit -m "Fix strict retry delay type [retry-type-fixed]"
+          git push origin HEAD:fix/ios-iap-ad-qa-hardening-20260826
