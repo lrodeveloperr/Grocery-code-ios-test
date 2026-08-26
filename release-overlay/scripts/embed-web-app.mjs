@@ -49,7 +49,8 @@ await writeFile(path.resolve(output), moduleSource, "utf8");
 // source archive is assembled for each iOS validation/upload. Apply narrowly
 // scoped runtime hardening here as part of that deterministic assembly so the
 // exact code that is tested is the exact code that is archived.
-const appSourcePath = path.resolve(path.dirname(path.resolve(input)), "App.tsx");
+const appRoot = path.dirname(path.resolve(input));
+const appSourcePath = path.resolve(appRoot, "App.tsx");
 try {
   let appSource = await readFile(appSourcePath, "utf8");
   const originalAppSource = appSource;
@@ -225,6 +226,40 @@ try {
 
   if (appSource !== originalAppSource) {
     await writeFile(appSourcePath, appSource, "utf8");
+  }
+} catch (error) {
+  if (error?.code !== "ENOENT") throw error;
+}
+
+// Keep the source-level UI/native regression checks aligned with the assembled
+// wrapper above. The tests still verify the existing privacy gate, but now also
+// require the new outage-recovery behavior and its fail-closed entitlement rule.
+const appTestPath = path.resolve(appRoot, "tests", "App.ui.test.tsx");
+try {
+  let testSource = await readFile(appTestPath, "utf8");
+  const originalTestSource = testSource;
+
+  if (!testSource.includes("capped StoreKit outage recovery")) {
+    const oldSharedCatch =
+      '  expect(sharedAdGate).toContain("} catch {\\n        return false;\\n      }");';
+    if (!testSource.includes(oldSharedCatch)) {
+      throw new Error("Could not locate legacy ad gate catch assertion");
+    }
+    testSource = testSource.replace(
+      oldSharedCatch,
+      '  expect(sharedAdGate).toContain("adStartupTransientFailureRef.current = true");\n  expect(sharedAdGate).toContain("adStartupTransientFailureRef.current = false");',
+    );
+
+    const oldStoreForeground = `  expect(storeConnectionEffect).toContain(\n    'if (active && state === "active") void ensureStoreConnection();',\n  );`;
+    if (!testSource.includes(oldStoreForeground)) {
+      throw new Error("Could not locate legacy StoreKit foreground assertion");
+    }
+    const robustStoreAssertions = `  expect(nativeSource).toContain(\n    "const STOREKIT_RECOVERY_DELAYS_MS = [15_000, 30_000, 60_000, 300_000] as const;",\n  );\n  expect(storeConnectionEffect).toContain(\n    "const scheduleStoreRecovery = () =>",\n  );\n  expect(storeConnectionEffect).toContain(\n    'removeAdsEntitlementRef.current === "unknown"',\n  );\n  expect(storeConnectionEffect).toContain(\n    'AppState.currentState === "active"',\n  );\n  expect(storeConnectionEffect).toContain("clearStoreRecoveryTimer();");\n  expect(storeConnectionEffect).toContain("void ensureStoreConnection();");\n  // capped StoreKit outage recovery must remain fail-closed until Apple\n  // resolves the entitlement; it must never guess that an unknown user is free.\n  expect(nativeSource).toContain("adStartupTransientFailureRef");\n  expect(nativeSource).toContain("adStartupRetryAttempt");\n  expect(nativeSource).toContain('setConsentState("unresolved")');`;
+    testSource = testSource.replace(oldStoreForeground, robustStoreAssertions);
+  }
+
+  if (testSource !== originalTestSource) {
+    await writeFile(appTestPath, testSource, "utf8");
   }
 } catch (error) {
   if (error?.code !== "ENOENT") throw error;
