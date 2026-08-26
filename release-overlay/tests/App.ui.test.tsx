@@ -272,6 +272,28 @@ test("keeps one non-personalized banner behind StoreKit, legal, UMP, and ATT gat
   expect(nativeSource).not.toContain("entitlementGenerationRef");
   expect(nativeSource).not.toContain("removeAdsDeliveryRef");
   expect(nativeSource).toContain("token: ++removeAdsActionSequenceRef.current");
+  const purchaseActionGate = sourceSection(
+    nativeSource,
+    "  const beginRemoveAdsPurchase = useCallback(async () => {",
+    "  const beginRemoveAdsRestore = useCallback(async () => {",
+  );
+  expect(
+    purchaseActionGate.indexOf("removeAdsActionRef.current = action;"),
+  ).toBeLessThan(
+    purchaseActionGate.indexOf("await refreshRemoveAdsProduct()"),
+  );
+  expect(purchaseActionGate).toContain(
+    "if (removeAdsActionRef.current !== action) return;",
+  );
+  expect(purchaseActionGate).toContain(
+    'setRemoveAdsOperationState("purchasing");',
+  );
+  expect(nativeSource).toContain(
+    "Consent gathering can fail when production starts offline.",
+  );
+  expect(nativeSource).toContain(
+    'adStartupTransientFailureRef.current = true;\n        if (active) setConsentState("blocked");\n        return;',
+  );
   expect(nativeSource).toContain('purchase.purchaseState !== "purchased"');
   expect(nativeSource).toContain("isRemoveAdsAlreadyOwned(error)");
   expect(nativeSource).toContain("onLoadStart={() => setWebReady(false)}");
