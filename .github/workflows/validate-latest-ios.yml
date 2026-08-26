@@ -1,4 +1,4 @@
-name: Validate latest iOS test build
+name: Validate latest iOS release profiles
 
 on:
   pull_request:
@@ -8,27 +8,54 @@ on:
       - "SNAP-EBT-Grocery-Tracker-iOS-QA-Source-v1.0.0.zip"
       - ".github/workflows/validate-latest-ios.yml"
       - ".github/workflows/upload-testflight-test-ads.yml"
+      - ".github/workflows/upload-app-store-production.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: latest-ios-test-${{ github.event.pull_request.number || github.ref }}
+  group: latest-ios-release-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   simulator:
-    name: Test IDs · NPA · iOS simulator
+    name: ${{ matrix.label }} · NPA · iOS simulator
     runs-on: macos-26
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - profile: test
+            label: Test IDs
+            build_profile: qa
+            publisher_id: ""
+            app_id: ca-app-pub-3940256099942544~1458002511
+            banner_id: ca-app-pub-3940256099942544/2934735716
+            configure_script: configure-ios-test.sh
+            artifact_suffix: Test
+          - profile: production
+            label: Production IDs
+            build_profile: production
+            publisher_id: "8054612600809568"
+            app_id: ca-app-pub-8054612600809568~1748518282
+            banner_id: ca-app-pub-8054612600809568/3872496047
+            configure_script: configure-ios-production.sh
+            artifact_suffix: Production
     env:
       CI: "1"
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
       EXPO_NO_TELEMETRY: "1"
-      EXPO_PUBLIC_AD_PROFILE: test
-      EXPO_PUBLIC_IOS_ADMOB_BANNER_ID: ""
-      EXPO_PUBLIC_BUILD_PROFILE: qa
+      EXPO_PUBLIC_AD_PROFILE: ${{ matrix.profile }}
+      EXPO_PUBLIC_BUILD_PROFILE: ${{ matrix.build_profile }}
+      EXPO_PUBLIC_ADMOB_PUBLISHER_ID: ${{ matrix.publisher_id }}
+      EXPO_PUBLIC_IOS_ADMOB_APP_ID: ${{ matrix.app_id }}
+      EXPO_PUBLIC_IOS_ADMOB_BANNER_ID: ${{ matrix.banner_id }}
+      EXPECTED_ADMOB_APP_ID: ${{ matrix.app_id }}
+      EXPECTED_ADMOB_BANNER_ID: ${{ matrix.banner_id }}
+      CONFIGURE_SCRIPT: ${{ matrix.configure_script }}
+      ARTIFACT_SUFFIX: ${{ matrix.artifact_suffix }}
       SOURCE_ZIP: SNAP-EBT-Grocery-Tracker-iOS-QA-Source-v1.0.0.zip
       SOURCE_ZIP_SHA256: 23d938c18df0e185e54946759a3075ef42ce2a6cbc3a0bff99b3a085387e4fcd
 
@@ -77,6 +104,8 @@ jobs:
             "$app_root/scripts/embed-web-app.mjs"
           cp release-overlay/scripts/configure-ios-test.sh \
             "$app_root/scripts/configure-ios-test.sh"
+          cp release-overlay/scripts/configure-ios-production.sh \
+            "$app_root/scripts/configure-ios-production.sh"
           cp release-overlay/scripts/verify-test-release.mjs \
             "$app_root/scripts/verify-test-release.mjs"
           cp release-overlay/scripts/finalize-ios-notices.mjs \
@@ -95,7 +124,7 @@ jobs:
 
           cd "$app_root"
           node scripts/embed-web-app.mjs app.html src/appHtml.ts
-          bash scripts/configure-ios-test.sh "$app_root"
+          bash "scripts/$CONFIGURE_SCRIPT" "$app_root"
           echo "APP_ROOT=$app_root" >> "$GITHUB_ENV"
 
       - name: Install locked JavaScript dependencies
@@ -197,6 +226,13 @@ jobs:
           app_path="$(find "$product_root" -maxdepth 1 -type d -name '*.app' -print -quit)"
           test -n "$app_path"
           test -f "$app_path/main.jsbundle"
+          if [[ "$EXPO_PUBLIC_AD_PROFILE" == "production" ]]; then
+            grep -aFq "$EXPECTED_ADMOB_BANNER_ID" "$app_path/main.jsbundle"
+            if grep -aFq "ca-app-pub-3940256099942544/2934735716" "$app_path/main.jsbundle"; then
+              echo "Google demo banner ID leaked into the production bundle." >&2
+              exit 1
+            fi
+          fi
 
           artifact_root="$RUNNER_TEMP/artifact"
           mkdir -p "$artifact_root"
@@ -207,11 +243,11 @@ jobs:
             --sdk-root "$APP_ROOT/ios/Pods" \
             --bundle-root "$app_path" \
             --report "$artifact_root/privacy-manifest-packaged.json"
-          artifact_zip="$artifact_root/Grocery-Benefits-Tracker-iOS-Test.app.zip"
+          artifact_zip="$artifact_root/Grocery-Benefits-Tracker-iOS-$ARTIFACT_SUFFIX.app.zip"
           /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$app_path" "$artifact_zip"
           shasum -a 256 "$artifact_zip" > "$artifact_zip.sha256"
           /usr/libexec/PlistBuddy -c "Print :GADApplicationIdentifier" \
-            "$app_path/Info.plist" | grep -Fx "ca-app-pub-3940256099942544~1458002511"
+            "$app_path/Info.plist" | grep -Fx "$EXPECTED_ADMOB_APP_ID"
           /usr/libexec/PlistBuddy -c "Print :GADDelayAppMeasurementInit" \
             "$app_path/Info.plist" | grep -Fx "true"
           /usr/libexec/PlistBuddy -c "Print :NSUserTrackingUsageDescription" \
@@ -241,7 +277,7 @@ jobs:
       - name: Upload simulator application
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: Grocery-Benefits-Tracker-iOS-Test-${{ github.event.pull_request.head.sha || github.sha }}
+          name: Grocery-Benefits-Tracker-iOS-${{ matrix.artifact_suffix }}-${{ github.event.pull_request.head.sha || github.sha }}
           path: ${{ runner.temp }}/artifact/*
           if-no-files-found: error
           retention-days: 7
