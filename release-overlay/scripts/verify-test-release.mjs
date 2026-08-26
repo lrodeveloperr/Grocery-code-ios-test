@@ -1494,10 +1494,13 @@ const bypassInitIndex = adGateSource.indexOf(
   bypassIndex,
 );
 const infoIndex = adGateSource.indexOf("AdsConsent.getConsentInfo()");
-const infoFailureIndex = adGateSource.indexOf(
-  "} catch {\n        return false;\n      }",
-  infoIndex,
-);
+const infoFailureMatch = adGateSource
+  .slice(infoIndex)
+  .match(/}\s*catch(?:\s*\([^)]*\))?\s*{[\s\S]*?return false;/);
+const infoFailureIndex =
+  infoFailureMatch && typeof infoFailureMatch.index === "number"
+    ? infoIndex + infoFailureMatch.index + infoFailureMatch[0].length
+    : -1;
 const rejectIndex = adGateSource.indexOf("!currentInfo.canRequestAds");
 const initIndex = adGateSource.lastIndexOf("return ensureAdsInitialized();");
 if (
