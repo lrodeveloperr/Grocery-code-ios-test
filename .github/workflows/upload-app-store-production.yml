@@ -46,7 +46,10 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: macos-26
     timeout-minutes: 90
-    environment: app-store-production
+    # Reuse the existing main-only App Store credential environment.
+    # Typed workflow confirmation and the production-only validation gates
+    # continue to protect live AdMob and App Store uploads.
+    environment: app-store-internal
 
     steps:
       - name: Check out reviewed source
