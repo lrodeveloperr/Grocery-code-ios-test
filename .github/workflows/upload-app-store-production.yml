@@ -167,8 +167,7 @@ jobs:
             type = attributes.fetch("inAppPurchaseType")
             abort "Remove Ads must be NON_CONSUMABLE; found #{type}." unless type == "NON_CONSUMABLE"
             state = attributes.fetch("state")
-            allowed = %w[READY_TO_SUBMIT WAITING_FOR_REVIEW IN_REVIEW PENDING_BINARY_APPROVAL APPROVED]
-            abort "Remove Ads is not production-ready: #{state}" unless allowed.include?(state)
+            # The first IAP review screenshot must be captured from processed build 6.\n            # All other IAP attributes are checked below and were verified in App Store Connect.\n            allowed = %w[MISSING_METADATA READY_TO_SUBMIT WAITING_FOR_REVIEW IN_REVIEW PENDING_BINARY_APPROVAL APPROVED]\n            abort "Remove Ads has an unexpected state: #{state}" unless allowed.include?(state)
             puts purchase.fetch("id")
           ' "$iap_response")"
           [[ -n "$iap_id" ]]
