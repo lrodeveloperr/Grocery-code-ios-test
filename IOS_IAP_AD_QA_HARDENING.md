@@ -94,3 +94,19 @@ EXPO_PUBLIC_REMOVE_ADS_EXPECTED_USD_PRICE=9.99
 ```
 
 Production AdMob identifiers remain mandatory under the existing production validation.
+
+
+## Supermarket / network-outage resilience
+
+The banner layer is now explicitly self-healing while the tracker remains fully local and usable:
+
+- retries use a capped 2s, 5s, 15s, 30s, 60s, 2m, 5m schedule with jitter;
+- once a lightweight Google ad-network 204 probe confirms the phone is offline/unreachable, the app stops asking AdMob for inventory and probes reachability every 30 seconds instead;
+- captive portals are treated as unreachable unless the probe returns HTTP 204;
+- restored connectivity is debounced before the banner remounts;
+- foregrounding the app triggers one fresh recovery attempt when a banner is not loaded;
+- a ref-backed lock prevents foreground, retry, and WebView events from launching duplicate banner loads;
+- every retry re-checks entitlement, legal/ad eligibility, app foreground state, and temporary banner visibility;
+- a successful load resets the backoff to the fast path;
+- local in-memory diagnostics count attempts, loads, failures, reachability failures, and foreground recoveries without analytics or user identifiers;
+- the banner still occupies zero layout height until an ad has actually loaded, so outages never degrade the grocery workflow.

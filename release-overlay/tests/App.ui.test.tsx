@@ -262,6 +262,11 @@ test("keeps one non-personalized banner behind StoreKit, legal, UMP, and ATT gat
     'removeAdsEntitlementRef.current !== "not-entitled"',
   );
   expect(nativeSource).toContain("finishVerifiedRemoveAdsPurchase(purchase)");
+  expect(nativeSource).toContain("triggerBannerReload");
+  expect(nativeSource).toContain("probeAdNetworkReachability");
+  expect(nativeSource).toContain("OFFLINE_REACHABILITY_POLL_MS");
+  expect(nativeSource).toContain("foregroundRecoveries");
+  expect(nativeSource).toContain('reason, ...diagnostics');
   expect(nativeSource).toContain("removeAdsReconcileQueueRef.current.then(");
   expect(nativeSource).toContain("removeAdsDeliveryQueueRef.current.then(");
   expect(nativeSource).not.toContain("entitlementGenerationRef");
