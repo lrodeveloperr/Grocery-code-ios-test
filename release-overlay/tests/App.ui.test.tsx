@@ -143,7 +143,7 @@ test("keeps one non-personalized banner behind StoreKit, legal, UMP, and ATT gat
   const consentEffect = sourceSection(
     nativeSource,
     '  useEffect(() => {\n    if (\n      removeAdsEntitlement !== "not-entitled"',
-    '  useEffect(() => {\n    if (!adEligible || removeAdsEntitlement !== "not-entitled")',
+    '  useEffect(() => {\n    if (!canAttemptBanner())',
   );
   expect(consentEffect).toContain("AdsConsent.gatherConsent()");
   expect(consentEffect).toContain("if (!adProfileConfigured)");
@@ -256,17 +256,44 @@ test("keeps one non-personalized banner behind StoreKit, legal, UMP, and ATT gat
   expect(storeConnectionEffect).toContain("removeAdsStoreRef.current?.close();");
   expect(storeConnectionEffect).toContain("removeAdsStoreRef.current = null;");
   expect(storeConnectionEffect.indexOf("AppState.addEventListener(")).toBeLessThan(
-    storeConnectionEffect.indexOf("void ensureStoreConnection();"),
+    storeConnectionEffect.lastIndexOf("void ensureStoreConnection();"),
   );
   expect(nativeSource).toContain(
     'removeAdsEntitlementRef.current !== "not-entitled"',
   );
   expect(nativeSource).toContain("finishVerifiedRemoveAdsPurchase(purchase)");
+  expect(nativeSource).toContain("triggerBannerReload");
+  expect(nativeSource).toContain("probeAdNetworkReachability");
+  expect(nativeSource).toContain("OFFLINE_REACHABILITY_POLL_MS");
+  expect(nativeSource).toContain("foregroundRecoveries");
+  expect(nativeSource).toContain('reason, ...diagnostics');
   expect(nativeSource).toContain("removeAdsReconcileQueueRef.current.then(");
   expect(nativeSource).toContain("removeAdsDeliveryQueueRef.current.then(");
   expect(nativeSource).not.toContain("entitlementGenerationRef");
   expect(nativeSource).not.toContain("removeAdsDeliveryRef");
   expect(nativeSource).toContain("token: ++removeAdsActionSequenceRef.current");
+  const purchaseActionGate = sourceSection(
+    nativeSource,
+    "  const beginRemoveAdsPurchase = useCallback(async () => {",
+    "  const beginRemoveAdsRestore = useCallback(async () => {",
+  );
+  expect(
+    purchaseActionGate.indexOf("removeAdsActionRef.current = action;"),
+  ).toBeLessThan(
+    purchaseActionGate.indexOf("await refreshRemoveAdsProduct()"),
+  );
+  expect(purchaseActionGate).toContain(
+    "if (removeAdsActionRef.current !== action) return;",
+  );
+  expect(purchaseActionGate).toContain(
+    'setRemoveAdsOperationState("purchasing");',
+  );
+  expect(nativeSource).toContain(
+    "Consent gathering can fail when production starts offline.",
+  );
+  expect(nativeSource).toContain(
+    'adStartupTransientFailureRef.current = true;\n        if (active) setConsentState("blocked");\n        return;',
+  );
   expect(nativeSource).toContain('purchase.purchaseState !== "purchased"');
   expect(nativeSource).toContain("isRemoveAdsAlreadyOwned(error)");
   expect(nativeSource).toContain("onLoadStart={() => setWebReady(false)}");

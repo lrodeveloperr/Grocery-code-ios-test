@@ -1335,14 +1335,24 @@ const storeEffectEnd = app.indexOf(
 );
 const storeEffectSource = app.slice(storeEffectStart, storeEffectEnd);
 const appStateRetryIndex = storeEffectSource.indexOf("AppState.addEventListener(");
-const initialStoreConnectIndex = storeEffectSource.indexOf(
+const foregroundReconnectBranchIndex = storeEffectSource.indexOf(
+  'if (active && state === "active")',
+  appStateRetryIndex,
+);
+const foregroundReconnectCallIndex = storeEffectSource.indexOf(
+  "void ensureStoreConnection();",
+  foregroundReconnectBranchIndex,
+);
+const initialStoreConnectIndex = storeEffectSource.lastIndexOf(
   "void ensureStoreConnection();",
 );
 if (
   storeEffectStart < 0 ||
   storeEffectEnd <= storeEffectStart ||
   appStateRetryIndex < 0 ||
-  initialStoreConnectIndex <= appStateRetryIndex
+  foregroundReconnectBranchIndex <= appStateRetryIndex ||
+  foregroundReconnectCallIndex <= foregroundReconnectBranchIndex ||
+  initialStoreConnectIndex <= foregroundReconnectCallIndex
 ) {
   throw new Error(
     "StoreKit must install its foreground reconnect path before the initial connection attempt.",
@@ -1351,7 +1361,6 @@ if (
 for (const [needle, label] of [
   ["if (!connectionTask) {", "single-flight StoreKit reconnect"],
   ["connectionTask = null;", "StoreKit reconnect task reset"],
-  ['if (active && state === "active") void ensureStoreConnection();', "foreground StoreKit reconnect"],
   ["appStateSubscription.remove();", "StoreKit foreground-listener cleanup"],
   ["removeAdsStoreRef.current?.close();", "StoreKit connection cleanup"],
   ["removeAdsStoreRef.current = null;", "StoreKit connection reference cleanup"],
@@ -1377,6 +1386,45 @@ requireText(
 requireText(app, 'purchase.purchaseState !== "purchased"', "non-purchased transaction rejection");
 requireText(app, "isRemoveAdsAlreadyOwned(error)", "already-owned reconciliation");
 requireText(app, "token: ++removeAdsActionSequenceRef.current", "purchase operation ownership token");
+const purchaseActionStart = app.indexOf(
+  "const beginRemoveAdsPurchase = useCallback(async () => {",
+);
+const purchaseActionEnd = app.indexOf(
+  "\n\n  const beginRemoveAdsRestore = useCallback(async () => {",
+  purchaseActionStart,
+);
+const purchaseActionSource = app.slice(purchaseActionStart, purchaseActionEnd);
+const purchaseReservationIndex = purchaseActionSource.indexOf(
+  "removeAdsActionRef.current = action;",
+);
+const purchaseLookupIndex = purchaseActionSource.indexOf(
+  "await refreshRemoveAdsProduct()",
+);
+if (
+  purchaseActionStart < 0 ||
+  purchaseActionEnd <= purchaseActionStart ||
+  purchaseReservationIndex < 0 ||
+  purchaseLookupIndex <= purchaseReservationIndex
+) {
+  throw new Error(
+    "Remove Ads must reserve its operation token before an asynchronous product lookup.",
+  );
+}
+requireText(
+  purchaseActionSource,
+  "if (removeAdsActionRef.current !== action) return;",
+  "post-lookup purchase operation ownership check",
+);
+requireText(
+  app,
+  "Consent gathering can fail when production starts offline.",
+  "offline UMP gathering recovery",
+);
+requireText(
+  app,
+  'adStartupTransientFailureRef.current = true;\n        if (active) setConsentState("blocked");\n        return;',
+  "fail-closed transient UMP startup marker",
+);
 forbidText(app, "entitlementGenerationRef", "stale-generation entitlement race");
 forbidText(app, "removeAdsDeliveryRef", "transaction single-flight event drop");
 requireText(app, "onLoadStart={() => setWebReady(false)}", "WebView runtime reload reset");
@@ -1437,8 +1485,8 @@ if (
   throw new Error("A StoreKit transaction may be finished before verified delivery.");
 }
 
-const adGateStart = app.indexOf("const startAdsIfAllowed");
-const adGateEnd = app.indexOf("\n\n  useEffect(() => {", adGateStart);
+const adGateStart = app.indexOf("  const startAdsIfAllowed = useCallback(");
+const adGateEnd = app.indexOf("\n\n  const canAttemptBanner = useCallback(", adGateStart);
 const adGateSource = app.slice(adGateStart, adGateEnd);
 const bypassIndex = adGateSource.indexOf("if (testAds) {");
 const bypassInitIndex = adGateSource.indexOf(
@@ -1446,10 +1494,13 @@ const bypassInitIndex = adGateSource.indexOf(
   bypassIndex,
 );
 const infoIndex = adGateSource.indexOf("AdsConsent.getConsentInfo()");
-const infoFailureIndex = adGateSource.indexOf(
-  "} catch {\n        return false;\n      }",
-  infoIndex,
-);
+const infoFailureMatch = adGateSource
+  .slice(infoIndex)
+  .match(/}\s*catch(?:\s*\([^)]*\))?\s*{[\s\S]*?return false;/);
+const infoFailureIndex =
+  infoFailureMatch && typeof infoFailureMatch.index === "number"
+    ? infoIndex + infoFailureMatch.index + infoFailureMatch[0].length
+    : -1;
 const rejectIndex = adGateSource.indexOf("!currentInfo.canRequestAds");
 const initIndex = adGateSource.lastIndexOf("return ensureAdsInitialized();");
 if (
@@ -1466,7 +1517,16 @@ if (
   )
 ) {
   throw new Error(
-    "Only test ads may bypass UMP; production must enforce canRequestAds before SDK initialization.",
+    `Only test ads may bypass UMP; production must enforce canRequestAds before SDK initialization. ${JSON.stringify({
+      adGateStart,
+      adGateEnd,
+      bypassIndex,
+      bypassInitIndex,
+      infoIndex,
+      infoFailureIndex,
+      rejectIndex,
+      initIndex,
+    })}`,
   );
 }
 forbidText(

@@ -13,6 +13,7 @@ asset_root="$app_root/ios/$target_name/Images.xcassets"
 plist_buddy="/usr/libexec/PlistBuddy"
 
 test_app_id="ca-app-pub-3940256099942544~1458002511"
+qa_test_device_ids="${EXPO_PUBLIC_QA_ADMOB_TEST_DEVICE_IDS:-}"
 
 if [[ ! -f "$app_json_path" || ! -f "$plist_path" || ! -f "$privacy_manifest_path" || ! -f "$skad_ids_path" || ! -f "$icon_b64_path" ]]; then
   echo "Required iOS test-release inputs are missing." >&2
@@ -70,6 +71,30 @@ grep -Fq 'com.apple.InAppPurchase' "$project_path/project.pbxproj"
 "$plist_buddy" -c "Set :GADApplicationIdentifier $test_app_id" "$plist_path"
 "$plist_buddy" -c "Delete :GADDelayAppMeasurementInit" "$plist_path" 2>/dev/null || true
 "$plist_buddy" -c "Add :GADDelayAppMeasurementInit bool true" "$plist_path"
+"$plist_buddy" -c "Delete :GBTAdMobBuildProfile" "$plist_path" 2>/dev/null || true
+"$plist_buddy" -c "Add :GBTAdMobBuildProfile string qa" "$plist_path"
+"$plist_buddy" -c "Delete :GBTAdMobTestDeviceIdentifiers" "$plist_path" 2>/dev/null || true
+"$plist_buddy" -c "Add :GBTAdMobTestDeviceIdentifiers array" "$plist_path"
+
+# Physical-device IDs are optional because Google's official test app/banner
+# IDs already return test inventory. Supplying IDs is still useful when
+# diagnosing a real-device request path or when a QA build temporarily uses a
+# publisher-owned unit. The identifiers are never copied into production.
+test_device_count=0
+if [[ -n "$qa_test_device_ids" ]]; then
+  IFS=',' read -r -a qa_test_devices <<< "$qa_test_device_ids"
+  for raw_id in "${qa_test_devices[@]}"; do
+    device_id="$(printf '%s' "$raw_id" | tr -d '[:space:]')"
+    [[ -n "$device_id" ]] || continue
+    if [[ ! "$device_id" =~ ^[A-Za-z0-9_-]{8,128}$ ]]; then
+      echo "Invalid QA AdMob test-device identifier: $device_id" >&2
+      exit 1
+    fi
+    "$plist_buddy" -c "Add :GBTAdMobTestDeviceIdentifiers:$test_device_count string $device_id" "$plist_path"
+    test_device_count=$((test_device_count + 1))
+  done
+fi
+
 "$plist_buddy" -c "Delete :NSUserTrackingUsageDescription" "$plist_path" 2>/dev/null || true
 "$plist_buddy" -c "Add :NSUserTrackingUsageDescription string Your permission allows this app and its advertising partners to use a device identifier to measure non-personalized ads. Denying permission does not limit app features." "$plist_path"
 "$plist_buddy" -c "Delete :NSPrivacyTracking" "$privacy_manifest_path" 2>/dev/null || true
@@ -109,4 +134,4 @@ decoded_icon="$RUNNER_TEMP/snap-ebt-wic-app-icon.png"
 /usr/bin/sips -z 528 528 "$decoded_icon" \
   --out "$asset_root/SplashScreenLogo.imageset/image@3x.png" >/dev/null
 
-echo "Configured StoreKit IAP, generic bundle identity, delayed Google measurement, localized ATT disclosure, app-owned non-tracking privacy manifest, official test app ID, $skad_index SKAdNetwork IDs, and release artwork."
+echo "Configured StoreKit IAP, generic bundle identity, delayed Google measurement, localized ATT disclosure, app-owned non-tracking privacy manifest, official test app ID, $test_device_count QA AdMob test-device IDs, $skad_index SKAdNetwork IDs, and release artwork."

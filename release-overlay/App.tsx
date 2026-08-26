@@ -136,6 +136,82 @@ function waitFor(milliseconds: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
 }
 
+const AD_RETRY_DELAYS_MS = [
+  2_000,
+  5_000,
+  15_000,
+  30_000,
+  60_000,
+  120_000,
+  300_000,
+] as const;
+const OFFLINE_REACHABILITY_POLL_MS = 30_000;
+const NETWORK_RECOVERY_DEBOUNCE_MS = 1_500;
+const AD_NETWORK_PROBE_TIMEOUT_MS = 4_000;
+const AD_NETWORK_PROBE_URL =
+  "https://pagead2.googlesyndication.com/pagead/gen_204";
+
+type AdDiagnostics = {
+  attempts: number;
+  loads: number;
+  failures: number;
+  reachabilityFailures: number;
+  foregroundRecoveries: number;
+  lastAttemptAt: number | null;
+  lastLoadedAt: number | null;
+  lastFailureAt: number | null;
+};
+
+function createAdDiagnostics(): AdDiagnostics {
+  return {
+    attempts: 0,
+    loads: 0,
+    failures: 0,
+    reachabilityFailures: 0,
+    foregroundRecoveries: 0,
+    lastAttemptAt: null,
+    lastLoadedAt: null,
+    lastFailureAt: null,
+  };
+}
+
+function nextAdRetryDelay(attempt: number) {
+  const index = Math.min(
+    Math.max(0, Math.trunc(attempt)),
+    AD_RETRY_DELAYS_MS.length - 1,
+  );
+  return AD_RETRY_DELAYS_MS[index] ?? 300_000;
+}
+
+function withRetryJitter(delayMs: number, random = Math.random) {
+  const jitter = (random() * 0.3 - 0.15) * delayMs;
+  return Math.max(250, Math.round(delayMs + jitter));
+}
+
+async function probeAdNetworkReachability(
+  timeoutMs = AD_NETWORK_PROBE_TIMEOUT_MS,
+): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(AD_NETWORK_PROBE_URL, {
+      method: "GET",
+      signal: controller.signal,
+      headers: {
+        "Cache-Control": "no-cache, no-store, max-age=0",
+        Pragma: "no-cache",
+      },
+    });
+    // Captive portals commonly return a page or redirect instead of Google's
+    // expected 204. Treat anything else as not-yet-reachable.
+    return response.status === 204;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function hasMatchingProductionAdMobIdentifiers(
   approvedPublisherId: string,
   appId: string,
@@ -675,6 +751,10 @@ export default function App() {
   const adsInitializationRef = useRef<Promise<boolean> | null>(null);
   const trackingAuthorizationRef = useRef<Promise<boolean> | null>(null);
   const previousWebAdStateRef = useRef("AD_LOADING");
+  const appStateRef = useRef(AppState.currentState);
+  const adLoadInFlightRef = useRef(false);
+  const adNetworkReachableRef = useRef<boolean | null>(null);
+  const adDiagnosticsRef = useRef(createAdDiagnostics());
   const removeAdsEntitlementRef =
     useRef<RemoveAdsEntitlementState>("checking");
   const removeAdsEntitledRef = useRef(false);
@@ -754,6 +834,10 @@ export default function App() {
       removeAdsEntitledRef.current = entitlement === "entitled";
       setRemoveAdsEntitlement(entitlement);
       if (entitlement === "entitled") {
+        // Remove the ad path immediately. Any outstanding retry callback also
+        // re-checks this ref before it can remount a banner.
+        adLoadInFlightRef.current = false;
+        adNetworkReachableRef.current = null;
         setNativeAdState("idle");
         setAdLoadAttempt(0);
       }
@@ -783,15 +867,24 @@ export default function App() {
         setRemoveAdsProductState("unavailable");
         return null;
       }
+      if (product.priceMatchesExpected === false) {
+        const message =
+          `StoreKit returned ${product.displayPrice} for the U.S. storefront, but Remove Ads is intended to be USD ${product.expectedUsdPrice.toFixed(2)}. Check App Store Connect. StoreKit remains authoritative and purchasing is not blocked.`;
+        console.warn("[IAP PRICE MISMATCH]", message);
+        if (testAds) {
+          Alert.alert("Price configuration mismatch", message);
+        }
+      }
       setRemoveAdsProduct(product);
       setRemoveAdsProductState("ready");
       return product;
-    } catch {
+    } catch (error) {
+      console.warn("StoreKit product lookup failed", error);
       setRemoveAdsProduct(null);
       setRemoveAdsProductState("unavailable");
       return null;
     }
-  }, []);
+  }, [testAds]);
 
   const reconcileRemoveAdsEntitlement = useCallback(() => {
     const reconciliation = removeAdsReconcileQueueRef.current.then(
@@ -859,6 +952,10 @@ export default function App() {
               "StoreKit will replay the unfinished transaction",
               error,
             );
+            Alert.alert(
+              "Purchase saved",
+              "Your Remove Ads purchase is active, but Apple could not finish the transaction cleanly after several attempts. If ads ever return, use Restore Purchases or contact support.",
+            );
           }
         } finally {
           if (ownsPurchaseAction) setRemoveAdsOperationState("idle");
@@ -892,12 +989,27 @@ export default function App() {
             "purchase",
             entitled === true ? "success" : "failed",
           );
+          if (entitled !== true) {
+            Alert.alert(
+              "Purchase configuration issue",
+              "Apple reports that Remove Ads is already owned, but the entitlement could not be confirmed. Please use Restore Purchases. If that does not work, contact support.",
+            );
+          }
         } else if (isRemoveAdsPurchaseCancelled(error)) {
           completeRemoveAdsAction("purchase", "cancelled");
         } else if (isRemoveAdsPurchasePending(error)) {
           completeRemoveAdsAction("purchase", "pending");
+          Alert.alert(
+            "Purchase pending",
+            "Your purchase is being processed. You will be notified when it completes.",
+          );
         } else {
+          console.warn("Remove Ads purchase failed", error);
           completeRemoveAdsAction("purchase", "failed");
+          Alert.alert(
+            "Purchase unavailable",
+            "Remove Ads could not be purchased right now. Please check your connection and try again.",
+          );
         }
       } finally {
         setRemoveAdsOperationState("idle");
@@ -1082,6 +1194,36 @@ export default function App() {
     [ensureAdsInitialized, productionAdsConfigured, testAds],
   );
 
+  const canAttemptBanner = useCallback(() => {
+    return (
+      appStateRef.current === "active" &&
+      removeAdsEntitlementRef.current === "not-entitled" &&
+      legalReady &&
+      consentState === "permitted" &&
+      adEligible &&
+      webAdState !== "AD_TEMPORARILY_HIDDEN" &&
+      Boolean(bannerUnitId)
+    );
+  }, [adEligible, bannerUnitId, consentState, legalReady, webAdState]);
+
+  const triggerBannerReload = useCallback(
+    (reason: string, resetBackoff = false) => {
+      if (!canAttemptBanner() || adLoadInFlightRef.current) return false;
+      if (resetBackoff) setAdLoadAttempt(0);
+      adLoadInFlightRef.current = true;
+      const diagnostics = adDiagnosticsRef.current;
+      diagnostics.attempts += 1;
+      diagnostics.lastAttemptAt = Date.now();
+      if (testAds) {
+        console.info("[AdMob QA] banner load", { reason, ...diagnostics });
+      }
+      setBannerInstance((instance) => instance + 1);
+      setNativeAdState("loading");
+      return true;
+    },
+    [canAttemptBanner, testAds],
+  );
+
   useEffect(() => {
     if (
       removeAdsEntitlement !== "not-entitled" ||
@@ -1185,40 +1327,99 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    if (!adEligible || removeAdsEntitlement !== "not-entitled") {
-      setNativeAdState("idle");
-      setAdLoadAttempt(0);
+    if (!canAttemptBanner()) {
+      adLoadInFlightRef.current = false;
+      if (
+        removeAdsEntitlement !== "not-entitled" ||
+        !adEligible ||
+        consentState !== "permitted"
+      ) {
+        setNativeAdState("idle");
+        setAdLoadAttempt(0);
+      }
       return;
     }
-    setNativeAdState("loading");
-  }, [adEligible, removeAdsEntitlement]);
-
-  useEffect(() => {
-    if (
-      nativeAdState !== "failed" ||
-      !adEligible ||
-      consentState !== "permitted" ||
-      removeAdsEntitlement !== "not-entitled" ||
-      adLoadAttempt >= 2
-    ) {
-      return;
+    if (nativeAdState === "idle") {
+      triggerBannerReload("eligibility", true);
     }
-    const retryTimer = setTimeout(
-      () => {
-        setAdLoadAttempt((attempt) => attempt + 1);
-        setBannerInstance((instance) => instance + 1);
-        setNativeAdState("loading");
-      },
-      2000 * 2 ** adLoadAttempt,
-    );
-    return () => clearTimeout(retryTimer);
   }, [
     adEligible,
-    adLoadAttempt,
+    canAttemptBanner,
     consentState,
     nativeAdState,
     removeAdsEntitlement,
+    triggerBannerReload,
   ]);
+
+  useEffect(() => {
+    if (nativeAdState !== "failed" || !canAttemptBanner()) return;
+
+    let cancelled = false;
+    const knownOffline = adNetworkReachableRef.current === false;
+    const delay = knownOffline
+      ? OFFLINE_REACHABILITY_POLL_MS
+      : withRetryJitter(nextAdRetryDelay(adLoadAttempt));
+
+    const retryTimer = setTimeout(() => {
+      void (async () => {
+        if (cancelled || !canAttemptBanner()) return;
+        const reachable = await probeAdNetworkReachability();
+        if (cancelled || !canAttemptBanner()) return;
+
+        if (!reachable) {
+          adNetworkReachableRef.current = false;
+          adDiagnosticsRef.current.reachabilityFailures += 1;
+          // Re-arm this effect without asking AdMob for inventory while the
+          // network is demonstrably unavailable. Offline polling stays at 30s.
+          setAdLoadAttempt((attempt) => Math.min(attempt + 1, 1_000));
+          return;
+        }
+
+        const recoveredFromOffline = adNetworkReachableRef.current === false;
+        adNetworkReachableRef.current = true;
+        if (recoveredFromOffline) {
+          // Debounce flapping Wi-Fi/cellular transitions before remounting.
+          await waitFor(NETWORK_RECOVERY_DEBOUNCE_MS);
+          if (cancelled || !canAttemptBanner()) return;
+        }
+        setAdLoadAttempt((attempt) => Math.min(attempt + 1, 1_000));
+        triggerBannerReload(
+          recoveredFromOffline ? "network-recovered" : "backoff-retry",
+        );
+      })();
+    }, delay);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(retryTimer);
+    };
+  }, [
+    adLoadAttempt,
+    canAttemptBanner,
+    nativeAdState,
+    triggerBannerReload,
+  ]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      const previousState = appStateRef.current;
+      appStateRef.current = nextState;
+      if (nextState !== "active") {
+        // iOS may suspend an in-flight request. The foreground path is allowed
+        // to remount it exactly once when the user returns.
+        adLoadInFlightRef.current = false;
+        return;
+      }
+      if (previousState === "active" || !canAttemptBanner()) return;
+      if (nativeAdState === "loaded") return;
+
+      adDiagnosticsRef.current.foregroundRecoveries += 1;
+      adNetworkReachableRef.current = null;
+      adLoadInFlightRef.current = false;
+      triggerBannerReload("foreground", true);
+    });
+    return () => subscription.remove();
+  }, [canAttemptBanner, nativeAdState, triggerBannerReload]);
 
   useEffect(() => {
     const previous = previousWebAdStateRef.current;
@@ -1230,11 +1431,17 @@ export default function App() {
       consentState === "permitted" &&
       removeAdsEntitlement === "not-entitled"
     ) {
-      setAdLoadAttempt(0);
-      setBannerInstance((instance) => instance + 1);
-      setNativeAdState("loading");
+      adLoadInFlightRef.current = false;
+      adNetworkReachableRef.current = null;
+      triggerBannerReload("web-banner-visible", true);
     }
-  }, [adEligible, consentState, removeAdsEntitlement, webAdState]);
+  }, [
+    adEligible,
+    consentState,
+    removeAdsEntitlement,
+    triggerBannerReload,
+    webAdState,
+  ]);
 
   const syncAdRuntime = useCallback(() => {
     if (!webReady) return;
@@ -1683,27 +1890,48 @@ export default function App() {
     }
     if (removeAdsEntitlementRef.current !== "not-entitled") {
       completeRemoveAdsAction("purchase", "failed");
+      Alert.alert(
+        "Purchase unavailable",
+        "Apple is still checking your Remove Ads status. Please try again in a moment.",
+      );
       return;
     }
     if (removeAdsOperationRef.current !== "idle") return;
     if (!removeAdsStoreRef.current) {
       completeRemoveAdsAction("purchase", "failed");
+      Alert.alert(
+        "App Store unavailable",
+        "The App Store connection is not ready. Please check your connection and try again.",
+      );
       return;
     }
-    const product =
-      removeAdsProductState === "ready" && removeAdsProduct
-        ? removeAdsProduct
-        : await refreshRemoveAdsProduct();
-    if (!product) {
-      completeRemoveAdsAction("purchase", "failed");
-      return;
-    }
+    // Reserve the operation synchronously before any product lookup can yield.
+    // This prevents rapid Purchase/Restore messages from starting overlapping
+    // StoreKit operations while the product catalog is refreshing.
     const action: RemoveAdsActionContext = {
       kind: "purchase",
       token: ++removeAdsActionSequenceRef.current,
     };
     removeAdsActionRef.current = action;
     setRemoveAdsOperationState("purchasing");
+    const product =
+      removeAdsProductState === "ready" && removeAdsProduct
+        ? removeAdsProduct
+        : await refreshRemoveAdsProduct();
+    // A replayed verified transaction can complete this action while the
+    // product lookup is outstanding. Never issue a second StoreKit request
+    // after another callback has consumed the operation token.
+    if (removeAdsActionRef.current !== action) return;
+    if (!product) {
+      removeAdsActionRef.current = null;
+      setRemoveAdsOperationState("idle");
+      completeRemoveAdsAction("purchase", "failed");
+      Alert.alert(
+        "Purchase unavailable",
+        "Remove Ads is not available from the App Store right now. Please try again later.",
+      );
+      return;
+    }
     try {
       await requestRemoveAdsPurchase();
     } catch (error) {
@@ -1727,6 +1955,10 @@ export default function App() {
     }
     if (!removeAdsStoreRef.current) {
       completeRemoveAdsAction("restore", "failed");
+      Alert.alert(
+        "Restore unavailable",
+        "The App Store connection is not ready. Please check your connection and try again.",
+      );
       return;
     }
     const action: RemoveAdsActionContext = {
@@ -1742,8 +1974,13 @@ export default function App() {
         "restore",
         entitled === true ? "success" : entitled === false ? "none" : "failed",
       );
-    } catch {
+    } catch (error) {
+      console.warn("Remove Ads restore failed", error);
       completeRemoveAdsAction("restore", "failed");
+      Alert.alert(
+        "Restore unavailable",
+        "Purchases could not be restored right now. Please check your connection and try again.",
+      );
     } finally {
       if (removeAdsActionRef.current === action) {
         removeAdsActionRef.current = null;
@@ -1887,10 +2124,29 @@ export default function App() {
               size={BannerAdSize.BANNER}
               requestOptions={{ requestNonPersonalizedAdsOnly: true }}
               onAdLoaded={() => {
+                adLoadInFlightRef.current = false;
+                adNetworkReachableRef.current = true;
+                const diagnostics = adDiagnosticsRef.current;
+                diagnostics.loads += 1;
+                diagnostics.lastLoadedAt = Date.now();
                 setAdLoadAttempt(0);
                 setNativeAdState("loaded");
+                if (testAds) {
+                  console.info("[AdMob QA] banner loaded", { ...diagnostics });
+                }
               }}
-              onAdFailedToLoad={() => setNativeAdState("failed")}
+              onAdFailedToLoad={(error) => {
+                adLoadInFlightRef.current = false;
+                const diagnostics = adDiagnosticsRef.current;
+                diagnostics.failures += 1;
+                diagnostics.lastFailureAt = Date.now();
+                if (testAds) {
+                  console.warn("[AdMob QA] banner failed", error, {
+                    ...diagnostics,
+                  });
+                }
+                setNativeAdState("failed");
+              }}
             />
           </View>
         ) : null}
