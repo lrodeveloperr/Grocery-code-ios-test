@@ -20,6 +20,8 @@ import type {
 export const REMOVE_ADS_PRODUCT_ID = "remove_ads_lifetime";
 export const EXPECTED_REMOVE_ADS_USD_PRICE = 9.99;
 
+const RESTORE_ENTITLEMENT_SETTLE_DELAYS_MS = [0, 400, 1200, 2400] as const;
+
 export type RemoveAdsProduct = {
   displayName: string;
   displayPrice: string;
@@ -206,11 +208,31 @@ export async function requestRemoveAdsPurchase(): Promise<void> {
 }
 
 export async function restoreRemoveAdsPurchase(): Promise<void> {
-  // App.tsx keeps the purchaseUpdated listener connected for the full component
-  // lifetime and immediately reconciles currentEntitlementIOS after this call.
-  // Awaiting restorePurchases ensures the restore request itself has completed
-  // before that reconciliation starts.
+  // Keep the full-lifetime purchaseUpdated listener as the primary delivery
+  // path, but allow StoreKit a short bounded settle window before App.tsx
+  // concludes that no entitlement exists. On physical devices the restored
+  // transaction callback/current entitlement can arrive shortly after the
+  // restore request itself resolves. This avoids a false "none found" result
+  // without ever granting entitlement speculatively.
   await restorePurchases();
+
+  let lastReadError: unknown = null;
+  for (const delay of RESTORE_ENTITLEMENT_SETTLE_DELAYS_MS) {
+    if (delay > 0) await wait(delay);
+    try {
+      const entitlement = await readVerifiedRemoveAdsEntitlement();
+      if (entitlement.entitled) return;
+      lastReadError = null;
+    } catch (error) {
+      lastReadError = error;
+    }
+  }
+
+  // A clean sequence of non-entitled reads means there simply was no restored
+  // Remove Ads purchase; App.tsx performs its normal final reconciliation and
+  // reports that result. If StoreKit itself could not be read, surface the last
+  // error so the UI reports a restore failure rather than a false "none".
+  if (lastReadError) throw lastReadError;
 }
 
 export async function finishVerifiedRemoveAdsPurchase(
