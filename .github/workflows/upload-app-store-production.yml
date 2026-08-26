@@ -467,7 +467,7 @@ jobs:
           grep -Fqi 'openiap' "$APP_ROOT/src/thirdPartyNotices.ts"
           grep -Fqi 'expo-tracking-transparency' "$APP_ROOT/src/thirdPartyNotices.ts"
 
-      - name: Sign, validate, and upload production build
+      - name: Archive and validate packaged production app
         shell: bash
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
@@ -562,6 +562,50 @@ jobs:
           grep -aFq "$ADMOB_PRODUCTION_BANNER_ID" "$app_path/main.jsbundle"
           grep -aFq 'requestNonPersonalizedAdsOnly' "$app_path/main.jsbundle"
 
+      - name: Retain packaged privacy-manifest inventory
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ios-build-${{ env.BUILD_NUMBER }}-packaged-privacy-manifest-inventory
+          path: ${{ runner.temp }}/privacy-manifest-packaged.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Export and upload production build
+        shell: bash
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          missing=()
+          [[ -n "$ASC_KEY_ID" ]] || missing+=(ASC_KEY_ID)
+          [[ -n "$ASC_ISSUER_ID" ]] || missing+=(ASC_ISSUER_ID)
+          [[ -n "$ASC_PRIVATE_KEY" ]] || missing+=(ASC_PRIVATE_KEY)
+          if (( ${#missing[@]} > 0 )); then
+            echo "Missing encrypted GitHub Actions secrets: ${missing[*]}" >&2
+            exit 1
+          fi
+          [[ "$ASC_KEY_ID" =~ ^[A-Z0-9]{10}$ ]]
+          [[ "$ASC_ISSUER_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]
+
+          key_path="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
+          archive_path="$RUNNER_TEMP/Grocery-Benefits-Tracker.xcarchive"
+          export_path="$RUNNER_TEMP/app-store-upload"
+          export_options="$RUNNER_TEMP/ExportOptions.plist"
+          cleanup() {
+            rm -f "$key_path" "$export_options"
+          }
+          trap cleanup EXIT
+
+          umask 077
+          printf '%s' "$ASC_PRIVATE_KEY" > "$key_path"
+          unset ASC_PRIVATE_KEY
+          chmod 600 "$key_path"
+          grep -Fq -- '-----BEGIN PRIVATE KEY-----' "$key_path"
+          grep -Fq -- '-----END PRIVATE KEY-----' "$key_path"
+          test -d "$archive_path"
+
           plutil -create xml1 "$export_options"
           /usr/libexec/PlistBuddy -c 'Add :method string app-store-connect' "$export_options"
           /usr/libexec/PlistBuddy -c 'Add :destination string upload' "$export_options"
@@ -580,14 +624,6 @@ jobs:
             -authenticationKeyPath "$key_path" \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" | xcbeautify
-
-      - name: Retain signed privacy inventory
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: ios-build-${{ env.BUILD_NUMBER }}-privacy-inventory
-          path: ${{ runner.temp }}/privacy-manifest-packaged.json
-          if-no-files-found: error
-          retention-days: 90
 
       - name: Record upload result
         shell: bash
