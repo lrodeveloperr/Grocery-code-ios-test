@@ -9,9 +9,47 @@ const EXPECTED_BRAND_LOGO_SHA256 =
 const EXPECTED_BRAND_MASTER_SHA256 =
   "6dc4daf09634cf419056c20be1ccbcfb3af9694a66909d579194100a1e740ff0";
 const TEST_APP_ID = "ca-app-pub-3940256099942544~1458002511";
+const PRODUCTION_PUBLISHER_ID = "8054612600809568";
+const PRODUCTION_APP_ID = "ca-app-pub-8054612600809568~1748518282";
+const PRODUCTION_BANNER_ID = "ca-app-pub-8054612600809568/3872496047";
+const adProfile = process.env.EXPO_PUBLIC_AD_PROFILE;
 
-if (process.env.EXPO_PUBLIC_AD_PROFILE !== "test") {
-  throw new Error("Test-release verifier requires the explicit test ad profile.");
+if (!["test", "production"].includes(adProfile)) {
+  throw new Error("Release verifier requires an explicit test or production ad profile.");
+}
+
+const expectedAppId =
+  adProfile === "production" ? PRODUCTION_APP_ID : TEST_APP_ID;
+
+if (adProfile === "production") {
+  const productionInputs = {
+    publisherId: process.env.EXPO_PUBLIC_ADMOB_PUBLISHER_ID,
+    appId: process.env.EXPO_PUBLIC_IOS_ADMOB_APP_ID,
+    bannerId: process.env.EXPO_PUBLIC_IOS_ADMOB_BANNER_ID,
+  };
+  const expectedInputs = {
+    publisherId: PRODUCTION_PUBLISHER_ID,
+    appId: PRODUCTION_APP_ID,
+    bannerId: PRODUCTION_BANNER_ID,
+  };
+  for (const [key, expected] of Object.entries(expectedInputs)) {
+    if (productionInputs[key] !== expected) {
+      throw new Error(`Production AdMob ${key} must exactly match the reviewed live identifier.`);
+    }
+  }
+  if (
+    !productionInputs.appId.startsWith(`ca-app-pub-${productionInputs.publisherId}~`) ||
+    !productionInputs.bannerId.startsWith(`ca-app-pub-${productionInputs.publisherId}/`)
+  ) {
+    throw new Error("Production AdMob identifiers do not share the approved publisher.");
+  }
+  if (
+    productionInputs.publisherId === "3940256099942544" ||
+    productionInputs.appId.includes("3940256099942544") ||
+    productionInputs.bannerId.includes("3940256099942544")
+  ) {
+    throw new Error("Google demo identifiers are forbidden in a production build.");
+  }
 }
 
 const read = (path) => readFile(path, "utf8");
@@ -1525,7 +1563,7 @@ if (delegate.indexOf("configureAdvertisingPrivacy()") > delegate.indexOf("factor
   throw new Error("Advertising privacy is configured after application startup.");
 }
 
-requireText(plist, TEST_APP_ID, "Info.plist test app ID");
+requireText(plist, expectedAppId, `Info.plist ${adProfile} app ID`);
 if (!/<key>GADDelayAppMeasurementInit<\/key>\s*<true\s*\/>/.test(plist)) {
   throw new Error("Info.plist must delay Google app measurement until UMP permits ad requests.");
 }
@@ -1630,5 +1668,5 @@ if (!iconBytes.equals(brandLogo)) {
 }
 
 console.log(
-  `Release checks passed: ${scripts.length} scripts, ${skadIds.length} SKAdNetwork IDs, verified StoreKit Remove Ads entitlement, localized ATT before Google Mobile Ads, one internal NPA demo banner with production UMP fail-closed, Benefits & Resources removed, and file/link/reminder bridges.`,
+  `Release checks passed for the ${adProfile} profile: ${scripts.length} scripts, ${skadIds.length} SKAdNetwork IDs, verified StoreKit Remove Ads entitlement, localized ATT before Google Mobile Ads, one fixed NPA banner with production UMP fail-closed, Benefits & Resources removed, and file/link/reminder bridges.`,
 );
