@@ -17,6 +17,12 @@ const adProfile = process.env.EXPO_PUBLIC_AD_PROFILE;
 if (!["test", "production"].includes(adProfile)) {
   throw new Error("Release verifier requires an explicit test or production ad profile.");
 }
+const expectedBuildProfile = adProfile === "production" ? "production" : "qa";
+if (process.env.EXPO_PUBLIC_BUILD_PROFILE !== expectedBuildProfile) {
+  throw new Error(
+    `${adProfile} ads require the ${expectedBuildProfile} build profile.`,
+  );
+}
 
 const expectedAppId =
   adProfile === "production" ? PRODUCTION_APP_ID : TEST_APP_ID;
