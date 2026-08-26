@@ -143,7 +143,7 @@ test("keeps one non-personalized banner behind StoreKit, legal, UMP, and ATT gat
   const consentEffect = sourceSection(
     nativeSource,
     '  useEffect(() => {\n    if (\n      removeAdsEntitlement !== "not-entitled"',
-    '  useEffect(() => {\n    if (!adEligible || removeAdsEntitlement !== "not-entitled")',
+    '  useEffect(() => {\n    if (!canAttemptBanner())',
   );
   expect(consentEffect).toContain("AdsConsent.gatherConsent()");
   expect(consentEffect).toContain("if (!adProfileConfigured)");
