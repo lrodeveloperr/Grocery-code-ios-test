@@ -1485,8 +1485,8 @@ if (
   throw new Error("A StoreKit transaction may be finished before verified delivery.");
 }
 
-const adGateStart = app.indexOf("const startAdsIfAllowed");
-const adGateEnd = app.indexOf("\n\n  useEffect(() => {", adGateStart);
+const adGateStart = app.indexOf("  const startAdsIfAllowed = useCallback(");
+const adGateEnd = app.indexOf("\n\n  const canAttemptBanner = useCallback(", adGateStart);
 const adGateSource = app.slice(adGateStart, adGateEnd);
 const bypassIndex = adGateSource.indexOf("if (testAds) {");
 const bypassInitIndex = adGateSource.indexOf(
