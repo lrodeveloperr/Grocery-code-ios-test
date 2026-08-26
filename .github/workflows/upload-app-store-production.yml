@@ -582,7 +582,7 @@ jobs:
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" | xcbeautify
 
       - name: Retain signed privacy inventory
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ios-build-${{ env.BUILD_NUMBER }}-privacy-inventory
           path: ${{ runner.temp }}/privacy-manifest-packaged.json
