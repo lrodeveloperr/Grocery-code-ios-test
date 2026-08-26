@@ -64,3 +64,5 @@ Required environment secrets:
 The lane validates the App Store app and bundle records, the non-consumable `remove_ads_lifetime` configuration and US$9.99 price, the live AdMob publisher/app/banner ownership match, the packaged privacy manifests, the archive identity and the absence of Google demo inventory. It uploads a production candidate to App Store Connect but does not submit version 1.0 for review.
 
 Canonical listing copy and review notes are in `app-store/APP_STORE_METADATA.md`.
+
+Before the production upload, publish the AdMob European regulations message for the iOS app with English and Spanish enabled, a direct Do not consent option, and the canonical Privacy Policy URL.
