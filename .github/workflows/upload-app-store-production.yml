@@ -167,7 +167,10 @@ jobs:
             type = attributes.fetch("inAppPurchaseType")
             abort "Remove Ads must be NON_CONSUMABLE; found #{type}." unless type == "NON_CONSUMABLE"
             state = attributes.fetch("state")
-            # The first IAP review screenshot must be captured from processed build 6.\n            # All other IAP attributes are checked below and were verified in App Store Connect.\n            allowed = %w[MISSING_METADATA READY_TO_SUBMIT WAITING_FOR_REVIEW IN_REVIEW PENDING_BINARY_APPROVAL APPROVED]\n            abort "Remove Ads has an unexpected state: #{state}" unless allowed.include?(state)
+            # The first IAP review screenshot must be captured from processed build 6.
+            # All other IAP attributes are checked below and were verified in App Store Connect.
+            allowed = %w[MISSING_METADATA READY_TO_SUBMIT WAITING_FOR_REVIEW IN_REVIEW PENDING_BINARY_APPROVAL APPROVED]
+            abort "Remove Ads has an unexpected state: #{state}" unless allowed.include?(state)
             puts purchase.fetch("id")
           ' "$iap_response")"
           [[ -n "$iap_id" ]]
@@ -468,39 +471,9 @@ jobs:
 
       - name: Archive and validate packaged production app
         shell: bash
-        env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
         run: |
           set -euo pipefail
-          missing=()
-          [[ -n "$ASC_KEY_ID" ]] || missing+=(ASC_KEY_ID)
-          [[ -n "$ASC_ISSUER_ID" ]] || missing+=(ASC_ISSUER_ID)
-          [[ -n "$ASC_PRIVATE_KEY" ]] || missing+=(ASC_PRIVATE_KEY)
-          if (( ${#missing[@]} > 0 )); then
-            echo "Missing encrypted GitHub Actions secrets: ${missing[*]}" >&2
-            exit 1
-          fi
-          [[ "$ASC_KEY_ID" =~ ^[A-Z0-9]{10}$ ]]
-          [[ "$ASC_ISSUER_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]
-
-          key_path="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
           archive_path="$RUNNER_TEMP/Grocery-Benefits-Tracker.xcarchive"
-          export_path="$RUNNER_TEMP/testflight-upload"
-          export_options="$RUNNER_TEMP/ExportOptions.plist"
-          cleanup() {
-            rm -f "$key_path" "$export_options"
-          }
-          trap cleanup EXIT
-
-          umask 077
-          printf '%s' "$ASC_PRIVATE_KEY" > "$key_path"
-          unset ASC_PRIVATE_KEY
-          chmod 600 "$key_path"
-          grep -Fq -- '-----BEGIN PRIVATE KEY-----' "$key_path"
-          grep -Fq -- '-----END PRIVATE KEY-----' "$key_path"
-
           set -o pipefail
           xcodebuild \
             -workspace "$APP_ROOT/ios/$SCHEME.xcworkspace" \
@@ -637,5 +610,5 @@ jobs:
             echo "- Ads: reviewed live AdMob IDs; non-personalized treatment forced; ATT resolved before SDK initialization"
             echo "- Distribution: App Store Connect production candidate; not submitted for review by this workflow"
             echo
-            echo "Wait for Apple processing, review the signed privacy inventory, then select this build for version 1.0."
+            echo "Wait for Apple processing, review the packaged privacy-manifest inventory, then select this build for version 1.0."
           } >> "$GITHUB_STEP_SUMMARY"
