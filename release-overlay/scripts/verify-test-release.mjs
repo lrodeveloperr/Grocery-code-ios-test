@@ -1377,6 +1377,45 @@ requireText(
 requireText(app, 'purchase.purchaseState !== "purchased"', "non-purchased transaction rejection");
 requireText(app, "isRemoveAdsAlreadyOwned(error)", "already-owned reconciliation");
 requireText(app, "token: ++removeAdsActionSequenceRef.current", "purchase operation ownership token");
+const purchaseActionStart = app.indexOf(
+  "const beginRemoveAdsPurchase = useCallback(async () => {",
+);
+const purchaseActionEnd = app.indexOf(
+  "\n\n  const beginRemoveAdsRestore = useCallback(async () => {",
+  purchaseActionStart,
+);
+const purchaseActionSource = app.slice(purchaseActionStart, purchaseActionEnd);
+const purchaseReservationIndex = purchaseActionSource.indexOf(
+  "removeAdsActionRef.current = action;",
+);
+const purchaseLookupIndex = purchaseActionSource.indexOf(
+  "await refreshRemoveAdsProduct()",
+);
+if (
+  purchaseActionStart < 0 ||
+  purchaseActionEnd <= purchaseActionStart ||
+  purchaseReservationIndex < 0 ||
+  purchaseLookupIndex <= purchaseReservationIndex
+) {
+  throw new Error(
+    "Remove Ads must reserve its operation token before an asynchronous product lookup.",
+  );
+}
+requireText(
+  purchaseActionSource,
+  "if (removeAdsActionRef.current !== action) return;",
+  "post-lookup purchase operation ownership check",
+);
+requireText(
+  app,
+  "Consent gathering can fail when production starts offline.",
+  "offline UMP gathering recovery",
+);
+requireText(
+  app,
+  'adStartupTransientFailureRef.current = true;\n        if (active) setConsentState("blocked");\n        return;',
+  "fail-closed transient UMP startup marker",
+);
 forbidText(app, "entitlementGenerationRef", "stale-generation entitlement race");
 forbidText(app, "removeAdsDeliveryRef", "transaction single-flight event drop");
 requireText(app, "onLoadStart={() => setWebReady(false)}", "WebView runtime reload reset");
