@@ -54,6 +54,59 @@ try {
   let appSource = await readFile(appSourcePath, "utf8");
   const originalAppSource = appSource;
 
+  // StoreKit is the authority for whether ads may be shown. If the app launches
+  // offline, entitlement intentionally becomes unknown and ads stay hidden.
+  // Recover that unknown state with capped retries so ads can safely resume
+  // after Apple connectivity returns without ever guessing that a user is free.
+  if (!appSource.includes("STOREKIT_RECOVERY_DELAYS_MS")) {
+    const storekitConstantNeedle =
+      'const STOREKIT_ENTITLEMENT_RETRY_DELAYS_MS = [0, 500, 2000] as const;';
+    if (!appSource.includes(storekitConstantNeedle)) {
+      throw new Error("Could not locate StoreKit entitlement retry constants");
+    }
+    appSource = appSource.replace(
+      storekitConstantNeedle,
+      `${storekitConstantNeedle}\nconst STOREKIT_RECOVERY_DELAYS_MS = [15_000, 30_000, 60_000, 300_000] as const;`,
+    );
+
+    const storekitEffectStartNeedle =
+      '  useEffect(() => {\n    let active = true;\n    let connectionTask: Promise<void> | null = null;';
+    if (!appSource.includes(storekitEffectStartNeedle)) {
+      throw new Error("Could not locate StoreKit connection effect");
+    }
+    appSource = appSource.replace(
+      storekitEffectStartNeedle,
+      '  useEffect(() => {\n    let active = true;\n    let connectionTask: Promise<void> | null = null;\n    let recoveryTimer: ReturnType<typeof setTimeout> | null = null;\n    let recoveryAttempt = 0;',
+    );
+
+    const ensureStoreNeedle = `    const ensureStoreConnection = () => {\n      if (removeAdsStoreRef.current) {\n        return Promise.all([\n          reconcileRemoveAdsEntitlement(),\n          refreshRemoveAdsProduct(),\n        ]).then(() => undefined);\n      }\n      if (!connectionTask) {\n        connectionTask = connectWithRetry().finally(() => {\n          connectionTask = null;\n        });\n      }\n      return connectionTask;\n    };`;
+    if (!appSource.includes(ensureStoreNeedle)) {
+      throw new Error("Could not locate StoreKit ensureStoreConnection block");
+    }
+    const robustEnsureStore = `    const clearStoreRecoveryTimer = () => {\n      if (!recoveryTimer) return;\n      clearTimeout(recoveryTimer);\n      recoveryTimer = null;\n    };\n    const scheduleStoreRecovery = () => {\n      if (!active) return;\n      const needsRecovery =\n        !removeAdsStoreRef.current ||\n        removeAdsEntitlementRef.current === "unknown";\n      if (!needsRecovery) {\n        recoveryAttempt = 0;\n        clearStoreRecoveryTimer();\n        return;\n      }\n      if (recoveryTimer) return;\n      const index = Math.min(\n        recoveryAttempt,\n        STOREKIT_RECOVERY_DELAYS_MS.length - 1,\n      );\n      const delay = STOREKIT_RECOVERY_DELAYS_MS[index] ?? 300_000;\n      recoveryAttempt = Math.min(recoveryAttempt + 1, 1_000);\n      recoveryTimer = setTimeout(() => {\n        recoveryTimer = null;\n        if (active) void ensureStoreConnection();\n      }, delay);\n    };\n    const ensureStoreConnection = () => {\n      if (removeAdsStoreRef.current) {\n        return Promise.all([\n          reconcileRemoveAdsEntitlement(),\n          refreshRemoveAdsProduct(),\n        ])\n          .then(() => undefined)\n          .finally(() => {\n            if (!active) return;\n            if (removeAdsEntitlementRef.current === "unknown") {\n              scheduleStoreRecovery();\n            } else {\n              recoveryAttempt = 0;\n              clearStoreRecoveryTimer();\n            }\n          });\n      }\n      if (!connectionTask) {\n        connectionTask = connectWithRetry().finally(() => {\n          connectionTask = null;\n          if (!active) return;\n          if (\n            !removeAdsStoreRef.current ||\n            removeAdsEntitlementRef.current === "unknown"\n          ) {\n            scheduleStoreRecovery();\n          } else {\n            recoveryAttempt = 0;\n            clearStoreRecoveryTimer();\n          }\n        });\n      }\n      return connectionTask;\n    };`;
+    appSource = appSource.replace(ensureStoreNeedle, robustEnsureStore);
+
+    const storekitForegroundNeedle =
+      '      (state) => {\n        if (active && state === "active") void ensureStoreConnection();\n      },';
+    if (!appSource.includes(storekitForegroundNeedle)) {
+      throw new Error("Could not locate StoreKit foreground refresh handler");
+    }
+    appSource = appSource.replace(
+      storekitForegroundNeedle,
+      '      (state) => {\n        if (active && state === "active") {\n          clearStoreRecoveryTimer();\n          recoveryAttempt = 0;\n          void ensureStoreConnection();\n        }\n      },',
+    );
+
+    const storekitCleanupNeedle =
+      '      appStateSubscription.remove();\n      removeAdsStoreRef.current?.close();';
+    if (!appSource.includes(storekitCleanupNeedle)) {
+      throw new Error("Could not locate StoreKit effect cleanup");
+    }
+    appSource = appSource.replace(
+      storekitCleanupNeedle,
+      '      appStateSubscription.remove();\n      clearStoreRecoveryTimer();\n      removeAdsStoreRef.current?.close();',
+    );
+  }
+
   // Recover when ATT/AdMob SDK startup fails because the app was launched with
   // no usable network. This flag is deliberately NOT retained when the privacy
   // gate itself says ads cannot be requested, so privacy state is never retried
