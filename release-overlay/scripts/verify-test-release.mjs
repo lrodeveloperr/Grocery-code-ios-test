@@ -1514,7 +1514,16 @@ if (
   )
 ) {
   throw new Error(
-    "Only test ads may bypass UMP; production must enforce canRequestAds before SDK initialization.",
+    `Only test ads may bypass UMP; production must enforce canRequestAds before SDK initialization. ${JSON.stringify({
+      adGateStart,
+      adGateEnd,
+      bypassIndex,
+      bypassInitIndex,
+      infoIndex,
+      infoFailureIndex,
+      rejectIndex,
+      initIndex,
+    })}`,
   );
 }
 forbidText(
