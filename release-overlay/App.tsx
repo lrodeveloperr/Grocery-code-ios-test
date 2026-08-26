@@ -34,14 +34,6 @@ import type {
 
 import APP_HTML from "./src/appHtml";
 import {
-  createAdDiagnostics,
-  NETWORK_RECOVERY_DEBOUNCE_MS,
-  nextAdRetryDelay,
-  OFFLINE_REACHABILITY_POLL_MS,
-  probeAdNetworkReachability,
-  withRetryJitter,
-} from "./src/adResilience";
-import {
   connectRemoveAdsStore,
   fetchRemoveAdsProduct,
   finishVerifiedRemoveAdsPurchase,
@@ -142,6 +134,82 @@ type BridgeMessage =
 
 function waitFor(milliseconds: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+}
+
+const AD_RETRY_DELAYS_MS = [
+  2_000,
+  5_000,
+  15_000,
+  30_000,
+  60_000,
+  120_000,
+  300_000,
+] as const;
+const OFFLINE_REACHABILITY_POLL_MS = 30_000;
+const NETWORK_RECOVERY_DEBOUNCE_MS = 1_500;
+const AD_NETWORK_PROBE_TIMEOUT_MS = 4_000;
+const AD_NETWORK_PROBE_URL =
+  "https://pagead2.googlesyndication.com/pagead/gen_204";
+
+type AdDiagnostics = {
+  attempts: number;
+  loads: number;
+  failures: number;
+  reachabilityFailures: number;
+  foregroundRecoveries: number;
+  lastAttemptAt: number | null;
+  lastLoadedAt: number | null;
+  lastFailureAt: number | null;
+};
+
+function createAdDiagnostics(): AdDiagnostics {
+  return {
+    attempts: 0,
+    loads: 0,
+    failures: 0,
+    reachabilityFailures: 0,
+    foregroundRecoveries: 0,
+    lastAttemptAt: null,
+    lastLoadedAt: null,
+    lastFailureAt: null,
+  };
+}
+
+function nextAdRetryDelay(attempt: number) {
+  const index = Math.min(
+    Math.max(0, Math.trunc(attempt)),
+    AD_RETRY_DELAYS_MS.length - 1,
+  );
+  return AD_RETRY_DELAYS_MS[index];
+}
+
+function withRetryJitter(delayMs: number, random = Math.random) {
+  const jitter = (random() * 0.3 - 0.15) * delayMs;
+  return Math.max(250, Math.round(delayMs + jitter));
+}
+
+async function probeAdNetworkReachability(
+  timeoutMs = AD_NETWORK_PROBE_TIMEOUT_MS,
+): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(AD_NETWORK_PROBE_URL, {
+      method: "GET",
+      signal: controller.signal,
+      headers: {
+        "Cache-Control": "no-cache, no-store, max-age=0",
+        Pragma: "no-cache",
+      },
+    });
+    // Captive portals commonly return a page or redirect instead of Google's
+    // expected 204. Treat anything else as not-yet-reachable.
+    return response.status === 204;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function hasMatchingProductionAdMobIdentifiers(
