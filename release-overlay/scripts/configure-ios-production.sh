@@ -92,6 +92,11 @@ grep -Fq 'com.apple.InAppPurchase' "$project_path/project.pbxproj"
 "$plist_buddy" -c "Set :GADApplicationIdentifier $production_app_id" "$plist_path"
 "$plist_buddy" -c "Delete :GADDelayAppMeasurementInit" "$plist_path" 2>/dev/null || true
 "$plist_buddy" -c "Add :GADDelayAppMeasurementInit bool true" "$plist_path"
+"$plist_buddy" -c "Delete :GBTAdMobBuildProfile" "$plist_path" 2>/dev/null || true
+"$plist_buddy" -c "Add :GBTAdMobBuildProfile string production" "$plist_path"
+# Never permit QA test-device IDs to leak into an App Store build.
+"$plist_buddy" -c "Delete :GBTAdMobTestDeviceIdentifiers" "$plist_path" 2>/dev/null || true
+"$plist_buddy" -c "Add :GBTAdMobTestDeviceIdentifiers array" "$plist_path"
 "$plist_buddy" -c "Delete :NSUserTrackingUsageDescription" "$plist_path" 2>/dev/null || true
 "$plist_buddy" -c "Add :NSUserTrackingUsageDescription string Your permission allows this app and its advertising partners to use a device identifier to measure non-personalized ads. Denying permission does not limit app features." "$plist_path"
 "$plist_buddy" -c "Delete :NSPrivacyTracking" "$privacy_manifest_path" 2>/dev/null || true
@@ -131,4 +136,4 @@ decoded_icon="$RUNNER_TEMP/snap-ebt-wic-app-icon.png"
 /usr/bin/sips -z 528 528 "$decoded_icon" \
   --out "$asset_root/SplashScreenLogo.imageset/image@3x.png" >/dev/null
 
-echo "Configured StoreKit IAP, generic bundle identity, delayed Google measurement, localized ATT disclosure, app-owned non-tracking privacy manifest, reviewed production AdMob app ID, $skad_index SKAdNetwork IDs, and release artwork."
+echo "Configured StoreKit IAP, generic bundle identity, delayed Google measurement, localized ATT disclosure, app-owned non-tracking privacy manifest, reviewed production AdMob app ID, zero production AdMob test-device IDs, $skad_index SKAdNetwork IDs, and release artwork."
