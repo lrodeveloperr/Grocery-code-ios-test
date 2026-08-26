@@ -1,10 +1,10 @@
-name: Upload TestFlight internal build with test ads
+name: Upload App Store production build
 
 on:
   workflow_dispatch:
     inputs:
       confirmation:
-        description: Type UPLOAD TEST ADS to confirm this is an internal-only build
+        description: Type UPLOAD PRODUCTION BUILD to confirm use of live AdMob inventory
         required: true
         type: string
       expected_build_number:
@@ -16,16 +16,18 @@ permissions:
   contents: read
 
 concurrency:
-  group: ios-testflight-internal-upload
+  group: ios-app-store-production-upload
   cancel-in-progress: false
 
 env:
   CI: "1"
   DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
   EXPO_NO_TELEMETRY: "1"
-  EXPO_PUBLIC_AD_PROFILE: test
-  EXPO_PUBLIC_IOS_ADMOB_BANNER_ID: ""
-  EXPO_PUBLIC_BUILD_PROFILE: qa
+  EXPO_PUBLIC_AD_PROFILE: production
+  EXPO_PUBLIC_ADMOB_PUBLISHER_ID: "8054612600809568"
+  EXPO_PUBLIC_IOS_ADMOB_APP_ID: ca-app-pub-8054612600809568~1748518282
+  EXPO_PUBLIC_IOS_ADMOB_BANNER_ID: ca-app-pub-8054612600809568/3872496047
+  EXPO_PUBLIC_BUILD_PROFILE: production
   SOURCE_ZIP: SNAP-EBT-Grocery-Tracker-iOS-QA-Source-v1.0.0.zip
   SOURCE_ZIP_SHA256: 23d938c18df0e185e54946759a3075ef42ce2a6cbc3a0bff99b3a085387e4fcd
   SCHEME: SNAPEBTGroceryTrackerQA
@@ -35,16 +37,16 @@ env:
   REMOVE_ADS_US_PRICE: "9.99"
   APPLE_TEAM_ID: 49SQ3XQ68Q
   MARKETING_VERSION: "1.0"
-  GOOGLE_TEST_APP_ID: ca-app-pub-3940256099942544~1458002511
-  GOOGLE_TEST_BANNER_ID: ca-app-pub-3940256099942544/2934735716
+  ADMOB_PRODUCTION_APP_ID: ca-app-pub-8054612600809568~1748518282
+  ADMOB_PRODUCTION_BANNER_ID: ca-app-pub-8054612600809568/3872496047
 
 jobs:
   upload:
-    name: Signed iPhone build to internal TestFlight
+    name: Signed production iPhone build to App Store Connect
     if: github.ref == 'refs/heads/main'
     runs-on: macos-26
     timeout-minutes: 90
-    environment: app-store-internal
+    environment: app-store-production
 
     steps:
       - name: Check out reviewed source
@@ -52,15 +54,15 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Confirm permanent internal-only test build
+      - name: Confirm production build
         shell: bash
         env:
           CONFIRMATION: ${{ inputs.confirmation }}
           EXPECTED_BUILD_NUMBER: ${{ inputs.expected_build_number }}
         run: |
           set -euo pipefail
-          if [[ "$CONFIRMATION" != "UPLOAD TEST ADS" ]]; then
-            echo "Confirmation did not match UPLOAD TEST ADS." >&2
+          if [[ "$CONFIRMATION" != "UPLOAD PRODUCTION BUILD" ]]; then
+            echo "Confirmation did not match UPLOAD PRODUCTION BUILD." >&2
             exit 1
           fi
           if [[ ! "$EXPECTED_BUILD_NUMBER" =~ ^[1-9][0-9]{0,3}(\.[0-9]{1,2}){0,2}$ ]]; then
@@ -88,7 +90,7 @@ jobs:
           [[ -n "$ASC_ISSUER_ID" ]] || missing+=(ASC_ISSUER_ID)
           [[ -n "$ASC_PRIVATE_KEY" ]] || missing+=(ASC_PRIVATE_KEY)
           if (( ${#missing[@]} > 0 )); then
-            echo "Missing app-store-internal environment secrets: ${missing[*]}" >&2
+            echo "Missing app-store-production environment secrets: ${missing[*]}" >&2
             exit 1
           fi
           [[ "$ASC_KEY_ID" =~ ^[A-Z0-9]{10}$ ]]
@@ -162,12 +164,8 @@ jobs:
             type = attributes.fetch("inAppPurchaseType")
             abort "Remove Ads must be NON_CONSUMABLE; found #{type}." unless type == "NON_CONSUMABLE"
             state = attributes.fetch("state")
-            if state == "MISSING_METADATA"
-              warn "::warning::Remove Ads metadata is incomplete. Continuing this internal TestFlight upload, but purchase testing remains blocked until the metadata is complete and the Paid Apps Agreement is Active."
-            else
-              allowed = %w[READY_TO_SUBMIT WAITING_FOR_REVIEW IN_REVIEW PENDING_BINARY_APPROVAL APPROVED]
-              abort "Remove Ads is not release-ready: #{state}" unless allowed.include?(state)
-            end
+            allowed = %w[READY_TO_SUBMIT WAITING_FOR_REVIEW IN_REVIEW PENDING_BINARY_APPROVAL APPROVED]
+            abort "Remove Ads is not production-ready: #{state}" unless allowed.include?(state)
             puts purchase.fetch("id")
           ' "$iap_response")"
           [[ -n "$iap_id" ]]
@@ -353,8 +351,8 @@ jobs:
             "$app_root/assets/brand-logo-master.jpeg"
           cp release-overlay/scripts/embed-web-app.mjs \
             "$app_root/scripts/embed-web-app.mjs"
-          cp release-overlay/scripts/configure-ios-test.sh \
-            "$app_root/scripts/configure-ios-test.sh"
+          cp release-overlay/scripts/configure-ios-production.sh \
+            "$app_root/scripts/configure-ios-production.sh"
           cp release-overlay/scripts/verify-test-release.mjs \
             "$app_root/scripts/verify-test-release.mjs"
           cp release-overlay/scripts/finalize-ios-notices.mjs \
@@ -373,7 +371,7 @@ jobs:
 
           cd "$app_root"
           node scripts/embed-web-app.mjs app.html src/appHtml.ts
-          bash scripts/configure-ios-test.sh "$app_root"
+          bash scripts/configure-ios-production.sh "$app_root"
 
           plist_path="$app_root/ios/$SCHEME/Info.plist"
           project_path="$app_root/ios/$SCHEME.xcodeproj/project.pbxproj"
@@ -466,7 +464,7 @@ jobs:
           grep -Fqi 'openiap' "$APP_ROOT/src/thirdPartyNotices.ts"
           grep -Fqi 'expo-tracking-transparency' "$APP_ROOT/src/thirdPartyNotices.ts"
 
-      - name: Sign, validate, and upload internal TestFlight build
+      - name: Sign, validate, and upload production build
         shell: bash
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
@@ -528,7 +526,7 @@ jobs:
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist")" == "$IOS_BUNDLE_ID" ]]
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist")" == "$MARKETING_VERSION" ]]
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")" == "$BUILD_NUMBER" ]]
-          [[ "$(/usr/libexec/PlistBuddy -c 'Print :GADApplicationIdentifier' "$plist")" == "$GOOGLE_TEST_APP_ID" ]]
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :GADApplicationIdentifier' "$plist")" == "$ADMOB_PRODUCTION_APP_ID" ]]
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :GADDelayAppMeasurementInit' "$plist")" == "true" ]]
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :NSUserTrackingUsageDescription' "$plist")" == "Your permission allows this app and its advertising partners to use a device identifier to measure non-personalized ads. Denying permission does not limit app features." ]]
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$plist")" == "Grocery Benefits Tracker" ]]
@@ -554,7 +552,11 @@ jobs:
               exit 1
             fi
           done < <(find "$app_path" -type f \( -name "*.plist" -o -name "*.strings" \) -print)
-          grep -aFq "$GOOGLE_TEST_BANNER_ID" "$app_path/main.jsbundle"
+          # The Google Mobile Ads module contains its built-in TestIds constant
+          # even when the reviewed runtime branch selects only the live unit.
+          # Require the live ID; source tests and packaged Info.plist checks
+          # verify the production fail-closed selection and publisher ownership.
+          grep -aFq "$ADMOB_PRODUCTION_BANNER_ID" "$app_path/main.jsbundle"
           grep -aFq 'requestNonPersonalizedAdsOnly' "$app_path/main.jsbundle"
 
           plutil -create xml1 "$export_options"
@@ -564,7 +566,6 @@ jobs:
           /usr/libexec/PlistBuddy -c "Add :teamID string $APPLE_TEAM_ID" "$export_options"
           /usr/libexec/PlistBuddy -c 'Add :manageAppVersionAndBuildNumber bool false' "$export_options"
           /usr/libexec/PlistBuddy -c 'Add :uploadSymbols bool true' "$export_options"
-          /usr/libexec/PlistBuddy -c 'Add :testFlightInternalTestingOnly bool true' "$export_options"
 
           mkdir -p "$export_path"
           xcodebuild \
@@ -581,14 +582,14 @@ jobs:
         shell: bash
         run: |
           {
-            echo "## Internal TestFlight upload complete"
+            echo "## Production App Store Connect upload complete"
             echo
             echo "- App Store ID: $APP_STORE_ID"
             echo "- Bundle ID: $IOS_BUNDLE_ID"
             echo "- Version: $MARKETING_VERSION ($BUILD_NUMBER)"
             echo "- Owner-authorized build: $BUILD_NUMBER"
-            echo "- Ads: official Google test IDs; non-personalized treatment forced; ATT resolved before SDK initialization"
-            echo "- Distribution: permanently internal TestFlight only"
+            echo "- Ads: reviewed live AdMob IDs; non-personalized treatment forced; ATT resolved before SDK initialization"
+            echo "- Distribution: App Store Connect production candidate; not submitted for review by this workflow"
             echo
-            echo "Wait for Apple processing, then add this build to an internal tester group."
+            echo "Wait for Apple processing, review the signed privacy inventory, then select this build for version 1.0."
           } >> "$GITHUB_STEP_SUMMARY"

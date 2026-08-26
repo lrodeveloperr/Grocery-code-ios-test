@@ -25,7 +25,7 @@ function sourceSection(source: string, start: string, end: string): string {
   return source.slice(startIndex, endIndex);
 }
 
-test("keeps one non-personalized banner behind StoreKit, legal, and UMP gates", () => {
+test("keeps one non-personalized banner behind StoreKit, legal, UMP, and ATT gates", () => {
   for (const obsolete of [
     "publisherAdsAllowed",
     "publisher-ad-choice",
@@ -43,6 +43,8 @@ test("keeps one non-personalized banner behind StoreKit, legal, and UMP gates", 
 
   expect(occurrences(nativeSource, "AdsConsent.gatherConsent()")).toBe(1);
   expect(occurrences(nativeSource, "mobileAds().initialize()")).toBe(1);
+  expect(occurrences(nativeSource, "getTrackingPermissionsAsync()")).toBe(1);
+  expect(occurrences(nativeSource, "requestTrackingPermissionsAsync()")).toBe(1);
   expect(occurrences(nativeSource, "<BannerAd")).toBe(1);
   expect(occurrences(nativeSource, "requestNonPersonalizedAdsOnly: true")).toBe(1);
   expect(nativeSource).toContain('const testAds = adProfile === "test";');
@@ -116,6 +118,28 @@ test("keeps one non-personalized banner behind StoreKit, legal, and UMP gates", 
   );
   expect(sharedAdGate).not.toContain("reportedCanRequestAds");
 
+  const trackingGate = sourceSection(
+    nativeSource,
+    "  const resolveTrackingAuthorization =",
+    "  const ensureAdsInitialized =",
+  );
+  expect(trackingGate).toContain("getTrackingPermissionsAsync()");
+  expect(trackingGate).toContain('current.status !== "undetermined"');
+  expect(trackingGate).toContain("requestTrackingPermissionsAsync()");
+  expect(trackingGate).toContain('result.status !== "undetermined"');
+
+  const initializationGate = sourceSection(
+    nativeSource,
+    "  const ensureAdsInitialized =",
+    "  const startAdsIfAllowed =",
+  );
+  expect(initializationGate.indexOf("await resolveTrackingAuthorization()")).toBeLessThan(
+    initializationGate.indexOf("mobileAds().setRequestConfiguration"),
+  );
+  expect(initializationGate.indexOf("mobileAds().setRequestConfiguration")).toBeLessThan(
+    initializationGate.indexOf("mobileAds().initialize()"),
+  );
+
   const consentEffect = sourceSection(
     nativeSource,
     '  useEffect(() => {\n    if (\n      removeAdsEntitlement !== "not-entitled"',
@@ -156,7 +180,7 @@ test("keeps one non-personalized banner behind StoreKit, legal, and UMP gates", 
   expect(bannerStyle).toContain("right: 0");
   expect(nativeSource).toContain("BannerAdSize.BANNER");
   expect(nativeSource).not.toMatch(/\b(?:InterstitialAd|RewardedAd|RewardedInterstitialAd|AppOpenAd|NativeAd)\b/);
-  expect(nativeSource).not.toMatch(/AppTrackingTransparency|requestTrackingAuthorization|ATTrackingManager/);
+  expect(nativeSource).toContain('from "expo-tracking-transparency"');
 
   expect(nativeSource).toContain("AdsConsentPrivacyOptionsRequirementStatus.REQUIRED");
   expect(nativeSource).toContain(
@@ -354,8 +378,8 @@ test("moves the localized safety disclosure from the drawer into Help", () => {
     ["Rastreador independiente y local. No requiere cuenta ni perfil y no contiene analítica o telemetría operada por el editor. Los datos principales del rastreador se almacenan en la aplicación en este dispositivo y no se cargan a un servidor controlado por el operador; las exportaciones y copias de seguridad se explican en la Política de Privacidad. Sin una compra única activa para eliminar anuncios, la aplicación muestra un anuncio fijo de banner no personalizado. Google puede procesar datos del dispositivo y de publicidad según se explica en la Política de Privacidad. La aplicación nunca solicita un PIN de EBT/WIC ni se conecta a una cuenta gubernamental de beneficios.", 2],
     ["Locally entered balances, benefits, grocery items, budgets, and History are not sent as ad parameters.", 2],
     ["No hay cuenta ni perfil. Los saldos, beneficios, artículos, presupuestos e Historial introducidos localmente no se envían como parámetros publicitarios.", 2],
-    ["Independent app—not affiliated with or endorsed by USDA/FNS, Puerto Rico ADSEF, any SNAP/PAN or WIC agency, retailer, or card issuer. It does not provide official balances, eligibility decisions, retailer acceptance, or product authorization. Official sources control.", 3],
-    ["Aplicación independiente: no está afiliada ni respaldada por USDA/FNS, ADSEF de Puerto Rico, una agencia de SNAP/PAN o WIC, un comercio ni un emisor de tarjeta. No ofrece saldos oficiales, decisiones de elegibilidad, aceptación de comercios ni autorización de productos. Prevalecen las fuentes oficiales.", 3],
+    ["Independent app—not affiliated with or endorsed by USDA Food and Nutrition Administration (FNA; formerly FNS), Puerto Rico ADSEF, any SNAP/PAN or WIC agency, retailer, or card issuer. It does not provide official balances, eligibility decisions, retailer acceptance, or product authorization. Official sources control.", 3],
+    ["Aplicación independiente: no está afiliada ni respaldada por Administración de Alimentos y Nutrición del USDA (FNA; anteriormente FNS), ADSEF de Puerto Rico, una agencia de SNAP/PAN o WIC, un comercio ni un emisor de tarjeta. No ofrece saldos oficiales, decisiones de elegibilidad, aceptación de comercios ni autorización de productos. Prevalecen las fuentes oficiales.", 3],
   ];
   for (const [value, expectedOccurrences] of localizedCopy) {
     expect(occurrences(webSource, value)).toBe(expectedOccurrences);
@@ -372,6 +396,7 @@ test("ships one reviewed native non-consumable and no Benefits & Resources direc
   expect(purchaseSource).not.toMatch(/react-native-iap|QA_PURCHASES|subscription/);
   expect(webSource).not.toMatch(/expo-iap|react-native-iap|anonymousReport/);
   expect(iosNoticeSource).toContain("expo-iap@5.2.4");
+  expect(iosNoticeSource).toContain("expo-tracking-transparency@57.0.1");
   expect(iosNoticeSource).toContain('["openiap"]');
   expect(iosNoticeSource).toContain(
     "Pods-SNAPEBTGroceryTrackerQA-acknowledgements.markdown",

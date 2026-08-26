@@ -58,6 +58,9 @@ const npmNotices = readFileSync(noticePath, "utf8")
 if (!npmNotices.includes("expo-iap@5.2.4")) {
   throw new Error("The npm third-party notices are missing expo-iap@5.2.4.");
 }
+if (!npmNotices.includes("expo-tracking-transparency@57.0.1")) {
+  throw new Error("The npm third-party notices are missing expo-tracking-transparency@57.0.1.");
+}
 
 const combinedNotices = `${npmNotices}\n\n${marker}\n\n${nativeNotices}\n`;
 writeFileSync(noticePath, combinedNotices);

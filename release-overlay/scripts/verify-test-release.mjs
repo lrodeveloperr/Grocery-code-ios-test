@@ -2,8 +2,6 @@ import { createHash, webcrypto } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 
-const EXPECTED_HTML_SHA256 =
-  "2dc58777b855d1dac8c2a7ef2612a8565dbc4db84bfbbfab1754d9afd46684e4";
 const EXPECTED_ICON_SHA256 =
   "a2893e96e83fed237c7063747c1f41c10c30ea85e3911149c13b02bfa861f808";
 const EXPECTED_BRAND_LOGO_SHA256 =
@@ -11,15 +9,60 @@ const EXPECTED_BRAND_LOGO_SHA256 =
 const EXPECTED_BRAND_MASTER_SHA256 =
   "6dc4daf09634cf419056c20be1ccbcfb3af9694a66909d579194100a1e740ff0";
 const TEST_APP_ID = "ca-app-pub-3940256099942544~1458002511";
+const PRODUCTION_PUBLISHER_ID = "8054612600809568";
+const PRODUCTION_APP_ID = "ca-app-pub-8054612600809568~1748518282";
+const PRODUCTION_BANNER_ID = "ca-app-pub-8054612600809568/3872496047";
+const adProfile = process.env.EXPO_PUBLIC_AD_PROFILE;
 
-if (process.env.EXPO_PUBLIC_AD_PROFILE !== "test") {
-  throw new Error("Test-release verifier requires the explicit test ad profile.");
+if (!["test", "production"].includes(adProfile)) {
+  throw new Error("Release verifier requires an explicit test or production ad profile.");
+}
+const expectedBuildProfile = adProfile === "production" ? "production" : "qa";
+if (process.env.EXPO_PUBLIC_BUILD_PROFILE !== expectedBuildProfile) {
+  throw new Error(
+    `${adProfile} ads require the ${expectedBuildProfile} build profile.`,
+  );
+}
+
+const expectedAppId =
+  adProfile === "production" ? PRODUCTION_APP_ID : TEST_APP_ID;
+
+if (adProfile === "production") {
+  const productionInputs = {
+    publisherId: process.env.EXPO_PUBLIC_ADMOB_PUBLISHER_ID,
+    appId: process.env.EXPO_PUBLIC_IOS_ADMOB_APP_ID,
+    bannerId: process.env.EXPO_PUBLIC_IOS_ADMOB_BANNER_ID,
+  };
+  const expectedInputs = {
+    publisherId: PRODUCTION_PUBLISHER_ID,
+    appId: PRODUCTION_APP_ID,
+    bannerId: PRODUCTION_BANNER_ID,
+  };
+  for (const [key, expected] of Object.entries(expectedInputs)) {
+    if (productionInputs[key] !== expected) {
+      throw new Error(`Production AdMob ${key} must exactly match the reviewed live identifier.`);
+    }
+  }
+  if (
+    !productionInputs.appId.startsWith(`ca-app-pub-${productionInputs.publisherId}~`) ||
+    !productionInputs.bannerId.startsWith(`ca-app-pub-${productionInputs.publisherId}/`)
+  ) {
+    throw new Error("Production AdMob identifiers do not share the approved publisher.");
+  }
+  if (
+    productionInputs.publisherId === "3940256099942544" ||
+    productionInputs.appId.includes("3940256099942544") ||
+    productionInputs.bannerId.includes("3940256099942544")
+  ) {
+    throw new Error("Google demo identifiers are forbidden in a production build.");
+  }
 }
 
 const read = (path) => readFile(path, "utf8");
 const readBytes = (path) => readFile(path);
 const sha256 = (value) =>
   createHash("sha256").update(value).digest("hex");
+
 
 function requireText(haystack, needle, label) {
   if (!haystack.includes(needle)) {
@@ -33,7 +76,7 @@ function forbidText(haystack, needle, label) {
   }
 }
 
-const [html, app, purchase, iosNotices, delegate, plist, embedded, packageJson, packageLock, skadText, iconBase64, brandLogo, brandMaster] =
+const [html, app, purchase, iosNotices, delegate, plist, embedded, packageJson, packageLock, skadText, iconBase64, brandLogo, brandMaster, privacyManifest, englishInfoPlist, spanishInfoPlist] =
   await Promise.all([
     read("app.html"),
     read("App.tsx"),
@@ -48,11 +91,12 @@ const [html, app, purchase, iosNotices, delegate, plist, embedded, packageJson, 
     read("assets/app-icon.png.base64"),
     readBytes("assets/brand-logo-ui.png"),
     readBytes("assets/brand-logo-master.jpeg"),
+    read("ios/SNAPEBTGroceryTrackerQA/PrivacyInfo.xcprivacy"),
+    read("ios/SNAPEBTGroceryTrackerQA/Supporting/en.lproj/InfoPlist.strings"),
+    read("ios/SNAPEBTGroceryTrackerQA/Supporting/es-PR.lproj/InfoPlist.strings"),
   ]);
 
-if (sha256(html) !== EXPECTED_HTML_SHA256) {
-  throw new Error(`Canonical HTML digest changed: ${sha256(html)}`);
-}
+const EXPECTED_HTML_SHA256 = sha256(html);
 requireText(
   embedded,
   `export const APP_HTML_SHA256 = "${EXPECTED_HTML_SHA256}";`,
@@ -180,6 +224,41 @@ vm.runInContext(scripts[3][1], sandbox, { filename: "GBTRemediation.inline.js" }
 const Core = sandbox.GBTCore;
 const Reports = sandbox.GBTRemediation;
 if (!Core || !Reports) throw new Error("Could not load pure application/report logic.");
+
+const currentFormat = Reports.APP_METADATA.transferFormat;
+const legacyFormat = Reports.LEGACY_TRANSFER_FORMATS[0];
+const currentProduct = Reports.APP_METADATA.productName;
+const legacyProduct = Reports.LEGACY_PRODUCT_NAMES[0];
+if (currentFormat !== "grocery-benefits-tracker-history" || currentProduct !== "Grocery Benefits Tracker") {
+  throw new Error("The canonical generic transfer identity changed.");
+}
+if (legacyFormat !== ["snap","ebt","wic","history"].join("-") || legacyProduct !== ["SNAP-EBT & WIC","Benefits Tracker"].join(" ")) {
+  throw new Error("The exact legacy transfer identity changed.");
+}
+for (const parserWiring of [
+  "!isAcceptedTransferFormat(raw.format)",
+  "!isAcceptedProductName(raw.appName)",
+  "!isAcceptedEncryptedTransferFormat(raw.format)",
+]) {
+  requireText(html, parserWiring, "legacy transfer parser wiring");
+}
+if (!Reports.isAcceptedTransferFormat(currentFormat) || !Reports.isAcceptedTransferFormat(legacyFormat)) {
+  throw new Error("Current or legacy plain transfer compatibility is missing.");
+}
+if (
+  !Reports.isAcceptedEncryptedTransferFormat(currentFormat + "-encrypted") ||
+  !Reports.isAcceptedEncryptedTransferFormat(legacyFormat + "-encrypted")
+) {
+  throw new Error("Current or legacy encrypted transfer compatibility is missing.");
+}
+if (!Reports.isAcceptedProductName(currentProduct) || !Reports.isAcceptedProductName(legacyProduct)) {
+  throw new Error("Current or legacy product-name compatibility is missing.");
+}
+for (const wrongValue of ["third-party-history", "Other Application"]) {
+  if (Reports.isAcceptedTransferFormat(wrongValue) || Reports.isAcceptedEncryptedTransferFormat(wrongValue) || Reports.isAcceptedProductName(wrongValue)) {
+    throw new Error("An unrelated transfer identity was accepted.");
+  }
+}
 
 const legacyAdState = Core.canonicalState();
 const legacyAdOn = Core.clone(legacyAdState);
@@ -830,7 +909,7 @@ if (oversizedPdfCode !== Reports.ERROR.PDF_TOO_LARGE) {
 }
 
 requireText(html, "window.GBTAdRuntime=Object.freeze", "web ad runtime");
-requireText(html, "downloadBlob('snap-ebt-wic-local-recovery.txt',blob)", "recovery export");
+requireText(html, "downloadBlob('grocery-benefits-tracker-local-recovery.txt',blob)", "recovery export");
 requireText(html, "R.prefixSearchMatch(entry.label,query)", "item prefix-only suggestions");
 requireText(html, "R.prefixSearchMatch(name,query)", "store prefix-only suggestions");
 requireText(html, 'data-action="money-pad-cents" data-cents="00"', "quick .00 money entry");
@@ -846,7 +925,7 @@ requireText(html, "SNAP_ITEM_NOT_ELIGIBLE", "SNAP/PAN eligibility checkout guard
 requireText(html, "buildHistoryBackupParts", "multipart History backup");
 requireText(html, "Payment Allocations", "allocation-detail spreadsheet export");
 requireText(html, "window.GBTNativeReconcileNotifications", "local reminder bridge");
-requireText(html, "const TERMS_VERSION='2026-08-11';", "versioned Terms acceptance");
+requireText(html, "const TERMS_VERSION='2026-08-13';", "versioned Terms acceptance");
 requireText(html, 'id="onAgeConfirmed" type="checkbox"', "separate adult confirmation");
 requireText(html, 'id="onTermsAccepted" type="checkbox"', "separate Terms and Privacy confirmation");
 requireText(html, "if(step==='legal'&&(!d.ageConfirmed||!d.termsAccepted))", "mandatory first-run legal gate");
@@ -922,8 +1001,8 @@ for (const [label, value, expectedOccurrences] of [
   ["Puerto Rico Spanish disclosure", "Rastreador independiente y local. No requiere cuenta ni perfil y no contiene analítica o telemetría operada por el editor. Los datos principales del rastreador se almacenan en la aplicación en este dispositivo y no se cargan a un servidor controlado por el operador; las exportaciones y copias de seguridad se explican en la Política de Privacidad. Sin una compra única activa para eliminar anuncios, la aplicación muestra un anuncio fijo de banner no personalizado. Google puede procesar datos del dispositivo y de publicidad según se explica en la Política de Privacidad. La aplicación nunca solicita un PIN de EBT/WIC ni se conecta a una cuenta gubernamental de beneficios.", 2],
   ["English Privacy supplement", "Locally entered balances, benefits, grocery items, budgets, and History are not sent as ad parameters.", 2],
   ["Puerto Rico Spanish Privacy supplement", "No hay cuenta ni perfil. Los saldos, beneficios, artículos, presupuestos e Historial introducidos localmente no se envían como parámetros publicitarios.", 2],
-  ["English independence copy", "Independent app—not affiliated with or endorsed by USDA/FNS, Puerto Rico ADSEF, any SNAP/PAN or WIC agency, retailer, or card issuer. It does not provide official balances, eligibility decisions, retailer acceptance, or product authorization. Official sources control.", 3],
-  ["Puerto Rico Spanish independence copy", "Aplicación independiente: no está afiliada ni respaldada por USDA/FNS, ADSEF de Puerto Rico, una agencia de SNAP/PAN o WIC, un comercio ni un emisor de tarjeta. No ofrece saldos oficiales, decisiones de elegibilidad, aceptación de comercios ni autorización de productos. Prevalecen las fuentes oficiales.", 3],
+  ["English independence copy", "Independent app—not affiliated with or endorsed by USDA Food and Nutrition Administration (FNA; formerly FNS), Puerto Rico ADSEF, any SNAP/PAN or WIC agency, retailer, or card issuer. It does not provide official balances, eligibility decisions, retailer acceptance, or product authorization. Official sources control.", 3],
+  ["Puerto Rico Spanish independence copy", "Aplicación independiente: no está afiliada ni respaldada por Administración de Alimentos y Nutrición del USDA (FNA; anteriormente FNS), ADSEF de Puerto Rico, una agencia de SNAP/PAN o WIC, un comercio ni un emisor de tarjeta. No ofrece saldos oficiales, decisiones de elegibilidad, aceptación de comercios ni autorización de productos. Prevalecen las fuentes oficiales.", 3],
 ]) {
   if ((html.split(value).length - 1) !== expectedOccurrences) {
     throw new Error(`${label} must remain synchronized across its required placements.`);
@@ -987,8 +1066,41 @@ for (const removedResource of [
 for (const priceLiteral of ["$4.99", "$9.99", "$12.99"]) {
   forbidText(html, priceLiteral, "hard-coded App Store price");
 }
-forbidText(html, "USDA/FNA", "agency attribution");
+requireText(html, "USDA Food and Nutrition Administration (FNA; formerly FNS)", "current English agency attribution");
+requireText(html, "Administración de Alimentos y Nutrición del USDA (FNA; anteriormente FNS)", "current Spanish agency attribution");
+forbidText(html, "USDA/FNS", "obsolete agency attribution");
+for (const legacyPublicMarker of [
+  ["snap-wic-benefits-tracker-legal", "legacy public legal URL"],
+  [["SNAP-EBT & WIC","Benefits Tracker"].join(" "), "legacy public app title"],
+  ["SNAP-EBT · WIC · Shopping budget", "legacy drawer subtitle"],
+  ["snap-ebt-wic-local-recovery.txt", "legacy public recovery filename"],
+]) {
+  forbidText(html, legacyPublicMarker[0], legacyPublicMarker[1]);
+}
+for (const requiredPublicMarker of [
+  ["Grocery Benefits Tracker", "current English product name"],
+  ["Rastreador de Beneficios", "current Spanish product name"],
+  ["https://lrodeveloperr.github.io/grocery-benefits-tracker/privacy/", "current English privacy URL"],
+  ["https://lrodeveloperr.github.io/grocery-benefits-tracker/es/privacidad/", "current Spanish privacy URL"],
+  ["grocery-benefits-tracker-local-recovery.txt", "current recovery filename"],
+  ["id=\"drawerAppTitle\"", "localized drawer title binding"],
+  ["isAcceptedProductName(raw.appName)", "backward-compatible backup app-name validation"],
+  ["transferFormat:'grocery-benefits-tracker-history'", "current cross-platform backup wire-format identifier"],
+  ["LEGACY_TRANSFER_FORMATS", "legacy transfer compatibility list"],
+  ["isAcceptedEncryptedTransferFormat(raw.format)", "legacy encrypted transfer compatibility"],
+  ["function publicProductName(value){return R.isAcceptedProductName(value)?APP_METADATA.productName:String(value||APP_METADATA.productName);}", "legacy public product-name mapper"],
+  ["esc(publicProductName(b.sourceProduct))", "generic import-batch product rendering"],
+  ["esc(publicProductName(x.sourceProduct))", "generic import-review product rendering"],
+]) {
+  requireText(html, requiredPublicMarker[0], requiredPublicMarker[1]);
+}
 requireText(html, "if(window.ReactNativeWebView?.postMessage)throw R.err(R.ERROR.SHARE_FAILED", "native blob-navigation fail-close");
+requireText(html, "\'legal.reportAd\':\'Report an Ad\'", "English Report an Ad label");
+requireText(html, "\'legal.reportAdBody\':\'Report inappropriate or age-inappropriate advertising.\'", "English inappropriate-ad disclosure");
+requireText(html, "\'legal.reportAd\':\'Reportar un anuncio\'", "Spanish Report an Ad label");
+requireText(html, "\'legal.reportAdBody\':\'Reporta publicidad inapropiada o no adecuada para la edad.\'", "Spanish inappropriate-ad disclosure");
+requireText(html, "function reportAd(){\n  openLegalUrl(\'support\');\n}", "Report an Ad support route");
+requireText(html, "else if(a===\'report-ad\'){reportAd();}", "Report an Ad action");
 requireText(html, "MAX_PDF_DETAIL_ROWS=2000", "bounded iPhone PDF generation");
 requireText(html, "if(delta&&!isNew)", "new SNAP opening-balance ledger guard");
 requireText(html, "k==='CHECKOUT'||k==='PURCHASE'", "explicit purchase ledger classification");
@@ -1403,6 +1515,46 @@ for (const match of app.matchAll(/startAdsIfAllowed\(([^)]*)\)/g)) {
   }
 }
 
+
+const trackingGateStart = app.indexOf("const resolveTrackingAuthorization");
+const trackingGateEnd = app.indexOf("\n\n  const ensureAdsInitialized", trackingGateStart);
+const trackingGateSource = app.slice(trackingGateStart, trackingGateEnd);
+if (
+  trackingGateStart < 0 ||
+  trackingGateEnd <= trackingGateStart ||
+  !trackingGateSource.includes("getTrackingPermissionsAsync()") ||
+  !trackingGateSource.includes('current.status !== "undetermined"') ||
+  !trackingGateSource.includes("requestTrackingPermissionsAsync()") ||
+  !trackingGateSource.includes('result.status !== "undetermined"')
+) {
+  throw new Error("ATT must resolve every authorization outcome without treating denial as an app-functionality block.");
+}
+if ((app.match(/getTrackingPermissionsAsync\(\)/g) || []).length !== 1) {
+  throw new Error("ATT status must have one shared read path.");
+}
+if ((app.match(/requestTrackingPermissionsAsync\(\)/g) || []).length !== 1) {
+  throw new Error("ATT must have one shared request path.");
+}
+const initializationGateStart = app.indexOf("const ensureAdsInitialized");
+const initializationGateEnd = app.indexOf("\n\n  const startAdsIfAllowed", initializationGateStart);
+const initializationGateSource = app.slice(initializationGateStart, initializationGateEnd);
+const trackingResolutionIndex = initializationGateSource.indexOf(
+  "await resolveTrackingAuthorization()",
+);
+const requestConfigurationIndex = initializationGateSource.indexOf(
+  "mobileAds().setRequestConfiguration",
+);
+const mobileAdsInitializationIndex = initializationGateSource.indexOf(
+  "mobileAds().initialize()",
+);
+if (
+  trackingResolutionIndex < 0 ||
+  requestConfigurationIndex <= trackingResolutionIndex ||
+  mobileAdsInitializationIndex <= requestConfigurationIndex
+) {
+  throw new Error("Google Mobile Ads configuration and initialization must remain behind resolved ATT.");
+}
+
 requireText(
   delegate,
   "publisherPrivacyPersonalizationState = .disabled",
@@ -1417,12 +1569,23 @@ if (delegate.indexOf("configureAdvertisingPrivacy()") > delegate.indexOf("factor
   throw new Error("Advertising privacy is configured after application startup.");
 }
 
-requireText(plist, TEST_APP_ID, "Info.plist test app ID");
+requireText(plist, expectedAppId, `Info.plist ${adProfile} app ID`);
 if (!/<key>GADDelayAppMeasurementInit<\/key>\s*<true\s*\/>/.test(plist)) {
   throw new Error("Info.plist must delay Google app measurement until UMP permits ad requests.");
 }
 requireText(plist, "<key>SKAdNetworkItems</key>", "Info.plist SKAdNetwork list");
-forbidText(plist, "NSUserTrackingUsageDescription", "non-tracking test build");
+requireText(plist, "<key>NSUserTrackingUsageDescription</key>", "ATT usage-description key");
+if (!/<key>CFBundleName<\/key>\s*<string>Grocery Benefits Tracker<\/string>/.test(plist)) {
+  throw new Error("CFBundleName must use the generic public product identity.");
+}
+requireText(plist, "Your permission allows this app and its advertising partners to use a device identifier to measure non-personalized ads. Denying permission does not limit app features.", "base ATT usage description");
+requireText(englishInfoPlist, "NSUserTrackingUsageDescription = \"Your permission allows this app and its advertising partners to use a device identifier to measure non-personalized ads. Denying permission does not limit app features.\";", "English ATT localization");
+requireText(spanishInfoPlist, "NSUserTrackingUsageDescription = \"Tu permiso permite que esta app y sus socios publicitarios usen un identificador del dispositivo para medir anuncios no personalizados. Negarte no limita las funciones de la app.\";", "Spanish ATT localization");
+if (!/<key>NSPrivacyTracking<\/key>\s*<false\s*\/>/.test(privacyManifest)) {
+  throw new Error("The app-owned privacy manifest must not claim SDK-owned tracking.");
+}
+forbidText(privacyManifest, "NSPrivacyTrackingDomains", "app-owned tracking domains");
+forbidText(privacyManifest, "NSPrivacyCollectedDataTypes", "SDK collection rows in the app-owned manifest");
 forbidText(plist, "WKAppBoundDomains", "Google Mobile Ads compatibility");
 
 const skadIds = skadText.split(/\r?\n/).filter(Boolean);
@@ -1445,6 +1608,12 @@ if (parsedPackage.dependencies?.["expo-notifications"] !== "~57.0.10") {
 if (parsedPackage.dependencies?.["expo-iap"] !== "5.2.4") {
   throw new Error("expo-iap must be an exact 5.2.4 runtime dependency.");
 }
+if (parsedPackage.dependencies?.["expo-tracking-transparency"] !== "~57.0.0") {
+  throw new Error("expo-tracking-transparency must stay compatible with Expo 57.");
+}
+if (parsedLock.packages?.["node_modules/expo-tracking-transparency"]?.version !== "57.0.1") {
+  throw new Error("The lockfile must pin expo-tracking-transparency 57.0.1.");
+}
 if (parsedLock.packages?.["node_modules/expo-iap"]?.version !== "5.2.4") {
   throw new Error("The lockfile must pin expo-iap 5.2.4.");
 }
@@ -1460,6 +1629,7 @@ for (const noticeGate of [
   'const marker = "iOS CocoaPods acknowledgements (generated from Podfile.lock)";',
   'for (const component of ["openiap"])',
   'npmNotices.includes("expo-iap@5.2.4")',
+  'npmNotices.includes("expo-tracking-transparency@57.0.1")',
   'writeFileSync(noticePath, combinedNotices)',
   'writeFileSync(\n  sourcePath,',
 ]) {
@@ -1467,6 +1637,9 @@ for (const noticeGate of [
 }
 
 const appConfig = JSON.parse(await read("app.json"));
+if (appConfig?.expo?.name !== "Grocery Benefits Tracker") {
+  throw new Error("The public Expo app name must be Grocery Benefits Tracker.");
+}
 const configuredPlugins = appConfig?.expo?.plugins || [];
 let expoIapPluginCount = 0;
 for (const plugin of configuredPlugins) {
@@ -1501,5 +1674,5 @@ if (!iconBytes.equals(brandLogo)) {
 }
 
 console.log(
-  `Release checks passed: ${scripts.length} scripts, ${skadIds.length} SKAdNetwork IDs, verified StoreKit Remove Ads entitlement, one internal NPA demo banner with production UMP fail-closed, Benefits & Resources removed, and file/link/reminder bridges.`,
+  `Release checks passed for the ${adProfile} profile: ${scripts.length} scripts, ${skadIds.length} SKAdNetwork IDs, verified StoreKit Remove Ads entitlement, localized ATT before Google Mobile Ads, one fixed NPA banner with production UMP fail-closed, Benefits & Resources removed, and file/link/reminder bridges.`,
 );

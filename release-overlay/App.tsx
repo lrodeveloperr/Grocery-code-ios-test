@@ -1,4 +1,8 @@
 import { Directory, File, Paths } from "expo-file-system";
+import {
+  getTrackingPermissionsAsync,
+  requestTrackingPermissionsAsync,
+} from "expo-tracking-transparency";
 import * as Notifications from "expo-notifications";
 import * as Sharing from "expo-sharing";
 import { StatusBar } from "expo-status-bar";
@@ -669,6 +673,7 @@ function fileUti(name: string, mimeType?: string) {
 export default function App() {
   const webViewRef = useRef<WebViewHandle>(null);
   const adsInitializationRef = useRef<Promise<boolean> | null>(null);
+  const trackingAuthorizationRef = useRef<Promise<boolean> | null>(null);
   const previousWebAdStateRef = useRef("AD_LOADING");
   const removeAdsEntitlementRef =
     useRef<RemoveAdsEntitlementState>("checking");
@@ -995,9 +1000,31 @@ export default function App() {
     setRemoveAdsOperationState,
   ]);
 
+  const resolveTrackingAuthorization = useCallback(async () => {
+    if (!trackingAuthorizationRef.current) {
+      trackingAuthorizationRef.current = (async () => {
+        const current = await getTrackingPermissionsAsync();
+        if (current.status !== "undetermined") return true;
+        const result = await requestTrackingPermissionsAsync();
+        return result.status !== "undetermined";
+      })().catch((error) => {
+        trackingAuthorizationRef.current = null;
+        throw error;
+      });
+    }
+    const resolution = trackingAuthorizationRef.current;
+    const resolved = await resolution;
+    if (!resolved && trackingAuthorizationRef.current === resolution) {
+      trackingAuthorizationRef.current = null;
+    }
+    return resolved;
+  }, []);
+
   const ensureAdsInitialized = useCallback(async () => {
     if (removeAdsEntitlementRef.current !== "not-entitled") return false;
     if (!adProfileConfigured) return false;
+    if (!(await resolveTrackingAuthorization())) return false;
+    if (removeAdsEntitlementRef.current !== "not-entitled") return false;
     if (!adsInitializationRef.current) {
       adsInitializationRef.current = (async () => {
         await mobileAds().setRequestConfiguration({
@@ -1020,7 +1047,7 @@ export default function App() {
       initialized &&
       removeAdsEntitlementRef.current === "not-entitled"
     );
-  }, [adProfileConfigured]);
+  }, [adProfileConfigured, resolveTrackingAuthorization]);
 
   const startAdsIfAllowed = useCallback(
     async () => {

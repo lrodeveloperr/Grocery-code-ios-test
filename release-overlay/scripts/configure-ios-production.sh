@@ -12,10 +12,32 @@ icon_b64_path="$app_root/assets/app-icon.png.base64"
 asset_root="$app_root/ios/$target_name/Images.xcassets"
 plist_buddy="/usr/libexec/PlistBuddy"
 
-test_app_id="ca-app-pub-3940256099942544~1458002511"
+production_publisher_id="8054612600809568"
+production_app_id="ca-app-pub-8054612600809568~1748518282"
+production_banner_id="ca-app-pub-8054612600809568/3872496047"
+
+if [[ "${EXPO_PUBLIC_AD_PROFILE:-}" != "production" ]] ||
+  [[ "${EXPO_PUBLIC_ADMOB_PUBLISHER_ID:-}" != "$production_publisher_id" ]] ||
+  [[ "${EXPO_PUBLIC_IOS_ADMOB_APP_ID:-}" != "$production_app_id" ]] ||
+  [[ "${EXPO_PUBLIC_IOS_ADMOB_BANNER_ID:-}" != "$production_banner_id" ]]; then
+  echo "Production AdMob environment does not match the reviewed live identifiers." >&2
+  exit 1
+fi
+
+if [[ "$production_publisher_id" == "3940256099942544" ]] ||
+  [[ "$production_app_id" == *"3940256099942544"* ]] ||
+  [[ "$production_banner_id" == *"3940256099942544"* ]] ||
+  [[ ! "$production_publisher_id" =~ ^[0-9]{16}$ ]] ||
+  [[ ! "$production_app_id" =~ ^ca-app-pub-([0-9]{16})~([0-9]{10})$ ]] ||
+  [[ ! "$production_banner_id" =~ ^ca-app-pub-([0-9]{16})/([0-9]{10})$ ]] ||
+  [[ "$production_app_id" != "ca-app-pub-$production_publisher_id~"* ]] ||
+  [[ "$production_banner_id" != "ca-app-pub-$production_publisher_id/"* ]]; then
+  echo "Production AdMob identifiers are malformed, demo-owned, or publisher-mismatched." >&2
+  exit 1
+fi
 
 if [[ ! -f "$app_json_path" || ! -f "$plist_path" || ! -f "$privacy_manifest_path" || ! -f "$skad_ids_path" || ! -f "$icon_b64_path" ]]; then
-  echo "Required iOS test-release inputs are missing." >&2
+  echo "Required iOS production-release inputs are missing." >&2
   exit 1
 fi
 
@@ -67,7 +89,7 @@ grep -Fq 'com.apple.InAppPurchase' "$project_path/project.pbxproj"
 
 "$plist_buddy" -c "Set :CFBundleDisplayName Grocery Benefits Tracker" "$plist_path"
 "$plist_buddy" -c "Set :CFBundleName Grocery Benefits Tracker" "$plist_path"
-"$plist_buddy" -c "Set :GADApplicationIdentifier $test_app_id" "$plist_path"
+"$plist_buddy" -c "Set :GADApplicationIdentifier $production_app_id" "$plist_path"
 "$plist_buddy" -c "Delete :GADDelayAppMeasurementInit" "$plist_path" 2>/dev/null || true
 "$plist_buddy" -c "Add :GADDelayAppMeasurementInit bool true" "$plist_path"
 "$plist_buddy" -c "Delete :NSUserTrackingUsageDescription" "$plist_path" 2>/dev/null || true
@@ -109,4 +131,4 @@ decoded_icon="$RUNNER_TEMP/snap-ebt-wic-app-icon.png"
 /usr/bin/sips -z 528 528 "$decoded_icon" \
   --out "$asset_root/SplashScreenLogo.imageset/image@3x.png" >/dev/null
 
-echo "Configured StoreKit IAP, generic bundle identity, delayed Google measurement, localized ATT disclosure, app-owned non-tracking privacy manifest, official test app ID, $skad_index SKAdNetwork IDs, and release artwork."
+echo "Configured StoreKit IAP, generic bundle identity, delayed Google measurement, localized ATT disclosure, app-owned non-tracking privacy manifest, reviewed production AdMob app ID, $skad_index SKAdNetwork IDs, and release artwork."
