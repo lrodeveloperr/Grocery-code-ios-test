@@ -68,6 +68,24 @@ class AppDelegate: ExpoAppDelegate {
     let configuration = MobileAds.shared.requestConfiguration
     configuration.publisherPrivacyPersonalizationState = .disabled
     configuration.setPublisherFirstPartyIDEnabled(false)
+
+    // QA physical-device test IDs are injected into Info.plist by the build
+    // configuration. They are applied before React Native can initialize the
+    // Google Mobile Ads SDK. Production builds deliberately receive no IDs.
+    let buildProfile = Bundle.main.object(
+      forInfoDictionaryKey: "GBTAdMobBuildProfile"
+    ) as? String
+    if buildProfile == "qa",
+       let configuredIdentifiers = Bundle.main.object(
+         forInfoDictionaryKey: "GBTAdMobTestDeviceIdentifiers"
+       ) as? [String] {
+      let identifiers = configuredIdentifiers
+        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
+      if !identifiers.isEmpty {
+        configuration.testDeviceIdentifiers = identifiers
+      }
+    }
   }
 
   private func excludeTrackerDatabaseFromBackup() {
