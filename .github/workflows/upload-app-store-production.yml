@@ -581,6 +581,14 @@ jobs:
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" | xcbeautify
 
+      - name: Retain signed privacy inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-${{ env.BUILD_NUMBER }}-privacy-inventory
+          path: ${{ runner.temp }}/privacy-manifest-packaged.json
+          if-no-files-found: error
+          retention-days: 90
+
       - name: Record upload result
         shell: bash
         run: |
