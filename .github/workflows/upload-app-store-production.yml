@@ -332,6 +332,7 @@ jobs:
 
           cp release-overlay/App.tsx "$app_root/App.tsx"
           cp release-overlay/app.html "$app_root/app.html"
+          cp release-overlay/app.config.js "$app_root/app.config.js"
           cp release-overlay/package.json "$app_root/package.json"
           cp release-overlay/package-lock.json "$app_root/package-lock.json"
           cp release-overlay/ios/AppDelegate.swift \
