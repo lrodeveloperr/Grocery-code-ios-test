@@ -1335,6 +1335,14 @@ const storeEffectEnd = app.indexOf(
 );
 const storeEffectSource = app.slice(storeEffectStart, storeEffectEnd);
 const appStateRetryIndex = storeEffectSource.indexOf("AppState.addEventListener(");
+const foregroundReconnectBranchIndex = storeEffectSource.indexOf(
+  'if (active && state === "active")',
+  appStateRetryIndex,
+);
+const foregroundReconnectCallIndex = storeEffectSource.indexOf(
+  "void ensureStoreConnection();",
+  foregroundReconnectBranchIndex,
+);
 const initialStoreConnectIndex = storeEffectSource.lastIndexOf(
   "void ensureStoreConnection();",
 );
@@ -1342,7 +1350,9 @@ if (
   storeEffectStart < 0 ||
   storeEffectEnd <= storeEffectStart ||
   appStateRetryIndex < 0 ||
-  initialStoreConnectIndex <= appStateRetryIndex
+  foregroundReconnectBranchIndex <= appStateRetryIndex ||
+  foregroundReconnectCallIndex <= foregroundReconnectBranchIndex ||
+  initialStoreConnectIndex <= foregroundReconnectCallIndex
 ) {
   throw new Error(
     "StoreKit must install its foreground reconnect path before the initial connection attempt.",
@@ -1351,7 +1361,6 @@ if (
 for (const [needle, label] of [
   ["if (!connectionTask) {", "single-flight StoreKit reconnect"],
   ["connectionTask = null;", "StoreKit reconnect task reset"],
-  ['if (active && state === "active") void ensureStoreConnection();', "foreground StoreKit reconnect"],
   ["appStateSubscription.remove();", "StoreKit foreground-listener cleanup"],
   ["removeAdsStoreRef.current?.close();", "StoreKit connection cleanup"],
   ["removeAdsStoreRef.current = null;", "StoreKit connection reference cleanup"],
