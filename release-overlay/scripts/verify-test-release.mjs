@@ -881,7 +881,7 @@ requireText(html, "SNAP_ITEM_NOT_ELIGIBLE", "SNAP/PAN eligibility checkout guard
 requireText(html, "buildHistoryBackupParts", "multipart History backup");
 requireText(html, "Payment Allocations", "allocation-detail spreadsheet export");
 requireText(html, "window.GBTNativeReconcileNotifications", "local reminder bridge");
-requireText(html, "const TERMS_VERSION='2026-08-11';", "versioned Terms acceptance");
+requireText(html, "const TERMS_VERSION='2026-08-13';", "versioned Terms acceptance");
 requireText(html, 'id="onAgeConfirmed" type="checkbox"', "separate adult confirmation");
 requireText(html, 'id="onTermsAccepted" type="checkbox"', "separate Terms and Privacy confirmation");
 requireText(html, "if(step==='legal'&&(!d.ageConfirmed||!d.termsAccepted))", "mandatory first-run legal gate");
