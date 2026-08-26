@@ -50,3 +50,17 @@ No Apple certificate, private key, provisioning profile, live advertising identi
 Any change affecting advertising, ad identifiers, pricing, in-app purchases, subscriptions, paid entitlements, restore behavior, or another monetization path must receive explicit approval from two independent adversarial reviewers before merge or upload. Either reviewer can block the release. Reviews must test revenue-loss and unintended-free-access paths, while release validation should be batched to avoid unnecessary paid CI or service usage.
 
 Every workflow run that can consume billable runner time or paid external services requires the owner's explicit approval for that exact run. A retry or rerun requires fresh approval. TestFlight uploads must also compare the owner-authorized build number with App Store Connect's calculated next build and stop before compilation if they differ.
+
+## Production App Store lane
+
+`.github/workflows/upload-app-store-production.yml` is the only workflow permitted to package the live AdMob identifiers. It runs from `main` in the protected `app-store-production` environment and requires the exact `UPLOAD PRODUCTION BUILD` confirmation plus an owner-approved build number.
+
+Required environment secrets:
+
+- `ASC_KEY_ID`
+- `ASC_ISSUER_ID`
+- `ASC_PRIVATE_KEY`
+
+The lane validates the App Store app and bundle records, the non-consumable `remove_ads_lifetime` configuration and US$9.99 price, the live AdMob publisher/app/banner ownership match, the packaged privacy manifests, the archive identity and the absence of Google demo inventory. It uploads a production candidate to App Store Connect but does not submit version 1.0 for review.
+
+Canonical listing copy and review notes are in `app-store/APP_STORE_METADATA.md`.
