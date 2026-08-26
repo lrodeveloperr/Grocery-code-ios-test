@@ -1,0 +1,39 @@
+name: Capture IAP review screenshot
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    name: Capture production Remove Ads screen
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install screenshot runtime
+        run: |
+          npm install --prefix "$RUNNER_TEMP/iap-capture" --no-save playwright@1.55.0
+          "$RUNNER_TEMP/iap-capture/node_modules/.bin/playwright" install --with-deps chromium
+
+      - name: Capture actual production purchase screen
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/iap-capture/node_modules/playwright
+        run: node release-overlay/scripts/capture-iap-review.cjs
+
+      - name: Retain IAP review screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: remove-ads-iap-review-screenshot
+          path: release-overlay/artifacts/remove-ads-iap-review-750x1334.png
+          if-no-files-found: error
+          retention-days: 30
