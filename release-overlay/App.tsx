@@ -180,7 +180,7 @@ function nextAdRetryDelay(attempt: number) {
     Math.max(0, Math.trunc(attempt)),
     AD_RETRY_DELAYS_MS.length - 1,
   );
-  return AD_RETRY_DELAYS_MS[index];
+  return AD_RETRY_DELAYS_MS[index] ?? 300_000;
 }
 
 function withRetryJitter(delayMs: number, random = Math.random) {
