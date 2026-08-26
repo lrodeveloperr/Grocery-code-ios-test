@@ -55,9 +55,9 @@ try {
   const originalAppSource = appSource;
 
   // Recover when ATT/AdMob SDK startup fails because the app was launched with
-  // no usable network. This flag is deliberately NOT set when the privacy gate
-  // itself says ads cannot be requested, so privacy state is never retried as
-  // though it were a network failure.
+  // no usable network. This flag is deliberately NOT retained when the privacy
+  // gate itself says ads cannot be requested, so privacy state is never retried
+  // as though it were a network failure.
   if (!appSource.includes("adStartupTransientFailureRef")) {
     const refNeedle =
       '  const adsInitializationRef = useRef<Promise<boolean> | null>(null);\n  const trackingAuthorizationRef = useRef<Promise<boolean> | null>(null);';
@@ -117,6 +117,16 @@ try {
     appSource = appSource.replace(
       consentInfoCatchNeedle,
       '      } catch {\n        // A network/SDK failure while reading the existing ad gate is\n        // transient. Do not confuse it with a real privacy block.\n        adStartupTransientFailureRef.current = true;\n        return false;\n      }\n      if (\n        !currentInfo.canRequestAds',
+    );
+
+    const privacyBlockNeedle =
+      '      if (\n        !currentInfo.canRequestAds ||\n        removeAdsEntitlementRef.current !== "not-entitled"\n      ) {\n        return false;\n      }';
+    if (!appSource.includes(privacyBlockNeedle)) {
+      throw new Error("Could not locate production ad privacy gate in App.tsx");
+    }
+    appSource = appSource.replace(
+      privacyBlockNeedle,
+      '      if (!currentInfo.canRequestAds) {\n        adStartupTransientFailureRef.current = false;\n        return false;\n      }\n      if (removeAdsEntitlementRef.current !== "not-entitled") return false;',
     );
 
     const recoveryAnchor =
