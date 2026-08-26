@@ -13,12 +13,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
 
       - name: Install screenshot runtime
         run: |
@@ -31,7 +27,7 @@ jobs:
         run: node release-overlay/scripts/capture-iap-review.cjs
 
       - name: Retain IAP review screenshot
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: remove-ads-iap-review-screenshot
           path: release-overlay/artifacts/remove-ads-iap-review-750x1334.png
