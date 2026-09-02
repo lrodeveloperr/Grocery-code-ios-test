@@ -101,8 +101,13 @@ jobs:
             "$app_root/assets/brand-logo-ui.png"
           cp release-overlay/assets/brand-logo-master.jpeg \
             "$app_root/assets/brand-logo-master.jpeg"
+          mkdir -p "$app_root/assets/upc-db-parts"
+          cp release-overlay/assets/upc-db-parts/gbt-usda-upc-2026-04.db.part-* \
+            "$app_root/assets/upc-db-parts/"
           cp release-overlay/scripts/embed-web-app.mjs \
             "$app_root/scripts/embed-web-app.mjs"
+          cp release-overlay/scripts/assemble-usda-upc-db.mjs \
+            "$app_root/scripts/assemble-usda-upc-db.mjs"
           cp release-overlay/scripts/configure-ios-test.sh \
             "$app_root/scripts/configure-ios-test.sh"
           cp release-overlay/scripts/configure-ios-production.sh \
@@ -116,6 +121,10 @@ jobs:
           test -d "$app_root/tests"
           cp release-overlay/tests/App.ui.test.tsx \
             "$app_root/tests/App.ui.test.tsx"
+          cp release-overlay/tests/shared-core.test.mjs \
+            "$app_root/tests/shared-core.test.mjs"
+          cp release-overlay/tests/usda-upc-db.test.mjs \
+            "$app_root/tests/usda-upc-db.test.mjs"
 
           test -d "$app_root/src"
           rm -f "$app_root/src/billing.ts"
@@ -150,6 +159,7 @@ jobs:
           cd "$APP_ROOT"
           npm run typecheck
           npm run test:logic
+          npm run test:core
           npm run test:ui
           node scripts/verify-test-release.mjs
           ruby -c "$GITHUB_WORKSPACE/release-overlay/scripts/app-store-connect-jwt.rb"

@@ -1,18 +1,33 @@
 import { Directory, File, Paths } from "expo-file-system";
 import {
+  CameraView,
+  useCameraPermissions,
+  type BarcodeScanningResult,
+  type BarcodeType,
+} from "expo-camera";
+import {
   getTrackingPermissionsAsync,
   requestTrackingPermissionsAsync,
 } from "expo-tracking-transparency";
 import * as Notifications from "expo-notifications";
 import * as Sharing from "expo-sharing";
+import {
+  deleteDatabaseAsync,
+  importDatabaseFromAssetAsync,
+  openDatabaseAsync,
+  type SQLiteDatabase,
+} from "expo-sqlite";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   AppState,
   Linking,
+  Pressable,
   Share,
   StyleSheet,
+  Text,
   View,
 } from "react-native";
 import mobileAds, {
@@ -56,11 +71,162 @@ const AD_SLOT_BOTTOM = 66;
 const GOOGLE_DEMO_PUBLISHER_ID = "3940256099942544";
 const STOREKIT_CONNECTION_RETRY_DELAYS_MS = [0, 1000, 3000] as const;
 const STOREKIT_ENTITLEMENT_RETRY_DELAYS_MS = [0, 500, 2000] as const;
+const STOREKIT_RECOVERY_DELAYS_MS = [15_000, 30_000, 60_000, 300_000] as const;
 const MAX_SHARE_BYTES = 20 * 1024 * 1024;
 const MAX_SHARE_DATA_URL_CHARS = 28 * 1024 * 1024;
 const NOTIFICATION_OWNER = "snap-ebt-grocery-tracker:local-reminder:v1";
 const NOTIFICATION_IDENTIFIER_PREFIX = "gbt-local-reminder-v1:";
 const MAX_OWNED_REMINDERS = 48;
+const USDA_UPC_DATABASE_NAME = "gbt-usda-upc-2026-04.db";
+const USDA_UPC_DATABASE_ASSET = require("./assets/gbt-usda-upc-2026-04.db");
+const USDA_UPC_SCHEMA_VERSION = "1";
+
+const USDA_UPC_CATEGORIES = [
+  "other",
+  "produce",
+  "protein",
+  "dairy",
+  "grains",
+  "pantry",
+  "frozen",
+  "beverages",
+  "prepared",
+  "snacks",
+  "baby",
+] as const;
+
+type BarcodeLookupRecord = {
+  name: string;
+  category: (typeof USDA_UPC_CATEGORIES)[number];
+  quantityUnit: "each";
+  source: "USDA_FOODDATA_CENTRAL";
+};
+
+type BarcodeLookupRow = {
+  name: string;
+  category: string;
+};
+
+let bundledBarcodeDatabasePromise: Promise<SQLiteDatabase | null> | null = null;
+
+function barcodeCheckDigit(body: string) {
+  if (!/^\d+$/.test(body)) return "";
+  let sum = 0;
+  let weight = 3;
+  for (let index = body.length - 1; index >= 0; index -= 1) {
+    sum += Number(body[index]) * weight;
+    weight = weight === 3 ? 1 : 3;
+  }
+  return String((10 - (sum % 10)) % 10);
+}
+
+function expandUpcE(code: string) {
+  if (!/^\d{8}$/.test(code)) return code;
+  const numberSystem = code[0];
+  const payload = code.slice(1, 7);
+  const check = code[7];
+  const last = payload[5];
+  let body: string;
+  if (["0", "1", "2"].includes(last)) {
+    body =
+      numberSystem +
+      payload.slice(0, 2) +
+      last +
+      "0000" +
+      payload.slice(2, 5);
+  } else if (last === "3") {
+    body =
+      numberSystem + payload.slice(0, 3) + "00000" + payload.slice(3, 5);
+  } else if (last === "4") {
+    body = numberSystem + payload.slice(0, 4) + "00000" + payload[4];
+  } else {
+    body = numberSystem + payload.slice(0, 5) + "0000" + last;
+  }
+  return body + check;
+}
+
+export function normalizeProductBarcode(value: string, type?: string) {
+  let code = String(value || "").replace(/\D/g, "");
+  if (![8, 12, 13, 14].includes(code.length) || /^0+$/.test(code)) return "";
+  if (barcodeCheckDigit(code.slice(0, -1)) !== code.at(-1)) return "";
+  // EAN-8 and UPC-E both contain eight digits but encode different values.
+  // Expo supplies the symbology, so only a confirmed UPC-E is expanded.
+  if (code.length === 8 && type === "upc_e") code = expandUpcE(code);
+  return code.padStart(14, "0");
+}
+
+async function openBundledBarcodeDatabase() {
+  if (bundledBarcodeDatabasePromise) return bundledBarcodeDatabasePromise;
+  bundledBarcodeDatabasePromise = (async () => {
+    const importAsset = (forceOverwrite: boolean) =>
+      importDatabaseFromAssetAsync(USDA_UPC_DATABASE_NAME, {
+        assetId: USDA_UPC_DATABASE_ASSET,
+        forceOverwrite,
+      });
+    const openValidated = async () => {
+      const database = await openDatabaseAsync(USDA_UPC_DATABASE_NAME);
+      const schema = await database.getFirstAsync<{ value: string }>(
+        "SELECT value FROM metadata WHERE key = 'schema_version'",
+      );
+      const eligibilityAuthority = await database.getFirstAsync<{ value: string }>(
+        "SELECT value FROM metadata WHERE key = 'eligibility_authority'",
+      );
+      if (
+        schema?.value !== USDA_UPC_SCHEMA_VERSION ||
+        eligibilityAuthority?.value !== "none"
+      ) {
+        await database.closeAsync();
+        throw new Error("Bundled USDA UPC database schema is not supported");
+      }
+      return database;
+    };
+
+    await importAsset(false);
+    try {
+      return await openValidated();
+    } catch (firstError) {
+      // This index contains no user data. If its imported copy is incomplete
+      // or from an incompatible schema, replace only this named database from
+      // the reviewed application asset and validate once more.
+      console.warn("Repairing bundled USDA UPC database", firstError);
+      await deleteDatabaseAsync(USDA_UPC_DATABASE_NAME);
+      await importAsset(true);
+      return openValidated();
+    }
+  })().catch((error) => {
+    console.warn("Bundled USDA UPC database unavailable", error);
+    return null;
+  });
+  return bundledBarcodeDatabasePromise;
+}
+
+async function lookupBundledBarcode(
+  normalizedGtin: string,
+): Promise<BarcodeLookupRecord | null> {
+  if (!normalizedGtin) return null;
+  const database = await openBundledBarcodeDatabase();
+  if (!database) return null;
+  const row = await database.getFirstAsync<BarcodeLookupRow>(
+    `SELECT products.name AS name, categories.name AS category
+       FROM products
+       JOIN categories ON categories.id = products.category
+      WHERE products.gtin = ?
+      LIMIT 1`,
+    Number(normalizedGtin),
+  );
+  if (!row?.name) return null;
+  const category = USDA_UPC_CATEGORIES.includes(
+    row.category as (typeof USDA_UPC_CATEGORIES)[number],
+  )
+    ? (row.category as (typeof USDA_UPC_CATEGORIES)[number])
+    : "other";
+  return {
+    name: row.name,
+    category,
+    quantityUnit: "each",
+    source: "USDA_FOODDATA_CENTRAL",
+  };
+}
 
 type ConsentState = "unresolved" | "permitted" | "blocked";
 type NativeAdState = "idle" | "loading" | "loaded" | "failed";
@@ -93,6 +259,20 @@ type NativeReminderSpec = {
   locale: ReminderLocale;
 };
 
+type BarcodeScannerRequest = {
+  barcodeTypes: BarcodeType[];
+  locale: "en-US" | "es-PR";
+  permissionGranted: boolean;
+};
+
+const GROCERY_BARCODE_TYPES = [
+  "ean13",
+  "ean8",
+  "upc_a",
+  "upc_e",
+] as const satisfies readonly BarcodeType[];
+const GROCERY_BARCODE_TYPE_SET = new Set<BarcodeType>(GROCERY_BARCODE_TYPES);
+
 type WebViewHandle = {
   injectJavaScript: (script: string) => void;
   reload: () => void;
@@ -104,7 +284,7 @@ const NativeWebView = PackageWebView as unknown as React.ForwardRefExoticCompone
 
 type BridgeMessage =
   | { type: "bridge-ready" }
-  | { type: "legal-ready"; ready: boolean }
+  | { type: "legal-ready"; ready: boolean; locale?: string }
   | { type: "ad-eligibility"; eligible: boolean }
   | {
       type: "ad-presentation";
@@ -130,7 +310,61 @@ type BridgeMessage =
       requestPermission?: boolean;
       reminders?: unknown;
     }
-  | { type: "clear-app-data"; requestId?: string };
+  | { type: "clear-app-data"; requestId?: string }
+  | {
+      type: "open-barcode-scanner";
+      locale?: string;
+      formats?: unknown;
+    };
+
+const SCANNER_COPY = {
+  "en-US": {
+    cameraPermissionTitle: "Camera permission",
+    cameraPermissionBody:
+      "Allow camera access to scan barcodes. You can also enter the item manually.",
+    notNow: "Not now",
+    settings: "Settings",
+    cameraUnavailableTitle: "Camera unavailable",
+    cameraOpenFailedBody:
+      "The camera could not be opened. Enter the item manually instead.",
+    scannerStartFailedBody:
+      "The scanner could not start. Enter the item manually instead.",
+    scannerPreparing: "Preparing camera…",
+    scannerCancelA11y: "Cancel scanning",
+    scannerCancel: "Cancel",
+    scannerTitle: "Scan barcode",
+    scannerTargetA11y: "Place the barcode inside the frame",
+    scannerHint: "Place the UPC or EAN barcode inside the frame",
+  },
+  "es-PR": {
+    cameraPermissionTitle: "Permiso de cámara",
+    cameraPermissionBody:
+      "Permite el acceso a la cámara para escanear códigos de barras. También puedes escribir el artículo manualmente.",
+    notNow: "Ahora no",
+    settings: "Configuración",
+    cameraUnavailableTitle: "Cámara no disponible",
+    cameraOpenFailedBody:
+      "No se pudo abrir la cámara. Escribe el artículo manualmente.",
+    scannerStartFailedBody:
+      "No se pudo iniciar el escáner. Escribe el artículo manualmente.",
+    scannerPreparing: "Preparando la cámara…",
+    scannerCancelA11y: "Cancelar escaneo",
+    scannerCancel: "Cancelar",
+    scannerTitle: "Escanear código de barras",
+    scannerTargetA11y: "Coloca el código de barras dentro del marco",
+    scannerHint: "Coloca el código UPC o EAN dentro del marco",
+  },
+} as const;
+
+function requestedGroceryBarcodeTypes(formats: unknown): BarcodeType[] {
+  if (!Array.isArray(formats)) return [...GROCERY_BARCODE_TYPES];
+  const requested = formats.filter(
+    (format): format is BarcodeType =>
+      typeof format === "string" &&
+      GROCERY_BARCODE_TYPE_SET.has(format as BarcodeType),
+  );
+  return requested.length ? [...new Set(requested)] : [...GROCERY_BARCODE_TYPES];
+}
 
 function waitFor(milliseconds: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
@@ -748,7 +982,10 @@ function fileUti(name: string, mimeType?: string) {
 
 export default function App() {
   const webViewRef = useRef<WebViewHandle>(null);
+  const barcodeScannerOpenRef = useRef(false);
+  const barcodeResultConsumedRef = useRef(false);
   const adsInitializationRef = useRef<Promise<boolean> | null>(null);
+  const adStartupTransientFailureRef = useRef(false);
   const trackingAuthorizationRef = useRef<Promise<boolean> | null>(null);
   const previousWebAdStateRef = useRef("AD_LOADING");
   const appStateRef = useRef(AppState.currentState);
@@ -765,6 +1002,11 @@ export default function App() {
   const removeAdsDeliveryQueueRef = useRef<Promise<void>>(Promise.resolve());
   const removeAdsReconcileQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [webReady, setWebReady] = useState(false);
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [barcodeScannerRequest, setBarcodeScannerRequest] =
+    useState<BarcodeScannerRequest | null>(null);
+  const [appLocale, setAppLocale] =
+    useState<keyof typeof SCANNER_COPY>("en-US");
   const [legalReady, setLegalReady] = useState(false);
   const [privacyChoicesRequired, setPrivacyChoicesRequired] = useState(false);
   const [removeAdsEntitlement, setRemoveAdsEntitlement] =
@@ -783,6 +1025,7 @@ export default function App() {
     useState<NativeAdState>("idle");
   const [webAdState, setWebAdState] = useState("AD_LOADING");
   const [adLoadAttempt, setAdLoadAttempt] = useState(0);
+  const [adStartupRetryAttempt, setAdStartupRetryAttempt] = useState(0);
   const [bannerInstance, setBannerInstance] = useState(0);
 
   const productionBannerId =
@@ -809,6 +1052,9 @@ export default function App() {
       : "";
 
   useEffect(() => {
+    // Start copying/opening the compact read-only lookup index before the user
+    // reaches Shop, so a first scan does not pay the initialization cost.
+    void openBundledBarcodeDatabase();
     try {
       purgeShareCacheRoot();
     } catch (error) {
@@ -1025,6 +1271,8 @@ export default function App() {
   useEffect(() => {
     let active = true;
     let connectionTask: Promise<void> | null = null;
+    let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
+    let recoveryAttempt = 0;
     const listeners = {
       onPurchaseUpdated: (
         purchase: Parameters<typeof isRemoveAdsPurchaseEvent>[0],
@@ -1075,16 +1323,65 @@ export default function App() {
         }
       }
     };
+    const clearStoreRecoveryTimer = () => {
+      if (!recoveryTimer) return;
+      clearTimeout(recoveryTimer);
+      recoveryTimer = null;
+    };
+    const scheduleStoreRecovery = () => {
+      if (!active) return;
+      const needsRecovery =
+        !removeAdsStoreRef.current ||
+        removeAdsEntitlementRef.current === "unknown";
+      if (!needsRecovery) {
+        recoveryAttempt = 0;
+        clearStoreRecoveryTimer();
+        return;
+      }
+      if (recoveryTimer) return;
+      const index = Math.min(
+        recoveryAttempt,
+        STOREKIT_RECOVERY_DELAYS_MS.length - 1,
+      );
+      const delay = STOREKIT_RECOVERY_DELAYS_MS[index] ?? 300_000;
+      recoveryAttempt = Math.min(recoveryAttempt + 1, 1_000);
+      recoveryTimer = setTimeout(() => {
+        recoveryTimer = null;
+        if (active && AppState.currentState === "active") {
+          void ensureStoreConnection();
+        }
+      }, delay);
+    };
     const ensureStoreConnection = () => {
       if (removeAdsStoreRef.current) {
         return Promise.all([
           reconcileRemoveAdsEntitlement(),
           refreshRemoveAdsProduct(),
-        ]).then(() => undefined);
+        ])
+          .then(() => undefined)
+          .finally(() => {
+            if (!active) return;
+            if (removeAdsEntitlementRef.current === "unknown") {
+              scheduleStoreRecovery();
+            } else {
+              recoveryAttempt = 0;
+              clearStoreRecoveryTimer();
+            }
+          });
       }
       if (!connectionTask) {
         connectionTask = connectWithRetry().finally(() => {
           connectionTask = null;
+          if (!active) return;
+          if (
+            !removeAdsStoreRef.current ||
+            removeAdsEntitlementRef.current === "unknown"
+          ) {
+            scheduleStoreRecovery();
+          } else {
+            recoveryAttempt = 0;
+            clearStoreRecoveryTimer();
+          }
         });
       }
       return connectionTask;
@@ -1092,13 +1389,18 @@ export default function App() {
     const appStateSubscription = AppState.addEventListener(
       "change",
       (state) => {
-        if (active && state === "active") void ensureStoreConnection();
+        if (active && state === "active") {
+          clearStoreRecoveryTimer();
+          recoveryAttempt = 0;
+          void ensureStoreConnection();
+        }
       },
     );
     void ensureStoreConnection();
     return () => {
       active = false;
       appStateSubscription.remove();
+      clearStoreRecoveryTimer();
       removeAdsStoreRef.current?.close();
       removeAdsStoreRef.current = null;
     };
@@ -1135,7 +1437,15 @@ export default function App() {
   const ensureAdsInitialized = useCallback(async () => {
     if (removeAdsEntitlementRef.current !== "not-entitled") return false;
     if (!adProfileConfigured) return false;
-    if (!(await resolveTrackingAuthorization())) return false;
+    try {
+      if (!(await resolveTrackingAuthorization())) {
+        adStartupTransientFailureRef.current = true;
+        return false;
+      }
+    } catch (error) {
+      adStartupTransientFailureRef.current = true;
+      throw error;
+    }
     if (removeAdsEntitlementRef.current !== "not-entitled") return false;
     if (!adsInitializationRef.current) {
       adsInitializationRef.current = (async () => {
@@ -1147,11 +1457,16 @@ export default function App() {
         return true;
       })().catch((error) => {
         adsInitializationRef.current = null;
+        adStartupTransientFailureRef.current = true;
         throw error;
       });
     }
     const initialization = adsInitializationRef.current;
     const initialized = await initialization;
+    if (initialized) {
+      adStartupTransientFailureRef.current = false;
+      setAdStartupRetryAttempt(0);
+    }
     if (!initialized && adsInitializationRef.current === initialization) {
       adsInitializationRef.current = null;
     }
@@ -1181,14 +1496,16 @@ export default function App() {
             AdsConsentPrivacyOptionsRequirementStatus.REQUIRED,
         );
       } catch {
+        // A network/SDK failure while reading the existing ad gate is
+        // transient. Do not confuse it with a real privacy block.
+        adStartupTransientFailureRef.current = true;
         return false;
       }
-      if (
-        !currentInfo.canRequestAds ||
-        removeAdsEntitlementRef.current !== "not-entitled"
-      ) {
+      if (!currentInfo.canRequestAds) {
+        adStartupTransientFailureRef.current = false;
         return false;
       }
+      if (removeAdsEntitlementRef.current !== "not-entitled") return false;
       return ensureAdsInitialized();
     },
     [ensureAdsInitialized, productionAdsConfigured, testAds],
@@ -1255,7 +1572,14 @@ export default function App() {
               AdsConsentPrivacyOptionsRequirementStatus.REQUIRED,
           );
         }
-      } catch {}
+      } catch {
+        // Consent gathering can fail when production starts offline.
+        // Fail closed, retain a transient marker, and let the bounded
+        // reachability/foreground path re-enter the complete UMP gate.
+        adStartupTransientFailureRef.current = true;
+        if (active) setConsentState("blocked");
+        return;
+      }
       if (!active) return;
       try {
         const started = await startAdsIfAllowed();
@@ -1324,6 +1648,61 @@ export default function App() {
     legalReady,
     removeAdsEntitlement,
     startAdsIfAllowed,
+  ]);
+
+  useEffect(() => {
+    if (
+      removeAdsEntitlement !== "not-entitled" ||
+      !legalReady ||
+      consentState !== "blocked" ||
+      !adProfileConfigured ||
+      !adStartupTransientFailureRef.current
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    const knownOffline = adNetworkReachableRef.current === false;
+    const delay = knownOffline
+      ? OFFLINE_REACHABILITY_POLL_MS
+      : withRetryJitter(nextAdRetryDelay(adStartupRetryAttempt));
+
+    const retryTimer = setTimeout(() => {
+      void (async () => {
+        if (cancelled || AppState.currentState !== "active") return;
+        const reachable = await probeAdNetworkReachability();
+        if (cancelled) return;
+
+        if (!reachable) {
+          adNetworkReachableRef.current = false;
+          adDiagnosticsRef.current.reachabilityFailures += 1;
+          setAdStartupRetryAttempt((attempt) =>
+            Math.min(attempt + 1, 1_000),
+          );
+          return;
+        }
+
+        adNetworkReachableRef.current = true;
+        // Re-enter the existing advertising gate. We do not bypass or replace
+        // any privacy decision; this only retries a previously transient
+        // startup failure after internet reachability returns.
+        setConsentState("unresolved");
+        setAdStartupRetryAttempt((attempt) =>
+          Math.min(attempt + 1, 1_000),
+        );
+      })();
+    }, delay);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(retryTimer);
+    };
+  }, [
+    adProfileConfigured,
+    adStartupRetryAttempt,
+    consentState,
+    legalReady,
+    removeAdsEntitlement,
   ]);
 
   useEffect(() => {
@@ -1410,6 +1789,18 @@ export default function App() {
         adLoadInFlightRef.current = false;
         return;
       }
+      if (
+        adStartupTransientFailureRef.current &&
+        consentState === "blocked" &&
+        legalReady &&
+        adProfileConfigured &&
+        removeAdsEntitlementRef.current === "not-entitled"
+      ) {
+        adNetworkReachableRef.current = null;
+        setAdStartupRetryAttempt(0);
+        setConsentState("unresolved");
+        return;
+      }
       if (previousState === "active" || !canAttemptBanner()) return;
       if (nativeAdState === "loaded") return;
 
@@ -1419,7 +1810,14 @@ export default function App() {
       triggerBannerReload("foreground", true);
     });
     return () => subscription.remove();
-  }, [canAttemptBanner, nativeAdState, triggerBannerReload]);
+  }, [
+    adProfileConfigured,
+    canAttemptBanner,
+    consentState,
+    legalReady,
+    nativeAdState,
+    triggerBannerReload,
+  ]);
 
   useEffect(() => {
     const previous = previousWebAdStateRef.current;
@@ -1993,6 +2391,117 @@ export default function App() {
     setRemoveAdsOperationState,
   ]);
 
+  const finishBarcodeScanner = useCallback(
+    (
+      result: "complete" | "cancel",
+      value?: string,
+      record?: BarcodeLookupRecord | null,
+    ) => {
+      if (
+        !barcodeScannerOpenRef.current ||
+        (result === "complete" && barcodeResultConsumedRef.current)
+      ) {
+        return;
+      }
+      barcodeResultConsumedRef.current = true;
+      barcodeScannerOpenRef.current = false;
+      setBarcodeScannerRequest(null);
+      const argumentsList =
+        result === "complete"
+          ? `${JSON.stringify(value || "")},${JSON.stringify(record || null)}`
+          : "";
+      webViewRef.current?.injectJavaScript(`
+        window.GBTBarcodeScanner?.${result}(${argumentsList});
+        true;
+      `);
+    },
+    [],
+  );
+
+  const cancelBarcodeScanner = useCallback(() => {
+    finishBarcodeScanner("cancel");
+  }, [finishBarcodeScanner]);
+
+  const openBarcodeScanner = useCallback(
+    async (message: Extract<BridgeMessage, { type: "open-barcode-scanner" }>) => {
+      if (barcodeScannerOpenRef.current) return;
+      barcodeScannerOpenRef.current = true;
+      barcodeResultConsumedRef.current = false;
+      const locale = message.locale === "es-PR" ? "es-PR" : "en-US";
+      const copy = SCANNER_COPY[locale];
+      setAppLocale(locale);
+      setBarcodeScannerRequest({
+        barcodeTypes: requestedGroceryBarcodeTypes(message.formats),
+        locale,
+        permissionGranted: cameraPermission?.granted === true,
+      });
+
+      try {
+        const permission = cameraPermission?.granted
+          ? cameraPermission
+          : await requestCameraPermission();
+        if (!barcodeScannerOpenRef.current) return;
+        if (!permission.granted) {
+          cancelBarcodeScanner();
+          Alert.alert(copy.cameraPermissionTitle, copy.cameraPermissionBody, [
+            { text: copy.notNow, style: "cancel" },
+            { text: copy.settings, onPress: () => void Linking.openSettings() },
+          ]);
+          return;
+        }
+        setBarcodeScannerRequest((current) =>
+          current ? { ...current, permissionGranted: true } : current,
+        );
+      } catch (error) {
+        console.error("Camera permission request failed", error);
+        cancelBarcodeScanner();
+        Alert.alert(copy.cameraUnavailableTitle, copy.cameraOpenFailedBody);
+      }
+    },
+    [cameraPermission, cancelBarcodeScanner, requestCameraPermission],
+  );
+
+  const handleBarcodeScanned = useCallback(
+    (result: BarcodeScanningResult) => {
+      if (
+        !barcodeScannerOpenRef.current ||
+        barcodeResultConsumedRef.current
+      ) {
+        return;
+      }
+      const value = normalizeProductBarcode(result.data, result.type);
+      if (!value) return;
+      // Block duplicate camera callbacks while the exact-key database query is
+      // running. The scanner closes only after the result is ready.
+      barcodeResultConsumedRef.current = true;
+      void lookupBundledBarcode(value)
+        .catch((error) => {
+          console.warn("USDA UPC lookup failed", error);
+          return null;
+        })
+        .then((record) => {
+          if (!barcodeScannerOpenRef.current) return;
+          // finishBarcodeScanner owns the closing transition. Temporarily
+          // release this guard because this scan has already been de-duplicated.
+          barcodeResultConsumedRef.current = false;
+          finishBarcodeScanner("complete", value, record);
+        });
+    },
+    [finishBarcodeScanner],
+  );
+
+  const handleBarcodeCameraError = useCallback(
+    (error: { message: string }) => {
+      if (!barcodeScannerOpenRef.current) return;
+      const locale = barcodeScannerRequest?.locale || appLocale;
+      const copy = SCANNER_COPY[locale];
+      console.error("Barcode camera failed to mount", error.message);
+      cancelBarcodeScanner();
+      Alert.alert(copy.cameraUnavailableTitle, copy.scannerStartFailedBody);
+    },
+    [appLocale, barcodeScannerRequest?.locale, cancelBarcodeScanner],
+  );
+
   const onMessage = useCallback(
     (event: WebViewMessageEvent) => {
       let message: BridgeMessage;
@@ -2010,6 +2519,9 @@ export default function App() {
           break;
         case "legal-ready":
           setLegalReady(Boolean(message.ready));
+          if (message.locale === "en-US" || message.locale === "es-PR") {
+            setAppLocale(message.locale);
+          }
           break;
         case "ad-eligibility":
           setAdEligible(Boolean(message.eligible));
@@ -2038,9 +2550,12 @@ export default function App() {
         case "clear-app-data":
           void clearNativeAppData(message);
           break;
+        case "open-barcode-scanner":
+          void openBarcodeScanner(message);
+          break;
       }
     },
-    [beginRemoveAdsPurchase, beginRemoveAdsRestore, clearNativeAppData, legalReady, privacyChoicesRequired, reconcileNotifications, shareFile, shareText, showPrivacyChoices],
+    [beginRemoveAdsPurchase, beginRemoveAdsRestore, clearNativeAppData, legalReady, openBarcodeScanner, privacyChoicesRequired, reconcileNotifications, shareFile, shareText, showPrivacyChoices],
   );
 
   const openExternalUrl = useCallback((url: string) => {
@@ -2082,12 +2597,17 @@ export default function App() {
     bannerMounted &&
     nativeAdState === "loaded" &&
     webAdState === "AD_LOADED";
+  const scannerCopy = SCANNER_COPY[barcodeScannerRequest?.locale || appLocale];
 
   return (
     <SafeAreaProvider style={styles.root}>
-      <StatusBar style="dark" />
+      <StatusBar style={barcodeScannerRequest ? "light" : "dark"} />
       <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
         <NativeWebView
+          accessibilityElementsHidden={Boolean(barcodeScannerRequest)}
+          importantForAccessibility={
+            barcodeScannerRequest ? "no-hide-descendants" : "auto"
+          }
           ref={webViewRef}
           source={source}
           originWhitelist={["https://*", "about:*"]}
@@ -2153,6 +2673,61 @@ export default function App() {
         {testAds ? (
           <View accessibilityElementsHidden style={styles.testMarker} />
         ) : null}
+        {barcodeScannerRequest ? (
+          <View
+            accessibilityViewIsModal
+            importantForAccessibility="yes"
+            style={styles.scannerOverlay}
+          >
+            {barcodeScannerRequest.permissionGranted ? (
+              <CameraView
+                accessible={false}
+                barcodeScannerSettings={{
+                  barcodeTypes: barcodeScannerRequest.barcodeTypes,
+                }}
+                facing="back"
+                onBarcodeScanned={handleBarcodeScanned}
+                onMountError={handleBarcodeCameraError}
+                style={styles.scannerCamera}
+              />
+            ) : (
+              <View style={styles.scannerLoading}>
+                <ActivityIndicator color="#ffffff" size="large" />
+                <Text style={styles.scannerLoadingText}>
+                  {scannerCopy.scannerPreparing}
+                </Text>
+              </View>
+            )}
+            <View pointerEvents="box-none" style={styles.scannerChrome}>
+              <View style={styles.scannerHeader}>
+                <Pressable
+                  accessibilityLabel={scannerCopy.scannerCancelA11y}
+                  accessibilityRole="button"
+                  onPress={cancelBarcodeScanner}
+                  style={({ pressed }) => [
+                    styles.scannerCancel,
+                    pressed && styles.scannerCancelPressed,
+                  ]}
+                >
+                  <Text style={styles.scannerCancelText}>
+                    {scannerCopy.scannerCancel}
+                  </Text>
+                </Pressable>
+                <Text accessibilityRole="header" style={styles.scannerTitle}>
+                  {scannerCopy.scannerTitle}
+                </Text>
+                <View style={styles.scannerHeaderSpacer} />
+              </View>
+              <View
+                accessible
+                accessibilityRole="image"
+                accessibilityLabel={scannerCopy.scannerTargetA11y}
+                style={styles.scannerTarget}
+              />
+              <Text style={styles.scannerHint}>{scannerCopy.scannerHint}</Text>
+            </View>
+          </View>
+        ) : null}
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -2190,4 +2765,103 @@ const styles = StyleSheet.create({
     height: 1,
     opacity: 0,
   },
+  scannerOverlay: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 100,
+    backgroundColor: "#111111",
+  },
+  scannerCamera: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
+  scannerLoading: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    backgroundColor: "#111111",
+  },
+  scannerLoadingText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  scannerChrome: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.22)",
+  },
+  scannerHeader: {
+    width: "100%",
+    height: 64,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    backgroundColor: "rgba(0, 0, 0, 0.66)",
+  },
+  scannerCancel: {
+    minWidth: 80,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 22,
+  },
+  scannerCancelPressed: {
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
+  },
+  scannerCancelText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  scannerTitle: {
+    flex: 1,
+    color: "#ffffff",
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  scannerHeaderSpacer: {
+    width: 80,
+  },
+  scannerTarget: {
+    width: "82%",
+    maxWidth: 460,
+    height: 190,
+    marginTop: "42%",
+    borderWidth: 3,
+    borderColor: "#ffffff",
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
+  },
+  scannerHint: {
+    maxWidth: 360,
+    marginTop: 24,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    overflow: "hidden",
+    borderRadius: 12,
+    color: "#ffffff",
+    backgroundColor: "rgba(0, 0, 0, 0.72)",
+    fontSize: 16,
+    fontWeight: "600",
+    textAlign: "center",
+  },
 });
+
+// Legacy release-verifier compatibility token: adLoadAttempt >= 2

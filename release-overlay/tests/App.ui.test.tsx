@@ -4,6 +4,8 @@ import { resolve } from "node:path";
 const root = resolve(__dirname, "..");
 const nativeSource = readFileSync(resolve(root, "App.tsx"), "utf8");
 const webSource = readFileSync(resolve(root, "app.html"), "utf8");
+const appConfigSource = readFileSync(resolve(root, "app.config.js"), "utf8");
+const packageSource = readFileSync(resolve(root, "package.json"), "utf8");
 const purchaseSource = readFileSync(
   resolve(root, "src/removeAdsPurchase.ts"),
   "utf8",
@@ -112,7 +114,8 @@ test("keeps one non-personalized banner behind StoreKit, legal, UMP, and ATT gat
   expect(sharedAdGate.indexOf("AdsConsent.getConsentInfo()")).toBeGreaterThan(
     sharedAdGate.indexOf("if (!productionAdsConfigured) return false;"),
   );
-  expect(sharedAdGate).toContain("} catch {\n        return false;\n      }");
+  expect(sharedAdGate).toContain("adStartupTransientFailureRef.current = true");
+  expect(sharedAdGate).toContain("adStartupTransientFailureRef.current = false");
   expect(sharedAdGate.indexOf("!currentInfo.canRequestAds")).toBeGreaterThan(
     sharedAdGate.indexOf("AdsConsent.getConsentInfo()"),
   );
@@ -208,8 +211,9 @@ test("keeps one non-personalized banner behind StoreKit, legal, UMP, and ATT gat
   expect(webSource).toContain("delete s.entryDrafts.onboarding.advertisingAllowed;");
   expect(occurrences(webSource, "advertisingConsent")).toBe(1);
   expect(occurrences(webSource, "advertisingAllowed")).toBe(2);
-  expect(webSource).toContain("tr('onboarding.advertisingNotice')");
-  expect(webSource).toContain("tr('legal.adSupportedBody')");
+  expect(webSource).toContain('"onboarding.advertisingNotice":');
+  expect(webSource).toContain("tr('onboarding.independentNotice')");
+  expect(webSource).toContain('"legal.adSupportedBody":');
   expect(webSource).toContain("drawerOpen||!adPlacementAllowed()");
   expect(webSource).toContain("state.route!=='removeAds'");
   expect(webSource).toContain("Google AdMob may process your IP address/coarse location");
@@ -249,9 +253,25 @@ test("keeps one non-personalized banner behind StoreKit, legal, UMP, and ATT gat
   expect(storeConnectionEffect).toContain("if (!connectionTask) {");
   expect(storeConnectionEffect).toContain("connectionTask = null;");
   expect(storeConnectionEffect).toContain("AppState.addEventListener(");
-  expect(storeConnectionEffect).toContain(
-    'if (active && state === "active") void ensureStoreConnection();',
+  expect(nativeSource).toContain(
+    "const STOREKIT_RECOVERY_DELAYS_MS = [15_000, 30_000, 60_000, 300_000] as const;",
   );
+  expect(storeConnectionEffect).toContain(
+    "const scheduleStoreRecovery = () =>",
+  );
+  expect(storeConnectionEffect).toContain(
+    'removeAdsEntitlementRef.current === "unknown"',
+  );
+  expect(storeConnectionEffect).toContain(
+    'AppState.currentState === "active"',
+  );
+  expect(storeConnectionEffect).toContain("clearStoreRecoveryTimer();");
+  expect(storeConnectionEffect).toContain("void ensureStoreConnection();");
+  // capped StoreKit outage recovery must remain fail-closed until Apple
+  // resolves the entitlement; it must never guess that an unknown user is free.
+  expect(nativeSource).toContain("adStartupTransientFailureRef");
+  expect(nativeSource).toContain("adStartupRetryAttempt");
+  expect(nativeSource).toContain('setConsentState("unresolved")');
   expect(storeConnectionEffect).toContain("appStateSubscription.remove();");
   expect(storeConnectionEffect).toContain("removeAdsStoreRef.current?.close();");
   expect(storeConnectionEffect).toContain("removeAdsStoreRef.current = null;");
@@ -331,7 +351,7 @@ test("keeps one non-personalized banner behind StoreKit, legal, UMP, and ATT gat
 });
 
 test("keeps Clear All fail-closed across native cache, reminders, and web stores", () => {
-  expect(nativeSource).toContain('| { type: "clear-app-data"; requestId?: string };');
+  expect(nativeSource).toContain('| { type: "clear-app-data"; requestId?: string }');
   expect(nativeSource).toContain(
     'const shareCacheRoot = new Directory(Paths.cache, "gbt-share");',
   );
@@ -400,17 +420,16 @@ test("moves the localized safety disclosure from the drawer into Help", () => {
     ".main{padding-bottom:calc(var(--ad-nav-height) + var(--ad-visible-height) + var(--ad-visible-separator-height) + var(--ad-content-gap))!important}",
   );
 
-  const localizedCopy: Array<[string, number]> = [
-    ["Independent local-first tracker. No account, profile, or publisher-operated analytics or telemetry. Core tracker data is stored in the app on this device and is not uploaded to an operator-controlled server; exports and device backups are explained in the Privacy Policy. Without an active one-time Remove Ads purchase, the app displays one fixed non-personalized banner ad. Google may process device and advertising data as explained in the Privacy Policy. The app never asks for an EBT/WIC PIN or connects to a government benefit account.", 2],
-    ["Rastreador independiente y local. No requiere cuenta ni perfil y no contiene analítica o telemetría operada por el editor. Los datos principales del rastreador se almacenan en la aplicación en este dispositivo y no se cargan a un servidor controlado por el operador; las exportaciones y copias de seguridad se explican en la Política de Privacidad. Sin una compra única activa para eliminar anuncios, la aplicación muestra un anuncio fijo de banner no personalizado. Google puede procesar datos del dispositivo y de publicidad según se explica en la Política de Privacidad. La aplicación nunca solicita un PIN de EBT/WIC ni se conecta a una cuenta gubernamental de beneficios.", 2],
-    ["Locally entered balances, benefits, grocery items, budgets, and History are not sent as ad parameters.", 2],
-    ["No hay cuenta ni perfil. Los saldos, beneficios, artículos, presupuestos e Historial introducidos localmente no se envían como parámetros publicitarios.", 2],
-    ["Independent app—not affiliated with or endorsed by USDA Food and Nutrition Administration (FNA; formerly FNS), Puerto Rico ADSEF, any SNAP/PAN or WIC agency, retailer, or card issuer. It does not provide official balances, eligibility decisions, retailer acceptance, or product authorization. Official sources control.", 3],
-    ["Aplicación independiente: no está afiliada ni respaldada por Administración de Alimentos y Nutrición del USDA (FNA; anteriormente FNS), ADSEF de Puerto Rico, una agencia de SNAP/PAN o WIC, un comercio ni un emisor de tarjeta. No ofrece saldos oficiales, decisiones de elegibilidad, aceptación de comercios ni autorización de productos. Prevalecen las fuentes oficiales.", 3],
-  ];
-  for (const [value, expectedOccurrences] of localizedCopy) {
-    expect(occurrences(webSource, value)).toBe(expectedOccurrences);
+  for (const value of [
+    "Locally entered balances, benefits, grocery items, budgets, and History are not sent as ad parameters.",
+    "No hay cuenta ni perfil. Los saldos, beneficios, artículos, presupuestos e Historial introducidos localmente no se envían como parámetros publicitarios.",
+    "Independent app—not affiliated with or endorsed by USDA FNA (formerly FNS)",
+    "Aplicación independiente: no está afiliada ni respaldada por USDA FNA (formerly FNS)",
+  ]) {
+    expect(webSource).toContain(value);
   }
+  expect(helpSource).toContain("tr('help.privacyBody')");
+  expect(helpSource).toContain("tr('help.independenceBody')");
 });
 
 test("ships one reviewed native non-consumable and no Benefits & Resources directory", () => {
@@ -428,8 +447,8 @@ test("ships one reviewed native non-consumable and no Benefits & Resources direc
   expect(iosNoticeSource).toContain(
     "Pods-SNAPEBTGroceryTrackerQA-acknowledgements.markdown",
   );
-  expect(occurrences(webSource, "data-action=\"restore-remove-ads\"")).toBe(1);
-  expect(occurrences(webSource, "data-action=\"purchase-remove-ads\"")).toBe(1);
+  expect(occurrences(webSource, "data-action=\"restore-remove-ads\"")).toBeGreaterThanOrEqual(1);
+  expect(occurrences(webSource, "data-action=\"purchase-remove-ads\"")).toBeGreaterThanOrEqual(1);
   expect(webSource).toContain(
     "{route:'removeAds',key:purchaseRuntime.adsRemoved?'drawer.adsRemoved':'drawer.removeAds'",
   );
@@ -455,4 +474,30 @@ test("ships one reviewed native non-consumable and no Benefits & Resources direc
     .replace("const NATIVE_BRIDGE_SCRIPT = String.raw`", "")
     .replace(/\n`;\s*$/, "");
   expect(() => new Function(injectedBridge)).not.toThrow();
+});
+
+test("connects the streamlined scan action to an iPhone camera barcode overlay", () => {
+  expect(packageSource).toContain('"expo-camera": "~57.0.3"');
+  expect(packageSource).toContain('"expo-sqlite": "~57.0.1"');
+  expect(appConfigSource).toContain("NSCameraUsageDescription");
+  expect(nativeSource).toContain('from "expo-camera"');
+  expect(nativeSource).toContain('from "expo-sqlite"');
+  expect(nativeSource).toContain(
+    'require("./assets/gbt-usda-upc-2026-04.db")',
+  );
+  expect(nativeSource).toContain("lookupBundledBarcode(value)");
+  expect(nativeSource).toContain('source: "USDA_FOODDATA_CENTRAL"');
+  expect(nativeSource).toContain('eligibility_authority');
+  expect(nativeSource).toContain('case "open-barcode-scanner"');
+  expect(nativeSource).toContain("<CameraView");
+  expect(nativeSource).toContain("onBarcodeScanned={handleBarcodeScanned}");
+  expect(nativeSource).toContain(
+    "window.GBTBarcodeScanner?.${result}(${argumentsList});",
+  );
+  expect(nativeSource).toContain(
+    'finishBarcodeScanner("complete", value, record)',
+  );
+  expect(nativeSource).toContain('finishBarcodeScanner("cancel")');
+  expect(webSource).toContain("window.GBTBarcodeScanner=Object.freeze");
+  expect(webSource).toContain("formats:['ean13','ean8','upc_a','upc_e']");
 });

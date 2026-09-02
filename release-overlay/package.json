@@ -4,10 +4,14 @@
   "private": true,
   "main": "index.ts",
   "scripts": {
+    "postinstall": "node scripts/assemble-usda-upc-db.mjs",
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "typecheck": "tsc --noEmit",
+    "test:core": "node --test tests/shared-core.test.mjs tests/usda-upc-db.test.mjs",
+    "build:upc-db": "python3 scripts/build-usda-upc-db.py .data/usda/FoodData_Central_branded_food_csv_2026-04-30.zip assets/gbt-usda-upc-2026-04.db --release 2026-04-30",
+    "assemble:upc-db": "node scripts/assemble-usda-upc-db.mjs",
     "test:logic": "tsc -p tsconfig.test.json && node --test .test-build/tests/money.test.js",
     "test:ui": "jest --runInBand --config jest.config.js",
     "generate:notices": "node scripts/generate-notices.mjs",
@@ -15,12 +19,13 @@
     "verify:release-metadata": "node scripts/verify-release-metadata.mjs",
     "verify:native": "node scripts/verify-native.mjs",
     "verify:legal": "node scripts/verify-legal.mjs",
-    "validate": "npm run typecheck && npm run test:logic && npm run test:ui && npm run verify:package && npm run verify:native && npm run verify:legal"
+    "validate": "npm run typecheck && npm run test:core && npm run test:logic && npm run test:ui && npm run verify:package && npm run verify:native && npm run verify:legal"
   },
   "dependencies": {
     "buffer": "^6.0.3",
     "expo": "~57.0.9",
     "expo-build-properties": "~57.0.8",
+    "expo-camera": "~57.0.3",
     "expo-crypto": "~57.0.1",
     "expo-file-system": "~57.0.1",
     "expo-iap": "5.2.4",
