@@ -122,10 +122,10 @@ function barcodeCheckDigit(body: string) {
 
 function expandUpcE(code: string) {
   if (!/^\d{8}$/.test(code)) return code;
-  const numberSystem = code[0];
+  const numberSystem = code[0] || "";
   const payload = code.slice(1, 7);
-  const check = code[7];
-  const last = payload[5];
+  const check = code[7] || "";
+  const last = payload[5] || "";
   let body: string;
   if (["0", "1", "2"].includes(last)) {
     body =
@@ -284,6 +284,7 @@ const NativeWebView = PackageWebView as unknown as React.ForwardRefExoticCompone
 
 type BridgeMessage =
   | { type: "bridge-ready" }
+  | { type: "network-online" }
   | { type: "legal-ready"; ready: boolean; locale?: string }
   | { type: "ad-eligibility"; eligible: boolean }
   | {
@@ -379,7 +380,7 @@ const AD_RETRY_DELAYS_MS = [
   120_000,
   300_000,
 ] as const;
-const OFFLINE_REACHABILITY_POLL_MS = 30_000;
+const OFFLINE_REACHABILITY_POLL_MS = 90_000;
 const NETWORK_RECOVERY_DEBOUNCE_MS = 1_500;
 const AD_NETWORK_PROBE_TIMEOUT_MS = 4_000;
 const AD_NETWORK_PROBE_URL =
@@ -735,6 +736,9 @@ const NATIVE_BRIDGE_SCRIPT = String.raw`
     }
   };
   window.addEventListener("gbt-ad-presentation-change", publishAdPresentation);
+  window.addEventListener("online", function () {
+    post({ type: "network-online" });
+  });
   window.setInterval(publishAdPresentation, 250);
   publishAdPresentation();
 
@@ -2517,6 +2521,21 @@ export default function App() {
         case "bridge-ready":
           setWebReady(true);
           break;
+        case "network-online":
+          adNetworkReachableRef.current = null;
+          if (
+            adStartupTransientFailureRef.current &&
+            consentState === "blocked" &&
+            removeAdsEntitlementRef.current === "not-entitled"
+          ) {
+            setAdStartupRetryAttempt(0);
+            setConsentState("unresolved");
+          } else if (nativeAdState === "failed") {
+            adLoadInFlightRef.current = false;
+            setAdLoadAttempt(0);
+            triggerBannerReload("network-online", true);
+          }
+          break;
         case "legal-ready":
           setLegalReady(Boolean(message.ready));
           if (message.locale === "en-US" || message.locale === "es-PR") {
@@ -2555,7 +2574,7 @@ export default function App() {
           break;
       }
     },
-    [beginRemoveAdsPurchase, beginRemoveAdsRestore, clearNativeAppData, legalReady, openBarcodeScanner, privacyChoicesRequired, reconcileNotifications, shareFile, shareText, showPrivacyChoices],
+    [beginRemoveAdsPurchase, beginRemoveAdsRestore, clearNativeAppData, consentState, legalReady, nativeAdState, openBarcodeScanner, privacyChoicesRequired, reconcileNotifications, shareFile, shareText, showPrivacyChoices, triggerBannerReload],
   );
 
   const openExternalUrl = useCallback((url: string) => {
@@ -2592,7 +2611,9 @@ export default function App() {
     adEligible &&
     nativeAdState !== "failed";
   const bannerMounted =
-    showBanner && webAdState !== "AD_TEMPORARILY_HIDDEN";
+    showBanner &&
+    webAdState !== "AD_TEMPORARILY_HIDDEN" &&
+    !barcodeScannerRequest;
   const bannerVisible =
     bannerMounted &&
     nativeAdState === "loaded" &&

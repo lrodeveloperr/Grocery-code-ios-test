@@ -424,6 +424,18 @@ test("numeric fields are routed through one in-app keypad", () => {
   assert.ok(html.includes('data-action="money-pad-cents" data-cents="99">.99</button>'));
 });
 
+test("store and item suggestions stay closed until the user types and after selection", () => {
+  assert.ok(html.includes("if(!query){box.innerHTML='';dismissSuggestions(type);return;}"));
+  assert.ok(html.includes("function dismissSuggestions(type=null)"));
+  assert.ok(html.includes("document.addEventListener('pointerdown'"));
+  assert.ok(html.includes("dismissSuggestions(type);}"));
+});
+
+test("WIC dollar usage is recorded as an exact checkout line total", () => {
+  assert.ok(minimalFlow.includes("price={ok:true,value:Math.round(used.value*100)}"));
+  assert.ok(minimalFlow.includes("d.priceEntryMode='LINE_TOTAL';d.priceRaw=R.centsToMoneyInput(price.value)"));
+});
+
 test("device language automatically selects en-US or es-PR", () => {
   assert.ok(html.includes("function resolveInitialLocale()"));
   assert.ok(html.includes("navigator.languages||[]"));
@@ -785,6 +797,34 @@ test("cash over budget warns but does not block checkout", () => {
   assert.ok(validation.warnings.some((item) => item.code === "CASH_OVER_BUDGET"));
 });
 
+test("cash checkout remains finite and succeeds without a configured planning budget", () => {
+  const core = loadCore();
+  const state = core.canonicalState();
+  state.cash.baseBudget = 0;
+  state.cash.periodBudget = 0;
+  state.cash.spent = 0;
+  state.basket.items = [{
+    id: "cash-no-budget",
+    name: "Rice",
+    quantity: 1,
+    quantityRaw: "1",
+    quantityUnit: "each",
+    unitPriceCents: 250,
+    priceKnown: true,
+    funding: { mode: "CASH" },
+  }];
+
+  const validation = core.validateBasketForCheckout(state);
+  assert.deepEqual(Array.from(validation.blockers), []);
+  assert.ok(!validation.warnings.some((item) => item.code === "CASH_OVER_BUDGET"));
+  assert.equal(validation.plan.cashAfter.percentSpent, 100);
+  assert.ok(Number.isFinite(validation.plan.cashAfter.percentSpent));
+
+  const completed = core.applyCheckoutTransaction(state, validation);
+  assert.equal(completed.state.cash.spent, 250);
+  assert.equal(completed.state.history.length, 1);
+});
+
 test("duplicating a basket item assigns a fresh identifier", () => {
   assert.ok(html.includes("function duplicateBasketItem(id,{returnTo=null}={})"));
   assert.ok(html.includes("shopDraft.editingId=null;shopDraft.id=C.id()"));
@@ -980,4 +1020,12 @@ test("reviewed UI safeguards remain wired into the canonical source", () => {
   assert.ok(nativeApp.includes('case "open-barcode-scanner"'));
   assert.ok(nativeApp.includes("<CameraView"));
   assert.ok(nativeApp.includes("window.GBTBarcodeScanner?.${result}"));
+});
+
+test("offline ad recovery is economical and reacts immediately to connectivity", () => {
+  assert.ok(nativeApp.includes("const OFFLINE_REACHABILITY_POLL_MS = 90_000;"));
+  assert.ok(nativeApp.includes('window.addEventListener("online"'));
+  assert.ok(nativeApp.includes('post({ type: "network-online" })'));
+  assert.ok(nativeApp.includes('case "network-online"'));
+  assert.ok(nativeApp.includes('triggerBannerReload("network-online", true)'));
 });
