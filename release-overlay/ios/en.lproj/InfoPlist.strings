@@ -1,2 +1,3 @@
 CFBundleDisplayName = "Grocery Benefits Tracker";
 NSUserTrackingUsageDescription = "Your permission allows this app and its advertising partners to use a device identifier to measure non-personalized ads. Denying permission does not limit app features.";
+NSCameraUsageDescription = "Grocery Benefits Tracker uses the camera only when you choose to scan a grocery barcode.";

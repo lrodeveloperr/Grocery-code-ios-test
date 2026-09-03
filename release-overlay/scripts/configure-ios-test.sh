@@ -97,6 +97,8 @@ fi
 
 "$plist_buddy" -c "Delete :NSUserTrackingUsageDescription" "$plist_path" 2>/dev/null || true
 "$plist_buddy" -c "Add :NSUserTrackingUsageDescription string Your permission allows this app and its advertising partners to use a device identifier to measure non-personalized ads. Denying permission does not limit app features." "$plist_path"
+"$plist_buddy" -c "Delete :NSCameraUsageDescription" "$plist_path" 2>/dev/null || true
+"$plist_buddy" -c "Add :NSCameraUsageDescription string Grocery Benefits Tracker uses the camera only when you choose to scan a grocery barcode." "$plist_path"
 "$plist_buddy" -c "Delete :NSPrivacyTracking" "$privacy_manifest_path" 2>/dev/null || true
 "$plist_buddy" -c "Add :NSPrivacyTracking bool false" "$privacy_manifest_path"
 "$plist_buddy" -c "Delete :NSPrivacyTrackingDomains" "$privacy_manifest_path" 2>/dev/null || true

@@ -165,8 +165,8 @@ test("keeps one non-personalized banner behind StoreKit, legal, UMP, and ATT gat
 
   const bannerGate = sourceSection(
     nativeSource,
-    "  const showBanner =",
-    "  const bannerMounted =",
+    "  const showNativeBanner =",
+    "  const nativeBannerMounted =",
   );
   expect(bannerGate).toContain("adProfileConfigured &&");
   expect(bannerGate).toContain("legalReady &&");

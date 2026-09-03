@@ -68,6 +68,7 @@ import type {
 const LOCAL_APP_ORIGIN = "https://snap-ebt-wic.local/";
 const AD_SLOT_HEIGHT = 50;
 const AD_SLOT_BOTTOM = 66;
+const HOUSE_BANNER_HEIGHT = 58;
 const GOOGLE_DEMO_PUBLISHER_ID = "3940256099942544";
 const STOREKIT_CONNECTION_RETRY_DELAYS_MS = [0, 1000, 3000] as const;
 const STOREKIT_ENTITLEMENT_RETRY_DELAYS_MS = [0, 500, 2000] as const;
@@ -1853,21 +1854,24 @@ export default function App() {
         : consentState === "blocked"
           ? "REQUEST_BLOCKED"
           : "UNRESOLVED";
+    const canLoadAdProvider =
+      adProfileConfigured &&
+      consentState === "permitted" &&
+      adEligible;
     const state =
-      removeAdsEntitlement !== "not-entitled" ||
-      consentState === "blocked" ||
-      !adEligible
+      removeAdsEntitlement !== "not-entitled" || !legalReady
         ? "AD_DISABLED"
-        : nativeAdState === "loaded"
-          ? "AD_LOADED"
-          : nativeAdState === "failed"
-            ? "AD_UNAVAILABLE"
+        : !canLoadAdProvider || nativeAdState === "failed"
+          ? "AD_UNAVAILABLE"
+          : nativeAdState === "loaded"
+            ? "AD_LOADED"
             : "AD_LOADING";
     const height =
-      removeAdsEntitlement === "not-entitled" &&
-      nativeAdState === "loaded"
-        ? AD_SLOT_HEIGHT
-        : 0;
+      state === "AD_UNAVAILABLE"
+        ? HOUSE_BANNER_HEIGHT
+        : state === "AD_LOADED"
+          ? AD_SLOT_HEIGHT
+          : 0;
     webViewRef.current?.injectJavaScript(`
       (function () {
         const runtime = window.GBTAdRuntime;
@@ -1880,8 +1884,10 @@ export default function App() {
       true;
     `);
   }, [
+    adProfileConfigured,
     adEligible,
     consentState,
+    legalReady,
     nativeAdState,
     removeAdsEntitlement,
     webReady,
@@ -2603,19 +2609,19 @@ export default function App() {
     () => ({ html: APP_HTML, baseUrl: LOCAL_APP_ORIGIN }),
     [],
   );
-  const showBanner =
+  const showNativeBanner =
     adProfileConfigured &&
     removeAdsEntitlement === "not-entitled" &&
     legalReady &&
     consentState === "permitted" &&
     adEligible &&
     nativeAdState !== "failed";
-  const bannerMounted =
-    showBanner &&
+  const nativeBannerMounted =
+    showNativeBanner &&
     webAdState !== "AD_TEMPORARILY_HIDDEN" &&
     !barcodeScannerRequest;
-  const bannerVisible =
-    bannerMounted &&
+  const nativeBannerVisible =
+    nativeBannerMounted &&
     nativeAdState === "loaded" &&
     webAdState === "AD_LOADED";
   const scannerCopy = SCANNER_COPY[barcodeScannerRequest?.locale || appLocale];
@@ -2651,12 +2657,12 @@ export default function App() {
           onContentProcessDidTerminate={() => webViewRef.current?.reload()}
           style={styles.webView}
         />
-        {bannerMounted ? (
+        {nativeBannerMounted ? (
           <View
-            pointerEvents={bannerVisible ? "auto" : "none"}
+            pointerEvents={nativeBannerVisible ? "auto" : "none"}
             style={[
               styles.bannerOverlay,
-              !bannerVisible && styles.bannerHidden,
+              !nativeBannerVisible && styles.bannerHidden,
             ]}
           >
             <BannerAd

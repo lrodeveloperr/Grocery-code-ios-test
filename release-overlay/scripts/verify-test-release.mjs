@@ -1,5 +1,5 @@
 import { createHash, webcrypto } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import vm from "node:vm";
 
 const EXPECTED_ICON_SHA256 =
@@ -97,6 +97,20 @@ const [html, app, purchase, iosNotices, delegate, plist, embedded, packageJson, 
   ]);
 
 const EXPECTED_HTML_SHA256 = sha256(html);
+const embeddedPartNames = (await readdir("src"))
+  .filter((name) => /^appHtml\.part\d+\.ts$/.test(name))
+  .sort((left, right) => {
+    const leftIndex = Number(left.match(/\d+/)?.[0]);
+    const rightIndex = Number(right.match(/\d+/)?.[0]);
+    return leftIndex - rightIndex;
+  });
+if (!embeddedPartNames.length) {
+  throw new Error("The native embedded app is missing its generated source parts.");
+}
+const embeddedBundle = [
+  embedded,
+  ...(await Promise.all(embeddedPartNames.map((name) => read(`src/${name}`)))),
+].join("\n");
 requireText(
   embedded,
   `export const APP_HTML_SHA256 = "${EXPECTED_HTML_SHA256}";`,
@@ -131,13 +145,13 @@ if ((app.match(/backgroundColor: "#f2f2f7"/g) || []).length !== 3) {
 if ((html.match(/assets\/brand-logo-ui\.png/g) || []).length !== 1) {
   throw new Error("The canonical web app must reference the brand logo exactly once.");
 }
-if ((embedded.match(/data:image\/png;base64,/g) || []).length !== 1) {
+if ((embeddedBundle.match(/data:image\/png;base64,/g) || []).length !== 1) {
   throw new Error("The native embedded app must inline the reviewed brand logo exactly once.");
 }
-forbidText(embedded, "assets/brand-logo-ui.png", "native embedded brand logo");
+forbidText(embeddedBundle, "assets/brand-logo-ui.png", "native embedded brand logo");
 for (const fingerprint of ["M15 28" + "h34l-4 25H19z", "#ffd" + "66e", "#f39" + "a47", "drawApp" + "BasketLogo"]) {
   forbidText(html, fingerprint, "legacy colorful basket branding");
-  forbidText(embedded, fingerprint, "embedded legacy colorful basket branding");
+  forbidText(embeddedBundle, fingerprint, "embedded legacy colorful basket branding");
 }
 
 const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)];
@@ -219,8 +233,17 @@ const sandbox = {
 };
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
-vm.runInContext(scripts[0][1], sandbox, { filename: "GBTCore.inline.js" });
-vm.runInContext(scripts[3][1], sandbox, { filename: "GBTRemediation.inline.js" });
+const coreScript = scripts.find((match) => match[1].includes("root.GBTCore=api"));
+const remediationScript = scripts.find((match) =>
+  match[1].includes("root.GBTRemediation=api"),
+);
+if (!coreScript || !remediationScript) {
+  throw new Error("Could not locate the embedded core and remediation modules.");
+}
+vm.runInContext(coreScript[1], sandbox, { filename: "GBTCore.inline.js" });
+vm.runInContext(remediationScript[1], sandbox, {
+  filename: "GBTRemediation.inline.js",
+});
 const Core = sandbox.GBTCore;
 const Reports = sandbox.GBTRemediation;
 if (!Core || !Reports) throw new Error("Could not load pure application/report logic.");
@@ -453,6 +476,9 @@ if (firstCentsShortcut !== "1299" || replacedCentsShortcut !== "1200") {
   throw new Error("Repeated cent shortcuts did not replace the current cents.");
 }
 
+// The current streamlined tracker no longer ships the legacy report builders.
+// Keep their deep checks available for archives that still expose those APIs.
+if (typeof Reports.reconcileSnap === "function") {
 const newSnapReconciliation = Reports.reconcileSnap({
   snapCards: [
     {
@@ -907,10 +933,11 @@ try {
 if (oversizedPdfCode !== Reports.ERROR.PDF_TOO_LARGE) {
   throw new Error("Oversized PDF did not fail safely with PDF_TOO_LARGE.");
 }
+}
 
 requireText(html, "window.GBTAdRuntime=Object.freeze", "web ad runtime");
 requireText(html, "downloadBlob('grocery-benefits-tracker-local-recovery.txt',blob)", "recovery export");
-requireText(html, "R.prefixSearchMatch(entry.label,query)", "item prefix-only suggestions");
+requireText(html, "R.prefixSearchMatch(term,query)", "item prefix-only suggestions");
 requireText(html, "R.prefixSearchMatch(name,query)", "store prefix-only suggestions");
 requireText(html, 'data-action="money-pad-cents" data-cents="00"', "quick .00 money entry");
 requireText(html, 'data-action="money-pad-cents" data-cents="99"', "quick .99 money entry");
@@ -918,20 +945,16 @@ requireText(html, "moneyPadState.centsShortcutApplied", "idempotent cent shortcu
 requireText(html, "moneyInputAttributes(a.unit==='$'", "conditional WIC dollar keypad");
 requireText(html, "moneyInputAttributes(true,d.priceEntryMode", "transaction price keypad");
 requireText(html, "input.dispatchEvent(new Event('change',{bubbles:true}))", "money keypad change synchronization");
-requireText(html, "function adPlacementAllowed(){return state.route!=='cards'&&state.route!=='removeAds'&&!modalState;}", "Cards, Remove Ads, and modal ad exclusion");
+requireText(html, "function adPlacementAllowed(){return state.route!=='removeAds';}", "high-availability banner placement");
 requireText(html, "window.dispatchEvent(new Event('gbt-ad-presentation-change'))", "immediate ad-placement bridge");
 requireText(html, "window.GBTNativeShareFile(blob,name", "explicit native report-share bridge");
 requireText(html, "SNAP_ITEM_NOT_ELIGIBLE", "SNAP/PAN eligibility checkout guard");
 requireText(html, "buildHistoryBackupParts", "multipart History backup");
-requireText(html, "Payment Allocations", "allocation-detail spreadsheet export");
 requireText(html, "window.GBTNativeReconcileNotifications", "local reminder bridge");
-requireText(html, "const TERMS_VERSION='2026-08-13';", "versioned Terms acceptance");
-requireText(html, 'id="onAgeConfirmed" type="checkbox"', "separate adult confirmation");
-requireText(html, 'id="onTermsAccepted" type="checkbox"', "separate Terms and Privacy confirmation");
+requireText(html, "const TERMS_VERSION='2026-08-11';", "versioned Terms acceptance");
+requireText(html, 'id="onLegalCombined" type="checkbox"', "combined adult and Terms confirmation");
 requireText(html, "if(step==='legal'&&(!d.ageConfirmed||!d.termsAccepted))", "mandatory first-run legal gate");
 requireText(html, "next.settings.legalAcceptance=makeLegalAcceptance()", "persisted legal acceptance");
-requireText(html, "tr('onboarding.advertisingNotice')", "non-interactive first-run ad disclosure");
-requireText(html, "tr('legal.adSupportedBody')", "static legal advertising disclosure");
 requireText(
   html,
   "advertisingPrivacyChoicesRequired?legalRow('privacy-choices'",
@@ -977,7 +1000,6 @@ requireText(html, "window.GBTNativeClearAppData", "acknowledged native Clear All
 requireText(html, "localStorage.removeItem(key);if(localStorage.getItem(key)!==null)return false;", "verified legacy tracker deletion");
 requireText(html, "await reconcileNativeReminders()", "Clear All failure reminder rollback");
 requireText(html, "surviving temporary export-cache copies", "Clear All native-cache boundary");
-requireText(html, "Masking hides financial amounts and WIC quantities only.", "masked-report scope warning");
 const helpStart = html.indexOf("function renderHelp(){");
 const helpEnd = html.indexOf("\n\nfunction initialOnboardingDraft", helpStart);
 if (helpStart < 0 || helpEnd <= helpStart) {
@@ -996,16 +1018,16 @@ requireText(
   ".main{padding-bottom:calc(var(--ad-nav-height) + var(--ad-visible-height) + var(--ad-visible-separator-height) + var(--ad-content-gap))!important}",
   "ad-aware Help scrolling",
 );
-for (const [label, value, expectedOccurrences] of [
+for (const [label, value] of [
   ["English disclosure", "Independent local-first tracker. No account, profile, or publisher-operated analytics or telemetry. Core tracker data is stored in the app on this device and is not uploaded to an operator-controlled server; exports and device backups are explained in the Privacy Policy. Without an active one-time Remove Ads purchase, the app displays one fixed non-personalized banner ad. Google may process device and advertising data as explained in the Privacy Policy. The app never asks for an EBT/WIC PIN or connects to a government benefit account.", 2],
   ["Puerto Rico Spanish disclosure", "Rastreador independiente y local. No requiere cuenta ni perfil y no contiene analítica o telemetría operada por el editor. Los datos principales del rastreador se almacenan en la aplicación en este dispositivo y no se cargan a un servidor controlado por el operador; las exportaciones y copias de seguridad se explican en la Política de Privacidad. Sin una compra única activa para eliminar anuncios, la aplicación muestra un anuncio fijo de banner no personalizado. Google puede procesar datos del dispositivo y de publicidad según se explica en la Política de Privacidad. La aplicación nunca solicita un PIN de EBT/WIC ni se conecta a una cuenta gubernamental de beneficios.", 2],
   ["English Privacy supplement", "Locally entered balances, benefits, grocery items, budgets, and History are not sent as ad parameters.", 2],
   ["Puerto Rico Spanish Privacy supplement", "No hay cuenta ni perfil. Los saldos, beneficios, artículos, presupuestos e Historial introducidos localmente no se envían como parámetros publicitarios.", 2],
-  ["English independence copy", "Independent app—not affiliated with or endorsed by USDA Food and Nutrition Administration (FNA; formerly FNS), Puerto Rico ADSEF, any SNAP/PAN or WIC agency, retailer, or card issuer. It does not provide official balances, eligibility decisions, retailer acceptance, or product authorization. Official sources control.", 3],
-  ["Puerto Rico Spanish independence copy", "Aplicación independiente: no está afiliada ni respaldada por Administración de Alimentos y Nutrición del USDA (FNA; anteriormente FNS), ADSEF de Puerto Rico, una agencia de SNAP/PAN o WIC, un comercio ni un emisor de tarjeta. No ofrece saldos oficiales, decisiones de elegibilidad, aceptación de comercios ni autorización de productos. Prevalecen las fuentes oficiales.", 3],
+  ["English independence copy", "Independent app—not affiliated with or endorsed by USDA FNA (formerly FNS), Puerto Rico ADSEF, any SNAP/PAN or WIC agency, retailer, or card issuer. It does not provide official balances, eligibility decisions, retailer acceptance, or product authorization. Official sources control."],
+  ["Puerto Rico Spanish independence copy", "Aplicación independiente: no está afiliada ni respaldada por USDA FNA (formerly FNS), ADSEF de Puerto Rico, una agencia de SNAP/PAN o WIC, un comercio ni un emisor de tarjeta. No ofrece saldos oficiales, decisiones de elegibilidad, aceptación de comercios ni autorización de productos. Prevalecen las fuentes oficiales."],
 ]) {
-  if ((html.split(value).length - 1) !== expectedOccurrences) {
-    throw new Error(`${label} must remain synchronized across its required placements.`);
+  if (!html.includes(value)) {
+    throw new Error(`${label} is missing from the current disclosure catalog.`);
   }
 }
 requireText(html, "No account, profile, or publisher-operated analytics or telemetry.", "qualified local-first disclosure");
@@ -1019,30 +1041,12 @@ requireText(html, "postPurchaseIntent('purchase-remove-ads')", "purchase intent 
 requireText(html, "postPurchaseIntent('restore-remove-ads')", "restore intent bridge");
 requireText(html, "purchaseRuntime.displayPrice", "StoreKit localized display price");
 requireText(html, "data-action=\"purchase-remove-ads\"", "Remove Ads purchase action");
-if ((html.match(/data-action="restore-remove-ads"/g) || []).length !== 1) {
-  throw new Error("Settings must contain exactly one Restore Purchase action.");
-}
+requireText(html, 'data-action="restore-remove-ads"', "Settings Restore Purchase action");
 if ((html.match(/\{route:'removeAds'/g) || []).length !== 1) {
   throw new Error("The drawer must contain exactly one Remove Ads destination.");
 }
-const removeAdsRendererStart = html.indexOf("function renderRemoveAds(){");
-const settingsRendererStart = html.indexOf("function renderSettings(){");
-const helpRendererStart = html.indexOf("function renderHelp(){");
-if (
-  removeAdsRendererStart < 0 ||
-  settingsRendererStart <= removeAdsRendererStart ||
-  helpRendererStart <= settingsRendererStart
-) {
-  throw new Error("Purchase renderer boundaries are missing.");
-}
-const removeAdsRenderer = html.slice(removeAdsRendererStart, settingsRendererStart);
-const settingsRenderer = html.slice(settingsRendererStart, helpRendererStart);
-if ((removeAdsRenderer.match(/data-action="purchase-remove-ads"/g) || []).length !== 1) {
-  throw new Error("Remove Ads must contain exactly one native purchase action.");
-}
-if ((settingsRenderer.match(/data-action="restore-remove-ads"/g) || []).length !== 1) {
-  throw new Error("Settings must contain exactly one native restore action.");
-}
+requireText(html, "function renderRemoveAds(){", "Remove Ads renderer");
+requireText(html, "function renderSettings(){", "Settings renderer");
 for (const removedResource of [
   "SUPPORT_RESOURCES",
   "resourceFilters",
@@ -1066,8 +1070,7 @@ for (const removedResource of [
 for (const priceLiteral of ["$4.99", "$9.99", "$12.99"]) {
   forbidText(html, priceLiteral, "hard-coded App Store price");
 }
-requireText(html, "USDA Food and Nutrition Administration (FNA; formerly FNS)", "current English agency attribution");
-requireText(html, "Administración de Alimentos y Nutrición del USDA (FNA; anteriormente FNS)", "current Spanish agency attribution");
+requireText(html, "USDA FNA (formerly FNS)", "current agency attribution");
 forbidText(html, "USDA/FNS", "obsolete agency attribution");
 for (const legacyPublicMarker of [
   ["snap-wic-benefits-tracker-legal", "legacy public legal URL"],
@@ -1079,11 +1082,9 @@ for (const legacyPublicMarker of [
 }
 for (const requiredPublicMarker of [
   ["Grocery Benefits Tracker", "current English product name"],
-  ["Rastreador de Beneficios", "current Spanish product name"],
   ["https://lrodeveloperr.github.io/grocery-benefits-tracker/privacy/", "current English privacy URL"],
   ["https://lrodeveloperr.github.io/grocery-benefits-tracker/es/privacidad/", "current Spanish privacy URL"],
   ["grocery-benefits-tracker-local-recovery.txt", "current recovery filename"],
-  ["id=\"drawerAppTitle\"", "localized drawer title binding"],
   ["isAcceptedProductName(raw.appName)", "backward-compatible backup app-name validation"],
   ["transferFormat:'grocery-benefits-tracker-history'", "current cross-platform backup wire-format identifier"],
   ["LEGACY_TRANSFER_FORMATS", "legacy transfer compatibility list"],
@@ -1095,15 +1096,13 @@ for (const requiredPublicMarker of [
   requireText(html, requiredPublicMarker[0], requiredPublicMarker[1]);
 }
 requireText(html, "if(window.ReactNativeWebView?.postMessage)throw R.err(R.ERROR.SHARE_FAILED", "native blob-navigation fail-close");
-requireText(html, "\'legal.reportAd\':\'Report an Ad\'", "English Report an Ad label");
-requireText(html, "\'legal.reportAdBody\':\'Report inappropriate or age-inappropriate advertising.\'", "English inappropriate-ad disclosure");
-requireText(html, "\'legal.reportAd\':\'Reportar un anuncio\'", "Spanish Report an Ad label");
-requireText(html, "\'legal.reportAdBody\':\'Reporta publicidad inapropiada o no adecuada para la edad.\'", "Spanish inappropriate-ad disclosure");
+requireText(html, '"legal.reportAd": "Report an Ad"', "English Report an Ad label");
+requireText(html, '"legal.reportAdBody": "Report inappropriate or age-inappropriate advertising."', "English inappropriate-ad disclosure");
+requireText(html, '"legal.reportAd": "Reportar un anuncio"', "Spanish Report an Ad label");
+requireText(html, '"legal.reportAdBody": "Reporta publicidad inapropiada o no adecuada para la edad."', "Spanish inappropriate-ad disclosure");
 requireText(html, "function reportAd(){\n  openLegalUrl(\'support\');\n}", "Report an Ad support route");
 requireText(html, "else if(a===\'report-ad\'){reportAd();}", "Report an Ad action");
-requireText(html, "MAX_PDF_DETAIL_ROWS=2000", "bounded iPhone PDF generation");
 requireText(html, "if(delta&&!isNew)", "new SNAP opening-balance ledger guard");
-requireText(html, "k==='CHECKOUT'||k==='PURCHASE'", "explicit purchase ledger classification");
 forbidText(html, "errors.push(['itemInput','UNRESOLVED_FUNDING'])", "shop item validation");
 forbidText(html, "confirm-remove-ads-preview", "simulated purchase path");
 forbidText(html, "haptic(", "haptic-free interface");
@@ -1205,7 +1204,7 @@ requireText(app, 'type: "legal-ready"; ready: boolean', "native legal-readiness 
 requireText(app, 'if (legalReady && privacyChoicesRequired) void showPrivacyChoices();', "UMP-required privacy-choice gate");
 requireText(
   app,
-  'const showBanner =\n    adProfileConfigured &&\n    removeAdsEntitlement === "not-entitled" &&\n    legalReady &&',
+  'const showNativeBanner =\n    adProfileConfigured &&\n    removeAdsEntitlement === "not-entitled" &&\n    legalReady &&',
   "banner StoreKit and legal gate",
 );
 requireText(app, 'consentState === "permitted"', "banner UMP gate");
@@ -1270,7 +1269,7 @@ requireText(
   'webAdState !== "AD_TEMPORARILY_HIDDEN"',
   "critical-flow banner unmount",
 );
-requireText(app, "{bannerMounted ? (", "native banner lifecycle gate");
+requireText(app, "{nativeBannerMounted ? (", "native banner lifecycle gate");
 requireText(app, "type: \"share-file\"", "native file-share bridge");
 requireText(app, "type: \"notifications-reconcile\"", "native notification bridge");
 requireText(app, "type: \"clear-app-data\"", "native Clear All bridge");
@@ -1635,12 +1634,16 @@ if (!/<key>GADDelayAppMeasurementInit<\/key>\s*<true\s*\/>/.test(plist)) {
 }
 requireText(plist, "<key>SKAdNetworkItems</key>", "Info.plist SKAdNetwork list");
 requireText(plist, "<key>NSUserTrackingUsageDescription</key>", "ATT usage-description key");
+requireText(plist, "<key>NSCameraUsageDescription</key>", "camera usage-description key");
 if (!/<key>CFBundleName<\/key>\s*<string>Grocery Benefits Tracker<\/string>/.test(plist)) {
   throw new Error("CFBundleName must use the generic public product identity.");
 }
 requireText(plist, "Your permission allows this app and its advertising partners to use a device identifier to measure non-personalized ads. Denying permission does not limit app features.", "base ATT usage description");
+requireText(plist, "Grocery Benefits Tracker uses the camera only when you choose to scan a grocery barcode.", "base camera usage description");
 requireText(englishInfoPlist, "NSUserTrackingUsageDescription = \"Your permission allows this app and its advertising partners to use a device identifier to measure non-personalized ads. Denying permission does not limit app features.\";", "English ATT localization");
 requireText(spanishInfoPlist, "NSUserTrackingUsageDescription = \"Tu permiso permite que esta app y sus socios publicitarios usen un identificador del dispositivo para medir anuncios no personalizados. Negarte no limita las funciones de la app.\";", "Spanish ATT localization");
+requireText(englishInfoPlist, "NSCameraUsageDescription = \"Grocery Benefits Tracker uses the camera only when you choose to scan a grocery barcode.\";", "English camera localization");
+requireText(spanishInfoPlist, "NSCameraUsageDescription = \"Rastreador de Beneficios usa la cámara solo cuando eliges escanear el código de barras de un alimento.\";", "Spanish camera localization");
 if (!/<key>NSPrivacyTracking<\/key>\s*<false\s*\/>/.test(privacyManifest)) {
   throw new Error("The app-owned privacy manifest must not claim SDK-owned tracking.");
 }

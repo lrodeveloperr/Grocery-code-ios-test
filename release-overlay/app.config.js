@@ -92,6 +92,8 @@ module.exports = ({ config }) => {
       bundleIdentifier: `${config.ios.bundleIdentifier}${qaSuffix}`,
       infoPlist: {
         ...(config.ios?.infoPlist || {}),
+        NSCameraUsageDescription:
+          "Grocery Benefits Tracker uses the camera only when you choose to scan a grocery barcode.",
         // AppDelegate reads these before React Native initializes AdMob.
         // Production always receives an empty test-device list so a release
         // build cannot accidentally remain in test mode.
