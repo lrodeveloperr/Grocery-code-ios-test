@@ -3,6 +3,10 @@ import { resolve } from "node:path";
 
 const root = resolve(__dirname, "..");
 const nativeSource = readFileSync(resolve(root, "App.tsx"), "utf8");
+const scannerSource = readFileSync(
+  resolve(root, "src/BarcodeScannerCamera.tsx"),
+  "utf8",
+);
 const webSource = readFileSync(resolve(root, "app.html"), "utf8");
 const appConfigSource = readFileSync(resolve(root, "app.config.js"), "utf8");
 const packageSource = readFileSync(resolve(root, "package.json"), "utf8");
@@ -489,8 +493,8 @@ test("connects the streamlined scan action to an iPhone camera barcode overlay",
   expect(nativeSource).toContain('source: "USDA_FOODDATA_CENTRAL"');
   expect(nativeSource).toContain('eligibility_authority');
   expect(nativeSource).toContain('case "open-barcode-scanner"');
-  expect(nativeSource).toContain("<CameraView");
-  expect(nativeSource).toContain("onBarcodeScanned={handleBarcodeScanned}");
+  expect(scannerSource).toContain("<CameraView");
+  expect(scannerSource).toContain("onBarcodeScanned={onBarcodeScanned}");
   expect(nativeSource).toContain(
     "window.GBTBarcodeScanner?.${result}(${argumentsList});",
   );
