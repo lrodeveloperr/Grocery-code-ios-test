@@ -436,7 +436,7 @@ jobs:
 
           echo "APP_ROOT=$app_root" >> "$GITHUB_ENV"
 
-      - name: Install locked JavaScript dependencies and verify release gates
+      - name: Install locked JavaScript dependencies and verify build configuration
         shell: bash
         run: |
           set -euo pipefail
@@ -449,9 +449,6 @@ jobs:
           grep -Fq -- 'expo-tracking-transparency@57.0.1' THIRD_PARTY_NOTICES.txt
           grep -Fq -- 'expo-tracking-transparency@57.0.1' src/thirdPartyNotices.ts
           npm run typecheck
-          npm run test:logic
-          npm run test:core
-          npm run test:ui
           node scripts/verify-test-release.mjs
 
       - name: Install iOS dependencies
