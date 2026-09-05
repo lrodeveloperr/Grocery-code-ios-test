@@ -122,7 +122,7 @@ jobs:
           build_page="$RUNNER_TEMP/app-store-build-page.json"
           build_versions="$RUNNER_TEMP/app-store-build-versions.txt"
 
-          curl --fail-with-body --silent --show-error \
+          curl --fail-with-body --silent --show-error --retry 4 --retry-all-errors --retry-delay 2 \
             -H "$authorization" \
             "https://api.appstoreconnect.apple.com/v1/apps/$APP_STORE_ID" \
             -o "$app_response"
@@ -133,7 +133,7 @@ jobs:
             abort "App Store bundle ID mismatch: #{actual}" unless actual == ENV.fetch("IOS_BUNDLE_ID")
           ' "$app_response"
 
-          curl --fail-with-body --silent --show-error --get \
+          curl --fail-with-body --silent --show-error --retry 4 --retry-all-errors --retry-delay 2 --get \
             -H "$authorization" \
             --data-urlencode "filter[identifier]=$IOS_BUNDLE_ID" \
             --data-urlencode 'limit=1' \
@@ -146,7 +146,7 @@ jobs:
             abort "Registered bundle ID mismatch: #{actual}" unless actual == ENV.fetch("IOS_BUNDLE_ID")
           ' "$bundle_response"
 
-          curl --fail-with-body --silent --show-error --get \
+          curl --fail-with-body --silent --show-error --retry 4 --retry-all-errors --retry-delay 2 --get \
             -H "$authorization" \
             --data-urlencode "filter[productId]=$REMOVE_ADS_PRODUCT_ID" \
             --data-urlencode 'limit=2' \
@@ -172,7 +172,7 @@ jobs:
           ' "$iap_response")"
           [[ -n "$iap_id" ]]
 
-          curl --fail-with-body --silent --show-error \
+          curl --fail-with-body --silent --show-error --retry 4 --retry-all-errors --retry-delay 2 \
             -H "$authorization" \
             "https://api.appstoreconnect.apple.com/v2/inAppPurchases/$iap_id/inAppPurchaseAvailability" \
             -o "$iap_availability_response"
@@ -182,7 +182,7 @@ jobs:
             puts data.fetch("id")
           ' "$iap_availability_response")"
           [[ -n "$availability_id" ]]
-          curl --fail-with-body --silent --show-error --get \
+          curl --fail-with-body --silent --show-error --retry 4 --retry-all-errors --retry-delay 2 --get \
             -H "$authorization" \
             --data-urlencode 'limit=200' \
             "https://api.appstoreconnect.apple.com/v1/inAppPurchaseAvailabilities/$availability_id/availableTerritories" \
@@ -192,7 +192,7 @@ jobs:
             abort "Remove Ads is not available in the United States." unless territories.any? { |territory| territory.fetch("id") == "USA" }
           ' "$iap_territories_response"
 
-          curl --fail-with-body --silent --show-error \
+          curl --fail-with-body --silent --show-error --retry 4 --retry-all-errors --retry-delay 2 \
             -H "$authorization" \
             "https://api.appstoreconnect.apple.com/v1/inAppPurchasePriceSchedules/$iap_id/baseTerritory" \
             -o "$iap_base_territory_response"
@@ -201,7 +201,7 @@ jobs:
             abort "Remove Ads base territory is #{territory}, expected USA." unless territory == "USA"
           ' "$iap_base_territory_response"
 
-          curl --fail-with-body --silent --show-error --get \
+          curl --fail-with-body --silent --show-error --retry 4 --retry-all-errors --retry-delay 2 --get \
             -H "$authorization" \
             --data-urlencode 'filter[territory]=USA' \
             --data-urlencode 'fields[inAppPurchasePrices]=startDate,endDate,inAppPurchasePricePoint' \
@@ -231,7 +231,7 @@ jobs:
             abort "Remove Ads U.S. price is #{current}, expected #{expected}." unless BigDecimal(current) == BigDecimal(expected)
           ' "$iap_price_response"
 
-          curl --fail-with-body --silent --show-error --get \
+          curl --fail-with-body --silent --show-error --retry 4 --retry-all-errors --retry-delay 2 --get \
             -H "$authorization" \
             --data-urlencode "filter[app]=$APP_STORE_ID" \
             --data-urlencode "filter[version]=$MARKETING_VERSION" \
@@ -252,14 +252,14 @@ jobs:
             first_page=1
             while [[ -n "$build_url" ]]; do
               if (( first_page )); then
-                curl --fail-with-body --silent --show-error --get \
+                curl --fail-with-body --silent --show-error --retry 4 --retry-all-errors --retry-delay 2 --get \
                   -H "$authorization" \
                   --data-urlencode "filter[preReleaseVersion]=$prerelease_id" \
                   --data-urlencode 'limit=200' \
                   "$build_url" -o "$build_page"
                 first_page=0
               else
-                curl --fail-with-body --silent --show-error \
+                curl --fail-with-body --silent --show-error --retry 4 --retry-all-errors --retry-delay 2 \
                   -H "$authorization" "$build_url" -o "$build_page"
               fi
               ruby -rjson -e '
