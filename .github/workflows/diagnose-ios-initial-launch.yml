@@ -119,34 +119,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          udid="$(xcrun simctl list devices available -j | ruby -rjson -e '
-            devices = JSON.parse(STDIN.read).fetch("devices").values.flatten
-            phone = devices.find { |device| device.fetch("isAvailable", false) && device.fetch("name").start_with?("iPhone") }
-            abort "No available iPhone simulator was found." unless phone
-            puts phone.fetch("udid")
-          ')"
-          xcrun simctl shutdown "$udid" 2>/dev/null || true
-          xcrun simctl erase "$udid"
-          xcrun simctl boot "$udid"
-
-          simulator_ready=0
-          for attempt in $(seq 1 40); do
-            state="$(xcrun simctl list devices -j | ruby -rjson -e '
-              udid = ARGV.fetch(0)
-              device = JSON.parse(STDIN.read).fetch("devices").values.flatten.find { |item| item.fetch("udid") == udid }
-              puts(device ? device.fetch("state") : "Missing")
-            ' "$udid")"
-            if [[ "$state" == "Booted" ]] && xcrun simctl spawn "$udid" true 2>/dev/null; then
-              simulator_ready=1
-              break
-            fi
-            sleep 3
-          done
-          if [[ "$simulator_ready" != "1" ]]; then
-            echo "The iPhone simulator did not become ready within 120 seconds." >&2
-            xcrun simctl list devices >&2
-            exit 1
-          fi
+          run_timed() {
+            local seconds="$1"
+            shift
+            /usr/bin/perl -e 'my $seconds = shift @ARGV; alarm $seconds; exec @ARGV or die "exec failed: $!\\n"' "$seconds" "$@"
+          }
 
           plist="$SIMULATOR_APP_PATH/Info.plist"
           bundle_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist")"
@@ -154,9 +131,46 @@ jobs:
           crash_marker="$RUNNER_TEMP/launch-marker"
           touch "$crash_marker"
 
-          xcrun simctl install "$udid" "$SIMULATOR_APP_PATH"
-          xcrun simctl privacy "$udid" reset all "$bundle_id" || true
-          launch_output="$(xcrun simctl launch --terminate-running-process "$udid" "$bundle_id" 2>&1)"
+          udid="$(run_timed 20 xcrun simctl list devices available -j | ruby -rjson -e '
+            devices = JSON.parse(STDIN.read).fetch("devices").values.flatten
+            phones = devices.select { |device| device.fetch("isAvailable", false) && device.fetch("name").start_with?("iPhone") }
+            phone = phones.find { |device| device.fetch("state") == "Booted" } || phones.first
+            abort "No available iPhone simulator was found." unless phone
+            puts phone.fetch("udid")
+          ')"
+
+          initial_state="$(run_timed 20 xcrun simctl list devices -j | ruby -rjson -e '
+            udid = ARGV.fetch(0)
+            device = JSON.parse(STDIN.read).fetch("devices").values.flatten.find { |item| item.fetch("udid") == udid }
+            puts(device ? device.fetch("state") : "Missing")
+          ' "$udid")"
+          if [[ "$initial_state" != "Booted" ]]; then
+            run_timed 30 xcrun simctl boot "$udid"
+          fi
+
+          simulator_ready=0
+          for attempt in $(seq 1 40); do
+            state="$(run_timed 20 xcrun simctl list devices -j | ruby -rjson -e '
+              udid = ARGV.fetch(0)
+              device = JSON.parse(STDIN.read).fetch("devices").values.flatten.find { |item| item.fetch("udid") == udid }
+              puts(device ? device.fetch("state") : "Missing")
+            ' "$udid")"
+            if [[ "$state" == "Booted" ]] && run_timed 15 xcrun simctl spawn "$udid" true 2>/dev/null; then
+              simulator_ready=1
+              break
+            fi
+            sleep 3
+          done
+          if [[ "$simulator_ready" != "1" ]]; then
+            echo "The iPhone simulator did not become ready within 120 seconds." >&2
+            run_timed 20 xcrun simctl list devices >&2 || true
+            exit 1
+          fi
+
+          run_timed 20 xcrun simctl uninstall "$udid" "$bundle_id" 2>/dev/null || true
+          run_timed 30 xcrun simctl install "$udid" "$SIMULATOR_APP_PATH"
+          run_timed 20 xcrun simctl privacy "$udid" reset all "$bundle_id" || true
+          launch_output="$(run_timed 30 xcrun simctl launch --terminate-running-process "$udid" "$bundle_id" 2>&1)"
           echo "$launch_output"
           pid="$(sed -nE 's/.*: ([0-9]+)$/\1/p' <<< "$launch_output" | tail -1)"
           test -n "$pid"
@@ -164,12 +178,12 @@ jobs:
           sleep 20
 
           echo "## Process check"
-          process_table="$(xcrun simctl spawn "$udid" ps -A -o pid=,comm=)"
+          process_table="$(run_timed 20 xcrun simctl spawn "$udid" ps -A -o pid=,comm=)"
           echo "$process_table"
           if ! grep -Eq "^[[:space:]]*$pid[[:space:]]" <<< "$process_table"; then
             echo "The application process exited during the first 20 seconds." >&2
             echo "## Recent application logs" >&2
-            xcrun simctl spawn "$udid" log show --last 3m --style compact \
+            run_timed 30 xcrun simctl spawn "$udid" log show --last 3m --style compact \
               --predicate "process == '$executable' OR eventMessage CONTAINS '$bundle_id'" >&2 || true
             echo "## Crash reports" >&2
             find "$HOME/Library/Logs/DiagnosticReports" -type f -newer "$crash_marker" \
@@ -179,5 +193,5 @@ jobs:
 
           echo "Application remained alive for 20 seconds after a clean first launch."
           echo "## Recent application logs"
-          xcrun simctl spawn "$udid" log show --last 1m --style compact \
+          run_timed 30 xcrun simctl spawn "$udid" log show --last 1m --style compact \
             --predicate "process == '$executable' OR eventMessage CONTAINS '$bundle_id'" || true
