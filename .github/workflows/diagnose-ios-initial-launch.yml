@@ -132,7 +132,6 @@ jobs:
             xcrun simctl diagnose -b --udid "$udid" || true
             exit 1
           fi
-          run_timed 20 xcrun simctl spawn "$udid" true
           echo "SIMULATOR_UDID=$udid" >> "$GITHUB_ENV"
 
       - name: Install iOS dependencies
