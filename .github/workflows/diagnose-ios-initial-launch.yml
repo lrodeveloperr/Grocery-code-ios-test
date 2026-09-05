@@ -179,7 +179,6 @@ jobs:
           touch "$crash_marker"
 
           udid="$SIMULATOR_UDID"
-          run_timed 20 xcrun simctl spawn "$udid" true
 
           run_timed 20 xcrun simctl uninstall "$udid" "$bundle_id" 2>/dev/null || true
           run_timed 30 xcrun simctl install "$udid" "$SIMULATOR_APP_PATH"
