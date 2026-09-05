@@ -1022,7 +1022,10 @@ test("reviewed UI safeguards remain wired into the canonical source", () => {
   assert.ok(html.includes("priceKnown:false"));
   assert.ok(html.includes("cancel:()=>{}"));
   assert.ok(nativeApp.includes('case "open-barcode-scanner"'));
-  assert.ok(scannerApp.includes("<CameraView"));
+  assert.ok(!scannerApp.includes("<CameraView"));
+  assert.ok(!scannerApp.includes('from "expo-camera"'));
+  assert.ok(scannerApp.includes("Camera scanning is temporarily unavailable"));
+  assert.ok(scannerApp.includes("onMountError({"));
   assert.ok(nativeApp.includes("window.GBTBarcodeScanner?.${result}"));
 });
 
