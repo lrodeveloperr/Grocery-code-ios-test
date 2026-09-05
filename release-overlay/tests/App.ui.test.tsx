@@ -480,11 +480,15 @@ test("ships one reviewed native non-consumable and no Benefits & Resources direc
   expect(() => new Function(injectedBridge)).not.toThrow();
 });
 
-test("connects the streamlined scan action to an iPhone camera barcode overlay", () => {
-  expect(packageSource).toContain('"expo-camera": "~57.0.3"');
+test("keeps barcode lookup usable without linking the unstable camera module", () => {
+  expect(packageSource).not.toContain('"expo-camera"');
   expect(packageSource).toContain('"expo-sqlite": "~57.0.1"');
-  expect(appConfigSource).toContain("NSCameraUsageDescription");
-  expect(scannerSource).toContain('from "expo-camera"');
+  expect(appConfigSource).not.toContain("NSCameraUsageDescription");
+  expect(scannerSource).not.toContain('from "expo-camera"');
+  expect(scannerSource).toContain(
+    "Camera scanning is temporarily unavailable in this recovery build.",
+  );
+  expect(scannerSource).toContain("onMountError({");
   expect(nativeSource).toContain('from "expo-sqlite"');
   expect(nativeSource).toContain(
     'require("./assets/gbt-usda-upc-2026-04.db")',
@@ -493,8 +497,6 @@ test("connects the streamlined scan action to an iPhone camera barcode overlay",
   expect(nativeSource).toContain('source: "USDA_FOODDATA_CENTRAL"');
   expect(nativeSource).toContain('eligibility_authority');
   expect(nativeSource).toContain('case "open-barcode-scanner"');
-  expect(scannerSource).toContain("<CameraView");
-  expect(scannerSource).toContain("onBarcodeScanned={onBarcodeScanned}");
   expect(nativeSource).toContain(
     "window.GBTBarcodeScanner?.${result}(${argumentsList});",
   );
