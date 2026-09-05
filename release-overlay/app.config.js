@@ -107,14 +107,30 @@ module.exports = ({ config }) => {
       expectedRemoveAdsUsdPrice:
         process.env.EXPO_PUBLIC_REMOVE_ADS_EXPECTED_USD_PRICE || "9.99",
     },
-    plugins: (config.plugins || []).map((plugin) => {
-      if (
-        !Array.isArray(plugin) ||
-        plugin[0] !== "react-native-google-mobile-ads"
-      ) {
-        return plugin;
-      }
-      return [plugin[0], { ...plugin[1], androidAppId, iosAppId }];
-    }),
+    plugins: [
+      ...(config.plugins || []).map((plugin) => {
+        if (
+          !Array.isArray(plugin) ||
+          plugin[0] !== "react-native-google-mobile-ads"
+        ) {
+          return plugin;
+        }
+        return [plugin[0], { ...plugin[1], androidAppId, iosAppId }];
+      }),
+      ...((config.plugins || []).some((plugin) =>
+        Array.isArray(plugin) ? plugin[0] === "expo-camera" : plugin === "expo-camera",
+      )
+        ? []
+        : [[
+            "expo-camera",
+            {
+              cameraPermission:
+                "Allow Grocery Benefits Tracker to use the camera to scan grocery barcodes.",
+              microphonePermission: false,
+              recordAudioAndroid: false,
+              barcodeScannerEnabled: true,
+            },
+          ]]),
+    ],
   };
 };

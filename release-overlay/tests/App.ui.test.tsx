@@ -480,20 +480,21 @@ test("ships one reviewed native non-consumable and no Benefits & Resources direc
   expect(() => new Function(injectedBridge)).not.toThrow();
 });
 
-test("keeps barcode lookup usable without linking the unstable camera module", () => {
-  expect(packageSource).not.toContain('"expo-camera"');
+test("links a lazy, permission-gated camera scanner with local lookup", () => {
+  expect(packageSource).toContain('"expo-camera": "~57.0.3"');
   expect(packageSource).toContain('"expo-sqlite": "~57.0.1"');
-  expect(appConfigSource).not.toContain("NSCameraUsageDescription");
-  expect(scannerSource).not.toContain('from "expo-camera"');
-  expect(scannerSource).toContain(
-    "Camera scanning is temporarily unavailable in this recovery build.",
-  );
-  expect(scannerSource).toContain("onMountError({");
+  expect(appConfigSource).toContain('"expo-camera"');
+  expect(scannerSource).toContain('from "expo-camera"');
+  expect(scannerSource).toContain("useCameraPermissions()");
+  expect(scannerSource).toContain("<CameraView");
+  expect(scannerSource).toContain("onBarcodeScanned={onBarcodeScanned}");
   expect(nativeSource).toContain('from "expo-sqlite"');
   expect(nativeSource).toContain(
     'require("./assets/gbt-usda-upc-2026-04.db")',
   );
-  expect(nativeSource).toContain("lookupBundledBarcode(value)");
+  expect(nativeSource).toContain("lookupBarcodeWithTimeout(value)");
+  expect(nativeSource).toContain("BARCODE_LOOKUP_TIMEOUT_MS = 5_000");
+  expect(nativeSource).toContain("bundledBarcodeDatabasePromise = null");
   expect(nativeSource).toContain('source: "USDA_FOODDATA_CENTRAL"');
   expect(nativeSource).toContain('eligibility_authority');
   expect(nativeSource).toContain('case "open-barcode-scanner"');

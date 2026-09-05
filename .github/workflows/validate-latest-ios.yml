@@ -121,8 +121,12 @@ jobs:
           test -d "$app_root/tests"
           cp release-overlay/tests/App.ui.test.tsx \
             "$app_root/tests/App.ui.test.tsx"
+          cp release-overlay/tests/BarcodeScannerCamera.ui.test.tsx \
+            "$app_root/tests/BarcodeScannerCamera.ui.test.tsx"
           cp release-overlay/tests/shared-core.test.mjs \
             "$app_root/tests/shared-core.test.mjs"
+          cp release-overlay/tests/runtime-robustness.test.mjs \
+            "$app_root/tests/runtime-robustness.test.mjs"
           cp release-overlay/tests/usda-upc-db.test.mjs \
             "$app_root/tests/usda-upc-db.test.mjs"
 
@@ -131,6 +135,8 @@ jobs:
           test ! -e "$app_root/src/billing.ts"
           cp release-overlay/src/removeAdsPurchase.ts \
             "$app_root/src/removeAdsPurchase.ts"
+          cp release-overlay/src/BarcodeScannerCamera.tsx \
+            "$app_root/src/BarcodeScannerCamera.tsx"
 
           cd "$app_root"
           node scripts/embed-web-app.mjs app.html src/appHtml.ts

@@ -1,12 +1,12 @@
 name: Distribute approved build to internal TestFlight
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/distribute-testflight-internal.yml
   workflow_dispatch:
+    inputs:
+      build_number:
+        description: Exact processed TestFlight build number to distribute
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -17,13 +17,13 @@ concurrency:
 
 jobs:
   distribute:
-    name: Make build 7 available to confirmed internal tester
+    name: Make selected build available to confirmed internal tester
     runs-on: ubuntu-latest
     timeout-minutes: 35
     environment: app-store-internal
     env:
       APP_STORE_ID: "6799562282"
-      BUILD_NUMBER: "7"
+      BUILD_NUMBER: ${{ inputs.build_number }}
       INTERNAL_GROUP_NAME: "Grocery iOS Internal Testers"
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
@@ -38,9 +38,13 @@ jobs:
           for key in ASC_KEY_ID ASC_ISSUER_ID ASC_PRIVATE_KEY TESTFLIGHT_TESTER_EMAIL; do
             [[ -n "${!key:-}" ]] || { echo "Missing protected $key input." >&2; exit 1; }
           done
+          [[ "$BUILD_NUMBER" =~ ^[1-9][0-9]{0,3}(\.[0-9]{1,2}){0,2}$ ]] || {
+            echo "Invalid TestFlight build number." >&2
+            exit 1
+          }
           echo "::add-mask::$TESTFLIGHT_TESTER_EMAIL"
 
-      - name: Add build 7 to internal TestFlight and invite confirmed tester
+      - name: Add selected build to internal TestFlight and invite confirmed tester
         shell: bash
         run: |
           set -euo pipefail

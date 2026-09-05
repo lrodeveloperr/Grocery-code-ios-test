@@ -369,8 +369,12 @@ jobs:
           test -d "$app_root/tests"
           cp release-overlay/tests/App.ui.test.tsx \
             "$app_root/tests/App.ui.test.tsx"
+          cp release-overlay/tests/BarcodeScannerCamera.ui.test.tsx \
+            "$app_root/tests/BarcodeScannerCamera.ui.test.tsx"
           cp release-overlay/tests/shared-core.test.mjs \
             "$app_root/tests/shared-core.test.mjs"
+          cp release-overlay/tests/runtime-robustness.test.mjs \
+            "$app_root/tests/runtime-robustness.test.mjs"
           cp release-overlay/tests/usda-upc-db.test.mjs \
             "$app_root/tests/usda-upc-db.test.mjs"
 
@@ -444,7 +448,7 @@ jobs:
           set -euo pipefail
           cd "$APP_ROOT"
           npm ci --no-audit --no-fund
-          test ! -d node_modules/expo-camera
+          test -d node_modules/expo-camera
           mkdir -p ../legal-pages-final
           npm run generate:notices
           grep -Fq -- 'expo-iap@5.2.4' THIRD_PARTY_NOTICES.txt
@@ -465,10 +469,7 @@ jobs:
           set -euo pipefail
           cd "$APP_ROOT/ios"
           pod install --repo-update
-          if grep -Fq 'ExpoCamera' Podfile.lock; then
-            echo "Recovery build still links ExpoCamera." >&2
-            exit 1
-          fi
+          grep -Fq 'ExpoCamera' Podfile.lock
           grep -Fq 'ExpoIap (5.2.4)' Podfile.lock
           grep -Fq 'openiap (3.1.1)' Podfile.lock
           grep -Fq 'ExpoTrackingTransparency (57.0.1)' Podfile.lock
@@ -531,12 +532,16 @@ jobs:
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
             MARKETING_VERSION="$MARKETING_VERSION" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            DEBUG_INFORMATION_FORMAT=dwarf-with-dsym \
+            GCC_GENERATE_DEBUGGING_SYMBOLS=YES \
             COMPILER_INDEX_STORE_ENABLE=NO \
             clean archive | xcbeautify
 
           app_path="$(find "$archive_path/Products/Applications" -maxdepth 1 \
             -type d -name '*.app' -print -quit)"
           test -n "$app_path"
+          test -d "$archive_path/dSYMs"
+          find "$archive_path/dSYMs" -maxdepth 1 -name '*.dSYM' -print -quit | grep -q .
           codesign --verify --deep --strict --verbose=2 "$app_path"
           signature_info="$(codesign -dvv "$app_path" 2>&1)"
           grep -Fq 'Signature=adhoc' <<< "$signature_info"

@@ -1,6 +1,6 @@
 # Grocery Benefits Tracker — iOS
 
-This private repository contains the iOS build and release overlay for **Grocery Benefits Tracker**.
+This public repository contains the iOS build and release overlay for **Grocery Benefits Tracker**.
 
 ## Current product model
 

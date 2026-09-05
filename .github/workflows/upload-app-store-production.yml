@@ -372,8 +372,12 @@ jobs:
           test -d "$app_root/tests"
           cp release-overlay/tests/App.ui.test.tsx \
             "$app_root/tests/App.ui.test.tsx"
+          cp release-overlay/tests/BarcodeScannerCamera.ui.test.tsx \
+            "$app_root/tests/BarcodeScannerCamera.ui.test.tsx"
           cp release-overlay/tests/shared-core.test.mjs \
             "$app_root/tests/shared-core.test.mjs"
+          cp release-overlay/tests/runtime-robustness.test.mjs \
+            "$app_root/tests/runtime-robustness.test.mjs"
           cp release-overlay/tests/usda-upc-db.test.mjs \
             "$app_root/tests/usda-upc-db.test.mjs"
 
@@ -382,6 +386,8 @@ jobs:
           test ! -e "$app_root/src/billing.ts"
           cp release-overlay/src/removeAdsPurchase.ts \
             "$app_root/src/removeAdsPurchase.ts"
+          cp release-overlay/src/BarcodeScannerCamera.tsx \
+            "$app_root/src/BarcodeScannerCamera.tsx"
 
           cd "$app_root"
           node scripts/embed-web-app.mjs app.html src/appHtml.ts
@@ -497,12 +503,16 @@ jobs:
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
             MARKETING_VERSION="$MARKETING_VERSION" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            DEBUG_INFORMATION_FORMAT=dwarf-with-dsym \
+            GCC_GENERATE_DEBUGGING_SYMBOLS=YES \
             COMPILER_INDEX_STORE_ENABLE=NO \
             clean archive | xcbeautify
 
           app_path="$(find "$archive_path/Products/Applications" -maxdepth 1 \
             -type d -name '*.app' -print -quit)"
           test -n "$app_path"
+          test -d "$archive_path/dSYMs"
+          find "$archive_path/dSYMs" -maxdepth 1 -name '*.dSYM' -print -quit | grep -q .
           codesign --verify --deep --strict --verbose=2 "$app_path"
           signature_info="$(codesign -dvv "$app_path" 2>&1)"
           grep -Fq 'Signature=adhoc' <<< "$signature_info"

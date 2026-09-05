@@ -61,7 +61,9 @@ jobs:
           cp release-overlay/scripts/finalize-ios-notices.mjs "$app_root/scripts/finalize-ios-notices.mjs"
           cp release-overlay/scripts/verify-ios-privacy-manifests.mjs "$app_root/scripts/verify-ios-privacy-manifests.mjs"
           cp release-overlay/tests/App.ui.test.tsx "$app_root/tests/App.ui.test.tsx"
+          cp release-overlay/tests/BarcodeScannerCamera.ui.test.tsx "$app_root/tests/BarcodeScannerCamera.ui.test.tsx"
           cp release-overlay/tests/shared-core.test.mjs "$app_root/tests/shared-core.test.mjs"
+          cp release-overlay/tests/runtime-robustness.test.mjs "$app_root/tests/runtime-robustness.test.mjs"
           cp release-overlay/tests/usda-upc-db.test.mjs "$app_root/tests/usda-upc-db.test.mjs"
 
           rm -f "$app_root/src/billing.ts"

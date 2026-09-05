@@ -1,11 +1,11 @@
+import {
+  CameraView,
+  useCameraPermissions,
+  type BarcodeScanningResult,
+  type BarcodeType,
+} from "expo-camera";
 import React, { useEffect, useRef } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
-
-type BarcodeType = "ean13" | "ean8" | "upc_a" | "upc_e";
-type BarcodeScanningResult = {
-  data: string;
-  type: string;
-};
 
 type Props = {
   barcodeTypes: BarcodeType[];
@@ -17,19 +17,65 @@ type Props = {
 };
 
 export default function BarcodeScannerCamera({
+  barcodeTypes,
+  onBarcodeScanned,
   onMountError,
+  onPermissionDenied,
+  onPermissionError,
   preparingText,
 }: Props) {
-  const reportedUnavailable = useRef(false);
+  const [permission, requestPermission] = useCameraPermissions();
+  const permissionRequestStarted = useRef(false);
+  const callbackDelivered = useRef(false);
 
   useEffect(() => {
-    if (reportedUnavailable.current) return;
-    reportedUnavailable.current = true;
-    onMountError({
-      message:
-        "Camera scanning is temporarily unavailable in this recovery build.",
-    });
-  }, [onMountError]);
+    let active = true;
+    if (!permission || permission.granted || permissionRequestStarted.current) {
+      return () => {
+        active = false;
+      };
+    }
+    permissionRequestStarted.current = true;
+    if (!permission.canAskAgain) {
+      callbackDelivered.current = true;
+      onPermissionDenied();
+      return () => {
+        active = false;
+      };
+    }
+    void requestPermission()
+      .then((result) => {
+        if (!active || callbackDelivered.current || result.granted) return;
+        callbackDelivered.current = true;
+        onPermissionDenied();
+      })
+      .catch((error) => {
+        if (!active || callbackDelivered.current) return;
+        callbackDelivered.current = true;
+        onPermissionError(error);
+      });
+    return () => {
+      active = false;
+    };
+  }, [
+    onPermissionDenied,
+    onPermissionError,
+    permission,
+    requestPermission,
+  ]);
+
+  if (permission?.granted) {
+    return (
+      <CameraView
+        accessible={false}
+        barcodeScannerSettings={{ barcodeTypes }}
+        facing="back"
+        onBarcodeScanned={onBarcodeScanned}
+        onMountError={onMountError}
+        style={styles.camera}
+      />
+    );
+  }
 
   return (
     <View style={styles.loading}>
@@ -40,6 +86,13 @@ export default function BarcodeScannerCamera({
 }
 
 const styles = StyleSheet.create({
+  camera: {
+    bottom: 0,
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
+  },
   loading: {
     alignItems: "center",
     bottom: 0,
