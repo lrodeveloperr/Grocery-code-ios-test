@@ -484,7 +484,7 @@ test("connects the streamlined scan action to an iPhone camera barcode overlay",
   expect(packageSource).toContain('"expo-camera": "~57.0.3"');
   expect(packageSource).toContain('"expo-sqlite": "~57.0.1"');
   expect(appConfigSource).toContain("NSCameraUsageDescription");
-  expect(nativeSource).toContain('from "expo-camera"');
+  expect(scannerSource).toContain('from "expo-camera"');
   expect(nativeSource).toContain('from "expo-sqlite"');
   expect(nativeSource).toContain(
     'require("./assets/gbt-usda-upc-2026-04.db")',
