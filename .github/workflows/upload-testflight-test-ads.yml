@@ -379,6 +379,8 @@ jobs:
           test ! -e "$app_root/src/billing.ts"
           cp release-overlay/src/removeAdsPurchase.ts \
             "$app_root/src/removeAdsPurchase.ts"
+          cp release-overlay/src/BarcodeScannerCamera.tsx \
+            "$app_root/src/BarcodeScannerCamera.tsx"
 
           cd "$app_root"
           node scripts/embed-web-app.mjs app.html src/appHtml.ts
