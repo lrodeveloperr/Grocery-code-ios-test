@@ -1,11 +1,11 @@
-import {
-  CameraView,
-  useCameraPermissions,
-  type BarcodeScanningResult,
-  type BarcodeType,
-} from "expo-camera";
 import React, { useEffect, useRef } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+
+type BarcodeType = "ean13" | "ean8" | "upc_a" | "upc_e";
+type BarcodeScanningResult = {
+  data: string;
+  type: string;
+};
 
 type Props = {
   barcodeTypes: BarcodeType[];
@@ -17,62 +17,29 @@ type Props = {
 };
 
 export default function BarcodeScannerCamera({
-  barcodeTypes,
-  onBarcodeScanned,
   onMountError,
-  onPermissionDenied,
-  onPermissionError,
   preparingText,
 }: Props) {
-  const [permission, requestPermission] = useCameraPermissions();
-  const permissionRequestStarted = useRef(false);
+  const reportedUnavailable = useRef(false);
 
   useEffect(() => {
-    if (!permission || permission.granted || permissionRequestStarted.current) {
-      return;
-    }
-    permissionRequestStarted.current = true;
-    void requestPermission()
-      .then((result) => {
-        if (!result.granted) onPermissionDenied();
-      })
-      .catch(onPermissionError);
-  }, [
-    onPermissionDenied,
-    onPermissionError,
-    permission,
-    requestPermission,
-  ]);
-
-  if (!permission?.granted) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator color="#ffffff" size="large" />
-        <Text style={styles.loadingText}>{preparingText}</Text>
-      </View>
-    );
-  }
+    if (reportedUnavailable.current) return;
+    reportedUnavailable.current = true;
+    onMountError({
+      message:
+        "Camera scanning is temporarily unavailable in this recovery build.",
+    });
+  }, [onMountError]);
 
   return (
-    <CameraView
-      accessible={false}
-      barcodeScannerSettings={{ barcodeTypes }}
-      facing="back"
-      onBarcodeScanned={onBarcodeScanned}
-      onMountError={onMountError}
-      style={styles.camera}
-    />
+    <View style={styles.loading}>
+      <ActivityIndicator color="#ffffff" size="large" />
+      <Text style={styles.loadingText}>{preparingText}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  camera: {
-    bottom: 0,
-    left: 0,
-    position: "absolute",
-    right: 0,
-    top: 0,
-  },
   loading: {
     alignItems: "center",
     bottom: 0,
