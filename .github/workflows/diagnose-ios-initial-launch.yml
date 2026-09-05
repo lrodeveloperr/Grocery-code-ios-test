@@ -96,7 +96,10 @@ jobs:
           source_file="$APP_ROOT/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Coding/JavaScriptCodable+Date.swift"
           test -f "$source_file"
           perl -0pi -e 's/(?<!Swift\.)abs\(milliseconds\)/Swift.abs(milliseconds)/g' "$source_file"
-          grep -q 'Swift.abs(milliseconds) <= maxJavaScriptDateMilliseconds' "$source_file"
+          if ! grep -Eq 'Swift\.abs\(milliseconds\)|milliseconds\.magnitude' "$source_file"; then
+            echo "Expo date bounds check is missing its Swift 6.2-safe implementation." >&2
+            exit 1
+          fi
 
       - name: Boot and verify the stable iOS simulator
         shell: bash
