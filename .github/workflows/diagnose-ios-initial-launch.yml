@@ -112,14 +112,19 @@ jobs:
             /usr/bin/perl -e 'my $seconds = shift @ARGV; alarm $seconds; exec @ARGV or die "exec failed: $!\\n"' "$seconds" "$@"
           }
 
-          udid="$(run_timed 20 xcrun simctl list devices available -j | ruby -rjson -e '
-            simulator_sets = JSON.parse(STDIN.read).fetch("devices")
+          device_json="$RUNNER_TEMP/available-ios-simulators.json"
+          if ! run_timed 90 xcrun simctl list devices available -j > "$device_json"; then
+            echo "Timed out while CoreSimulator initialized its device list." >&2
+            exit 1
+          fi
+          udid="$(ruby -rjson -e '
+            simulator_sets = JSON.parse(File.read(ARGV.fetch(0))).fetch("devices")
             devices = simulator_sets.select { |runtime, _| runtime.end_with?("iOS-18-5") }.values.flatten
             phones = devices.select { |device| device.fetch("isAvailable", false) && device.fetch("name").start_with?("iPhone") }
             phone = phones.find { |device| device.fetch("name") == "iPhone 16 Pro" } || phones.first
             abort "No iOS 18.5 iPhone simulator was found." unless phone
             puts phone.fetch("udid")
-          ')"
+          ' "$device_json")"
 
           run_timed 30 xcrun simctl boot "$udid"
           simulator_ready=0
