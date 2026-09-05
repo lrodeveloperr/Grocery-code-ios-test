@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   distribute:
-    name: Make selected build available to confirmed internal tester
+    name: Make selected build available to internal testers
     runs-on: ubuntu-latest
     timeout-minutes: 35
     environment: app-store-internal
@@ -35,14 +35,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for key in ASC_KEY_ID ASC_ISSUER_ID ASC_PRIVATE_KEY TESTFLIGHT_TESTER_EMAIL; do
+          for key in ASC_KEY_ID ASC_ISSUER_ID ASC_PRIVATE_KEY; do
             [[ -n "${!key:-}" ]] || { echo "Missing protected $key input." >&2; exit 1; }
           done
           [[ "$BUILD_NUMBER" =~ ^[1-9][0-9]{0,3}(\.[0-9]{1,2}){0,2}$ ]] || {
             echo "Invalid TestFlight build number." >&2
             exit 1
           }
-          echo "::add-mask::$TESTFLIGHT_TESTER_EMAIL"
+          if [[ -n "$TESTFLIGHT_TESTER_EMAIL" ]]; then
+            echo "::add-mask::$TESTFLIGHT_TESTER_EMAIL"
+          fi
 
       - name: Add selected build to internal TestFlight and invite confirmed tester
         shell: bash
@@ -63,12 +65,14 @@ jobs:
           APP_ID = ENV.fetch("APP_STORE_ID")
           BUILD_NUMBER = ENV.fetch("BUILD_NUMBER")
           GROUP_NAME = ENV.fetch("INTERNAL_GROUP_NAME")
-          TESTER_EMAIL = ENV.fetch("TESTFLIGHT_TESTER_EMAIL").strip
+          TESTER_EMAIL = ENV.fetch("TESTFLIGHT_TESTER_EMAIL", "").strip
           KEY_ID = ENV.fetch("ASC_KEY_ID")
           ISSUER_ID = ENV.fetch("ASC_ISSUER_ID")
           KEY_PATH = ENV.fetch("ASC_KEY_PATH")
 
-          abort "Tester email is malformed." unless TESTER_EMAIL.match?(/\A[^@\s]+@[^@\s]+\.[^@\s]+\z/)
+          unless TESTER_EMAIL.empty? || TESTER_EMAIL.match?(/\A[^@\s]+@[^@\s]+\.[^@\s]+\z/)
+            abort "Tester email is malformed."
+          end
 
           def base64url(value)
             Base64.urlsafe_encode64(value, padding: false)
@@ -164,6 +168,44 @@ jobs:
           end
           abort "Build #{BUILD_NUMBER} did not finish processing within 30 minutes." unless build
           build_id = build.fetch("id")
+
+          if TESTER_EMAIL.empty?
+            groups = api_request(
+              :get,
+              query_path("/v1/betaGroups", { "filter[app]" => APP_ID, "limit" => "200" }),
+            ).fetch("data", [])
+            group = groups.find do |item|
+              item.dig("attributes", "isInternalGroup") == true &&
+                item.dig("attributes", "name") == GROUP_NAME
+            end
+            abort "The existing internal TestFlight group was not found, and no tester email is configured." unless group
+            group_id = group.fetch("id")
+            group_testers = api_request(
+              :get,
+              "/v1/betaGroups/#{group_id}/relationships/betaTesters",
+            ).fetch("data", [])
+            abort "The existing internal TestFlight group has no testers." if group_testers.empty?
+
+            group_builds = api_request(
+              :get,
+              "/v1/betaGroups/#{group_id}/relationships/builds",
+            ).fetch("data", [])
+            unless group_builds.any? { |item| item["id"] == build_id }
+              api_request(
+                :post,
+                "/v1/betaGroups/#{group_id}/relationships/builds",
+                body: { data: [{ type: "builds", id: build_id }] },
+                allowed: [204],
+              )
+              group_builds = api_request(
+                :get,
+                "/v1/betaGroups/#{group_id}/relationships/builds",
+              ).fetch("data", [])
+            end
+            abort "Build relationship verification failed." unless group_builds.any? { |item| item["id"] == build_id }
+            puts "Build #{BUILD_NUMBER} is available to #{group_testers.length} existing internal TestFlight tester(s)."
+            exit
+          end
 
           team_users = api_request(
             :get,
