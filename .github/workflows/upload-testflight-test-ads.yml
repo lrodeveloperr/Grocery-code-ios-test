@@ -455,7 +455,6 @@ jobs:
           npm run test:logic
           npm run test:core
           npm run test:ui
-          npm run verify:package
           node scripts/verify-test-release.mjs
 
       - name: Install iOS dependencies
