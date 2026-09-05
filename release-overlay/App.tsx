@@ -1,9 +1,7 @@
 import { Directory, File, Paths } from "expo-file-system";
-import {
-  CameraView,
-  useCameraPermissions,
-  type BarcodeScanningResult,
-  type BarcodeType,
+import type {
+  BarcodeScanningResult,
+  BarcodeType,
 } from "expo-camera";
 import {
   getTrackingPermissionsAsync,
@@ -79,7 +77,6 @@ const NOTIFICATION_OWNER = "snap-ebt-grocery-tracker:local-reminder:v1";
 const NOTIFICATION_IDENTIFIER_PREFIX = "gbt-local-reminder-v1:";
 const MAX_OWNED_REMINDERS = 48;
 const USDA_UPC_DATABASE_NAME = "gbt-usda-upc-2026-04.db";
-const USDA_UPC_DATABASE_ASSET = require("./assets/gbt-usda-upc-2026-04.db");
 const USDA_UPC_SCHEMA_VERSION = "1";
 
 const USDA_UPC_CATEGORIES = [
@@ -159,9 +156,13 @@ export function normalizeProductBarcode(value: string, type?: string) {
 async function openBundledBarcodeDatabase() {
   if (bundledBarcodeDatabasePromise) return bundledBarcodeDatabasePromise;
   bundledBarcodeDatabasePromise = (async () => {
+    // Resolve the large bundled index only when a successful scan needs it.
+    // Keeping this asset out of initial module evaluation makes first launch
+    // independent of the scanner/data path.
+    const assetId = require("./assets/gbt-usda-upc-2026-04.db");
     const importAsset = (forceOverwrite: boolean) =>
       importDatabaseFromAssetAsync(USDA_UPC_DATABASE_NAME, {
-        assetId: USDA_UPC_DATABASE_ASSET,
+        assetId,
         forceOverwrite,
       });
     const openValidated = async () => {
@@ -1007,7 +1008,8 @@ export default function App() {
   const removeAdsDeliveryQueueRef = useRef<Promise<void>>(Promise.resolve());
   const removeAdsReconcileQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [webReady, setWebReady] = useState(false);
-  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [cameraModule, setCameraModule] =
+    useState<typeof import("expo-camera") | null>(null);
   const [barcodeScannerRequest, setBarcodeScannerRequest] =
     useState<BarcodeScannerRequest | null>(null);
   const [appLocale, setAppLocale] =
@@ -2443,13 +2445,21 @@ export default function App() {
       setBarcodeScannerRequest({
         barcodeTypes: requestedGroceryBarcodeTypes(message.formats),
         locale,
-        permissionGranted: cameraPermission?.granted === true,
+        permissionGranted: false,
       });
 
       try {
-        const permission = cameraPermission?.granted
-          ? cameraPermission
-          : await requestCameraPermission();
+        // Expo Camera is intentionally loaded only after the user opens Scan.
+        // This keeps an unavailable or incompatible camera module from taking
+        // down the app before the main interface is visible.
+        const loadedCameraModule = await import("expo-camera");
+        if (!barcodeScannerOpenRef.current) return;
+        setCameraModule(loadedCameraModule);
+        const currentPermission =
+          await loadedCameraModule.getCameraPermissionsAsync();
+        const permission = currentPermission.granted
+          ? currentPermission
+          : await loadedCameraModule.requestCameraPermissionsAsync();
         if (!barcodeScannerOpenRef.current) return;
         if (!permission.granted) {
           cancelBarcodeScanner();
@@ -2468,7 +2478,7 @@ export default function App() {
         Alert.alert(copy.cameraUnavailableTitle, copy.cameraOpenFailedBody);
       }
     },
-    [cameraPermission, cancelBarcodeScanner, requestCameraPermission],
+    [cancelBarcodeScanner],
   );
 
   const handleBarcodeScanned = useCallback(
@@ -2625,6 +2635,7 @@ export default function App() {
     nativeAdState === "loaded" &&
     webAdState === "AD_LOADED";
   const scannerCopy = SCANNER_COPY[barcodeScannerRequest?.locale || appLocale];
+  const CameraView = cameraModule?.CameraView;
 
   return (
     <SafeAreaProvider style={styles.root}>
@@ -2706,7 +2717,7 @@ export default function App() {
             importantForAccessibility="yes"
             style={styles.scannerOverlay}
           >
-            {barcodeScannerRequest.permissionGranted ? (
+            {barcodeScannerRequest.permissionGranted && CameraView ? (
               <CameraView
                 accessible={false}
                 barcodeScannerSettings={{
