@@ -444,6 +444,7 @@ jobs:
           set -euo pipefail
           cd "$APP_ROOT"
           npm ci --no-audit --no-fund
+          test ! -d node_modules/expo-camera
           mkdir -p ../legal-pages-final
           npm run generate:notices
           grep -Fq -- 'expo-iap@5.2.4' THIRD_PARTY_NOTICES.txt
@@ -451,6 +452,10 @@ jobs:
           grep -Fq -- 'expo-tracking-transparency@57.0.1' THIRD_PARTY_NOTICES.txt
           grep -Fq -- 'expo-tracking-transparency@57.0.1' src/thirdPartyNotices.ts
           npm run typecheck
+          npm run test:logic
+          npm run test:core
+          npm run test:ui
+          npm run verify:package
           node scripts/verify-test-release.mjs
 
       - name: Install iOS dependencies
@@ -461,6 +466,10 @@ jobs:
           set -euo pipefail
           cd "$APP_ROOT/ios"
           pod install --repo-update
+          if grep -Fq 'ExpoCamera' Podfile.lock; then
+            echo "Recovery build still links ExpoCamera." >&2
+            exit 1
+          fi
           grep -Fq 'ExpoIap (5.2.4)' Podfile.lock
           grep -Fq 'openiap (3.1.1)' Podfile.lock
           grep -Fq 'ExpoTrackingTransparency (57.0.1)' Podfile.lock
