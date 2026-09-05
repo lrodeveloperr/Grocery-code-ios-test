@@ -79,6 +79,7 @@ jobs:
           set -euo pipefail
           cd "$APP_ROOT"
           npm ci --no-audit --no-fund
+          mkdir -p ../legal-pages-final
           npm run generate:notices
           npm run typecheck
           npm run test:logic
