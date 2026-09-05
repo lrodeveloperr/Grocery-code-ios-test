@@ -191,9 +191,9 @@ jobs:
           sleep 20
 
           echo "## Process check"
-          process_table="$(run_timed 20 xcrun simctl spawn "$udid" ps -A -o pid=,comm=)"
-          echo "$process_table"
-          if ! grep -Eq "^[[:space:]]*$pid[[:space:]]" <<< "$process_table"; then
+          process_command="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+          echo "$pid $process_command"
+          if ! kill -0 "$pid" 2>/dev/null || [[ "$process_command" != *"/$executable" ]]; then
             echo "The application process exited during the first 20 seconds." >&2
             echo "## Recent application logs" >&2
             run_timed 30 xcrun simctl spawn "$udid" log show --last 3m --style compact \
