@@ -125,8 +125,28 @@ jobs:
             abort "No available iPhone simulator was found." unless phone
             puts phone.fetch("udid")
           ')"
-          xcrun simctl boot "$udid" 2>/dev/null || true
-          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl shutdown "$udid" 2>/dev/null || true
+          xcrun simctl erase "$udid"
+          xcrun simctl boot "$udid"
+
+          simulator_ready=0
+          for attempt in $(seq 1 40); do
+            state="$(xcrun simctl list devices -j | ruby -rjson -e '
+              udid = ARGV.fetch(0)
+              device = JSON.parse(STDIN.read).fetch("devices").values.flatten.find { |item| item.fetch("udid") == udid }
+              puts(device ? device.fetch("state") : "Missing")
+            ' "$udid")"
+            if [[ "$state" == "Booted" ]] && xcrun simctl spawn "$udid" true 2>/dev/null; then
+              simulator_ready=1
+              break
+            fi
+            sleep 3
+          done
+          if [[ "$simulator_ready" != "1" ]]; then
+            echo "The iPhone simulator did not become ready within 120 seconds." >&2
+            xcrun simctl list devices >&2
+            exit 1
+          fi
 
           plist="$SIMULATOR_APP_PATH/Info.plist"
           bundle_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist")"
