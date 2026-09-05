@@ -5,6 +5,10 @@ import vm from "node:vm";
 
 const html = await readFile(new URL("../app.html", import.meta.url), "utf8");
 const nativeApp = await readFile(new URL("../App.tsx", import.meta.url), "utf8");
+const scannerApp = await readFile(
+  new URL("../src/BarcodeScannerCamera.tsx", import.meta.url),
+  "utf8",
+);
 const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/gi)].map(
   (match) => match[1],
 );
@@ -1018,7 +1022,7 @@ test("reviewed UI safeguards remain wired into the canonical source", () => {
   assert.ok(html.includes("priceKnown:false"));
   assert.ok(html.includes("cancel:()=>{}"));
   assert.ok(nativeApp.includes('case "open-barcode-scanner"'));
-  assert.ok(nativeApp.includes("<CameraView"));
+  assert.ok(scannerApp.includes("<CameraView"));
   assert.ok(nativeApp.includes("window.GBTBarcodeScanner?.${result}"));
 });
 
