@@ -46,9 +46,8 @@ rescue StandardError => error
 end
 
 def query_path(path, params)
-  uri = URI(path)
-  uri.query = URI.encode_www_form(params)
-  uri.request_uri
+  separator = path.include?("?") ? "&" : "?"
+  "#{path}#{separator}#{URI.encode_www_form(params)}"
 end
 
 def active_us_app_prices(document, source)
