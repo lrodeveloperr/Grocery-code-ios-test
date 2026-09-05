@@ -25,15 +25,16 @@ This file is the canonical metadata source for bundle `com.lateefrazaqoyetola.sn
 
 **Subtitle:** SNAP, WIC & Budget Planner
 
-**Promotional text:** Manually track SNAP/PAN balances, WIC benefits, split grocery payments and shopping budgets. Your core records stay on your iPhone—no account or benefit PIN.
+**Promotional text:** Track SNAP/PAN balances, WIC benefits and grocery budgets. Scan UPC/EAN barcodes, plan split payments and keep core records on your iPhone—no account or benefit PIN.
 
-**Keywords:** EBT,PAN,food stamps,shopping,expense,spending,balance,allowance,card,cash,offline,history,report
+**Keywords:** EBT,PAN,food stamps,barcode,UPC,shopping,expense,spending,balance,allowance,cash,offline,history
 
 **Description:**
 
 Grocery Benefits Tracker is an independent, manual organizer for people who plan grocery purchases with SNAP or Puerto Rico PAN, WIC and cash. Enter the balances and benefits you want to track, build a basket, assign payment methods, and see how each completed checkout affects your own records.
 
 PLAN EACH GROCERY TRIP
+• Scan supported UPC/EAN barcodes and use the bundled offline item index, or enter items manually.
 • Build a basket with store, item, brand, category, quantity and price details.
 • Mark SNAP eligibility as eligible, not eligible or unsure.
 • Assign SNAP/PAN, WIC, cash or a split payment before checkout.
@@ -71,15 +72,16 @@ The binary keeps its `es-PR` localization. App Store Connect does not offer a Pu
 
 **Subtitle:** PAN, WIC y presupuesto
 
-**Promotional text:** Registra manualmente saldos SNAP/PAN, beneficios WIC, pagos divididos y presupuestos de compra. Tus datos principales quedan en tu iPhone; sin cuenta ni PIN.
+**Promotional text:** Registra saldos SNAP/PAN, beneficios WIC y presupuestos. Escanea códigos UPC/EAN, planifica pagos divididos y conserva tus datos en tu iPhone; sin cuenta ni PIN.
 
-**Keywords:** EBT,SNAP,cupones alimentos,compras,gasto,saldo,asignación,tarjeta,efectivo,historial,reporte,local
+**Keywords:** EBT,SNAP,cupones,alimentos,código barras,UPC,compras,gasto,saldo,tarjeta,efectivo,historial
 
 **Description:**
 
 Rastreador de Beneficios es un organizador manual e independiente para quienes planifican compras con SNAP o PAN de Puerto Rico, WIC y efectivo. Ingresa los saldos y beneficios que deseas registrar, prepara una canasta, asigna formas de pago y observa cómo cada compra completada cambia tus propios registros.
 
 PLANIFICA CADA COMPRA
+• Escanea códigos UPC/EAN compatibles y usa el índice de productos integrado sin conexión, o introduce productos manualmente.
 • Prepara una canasta con tienda, artículo, marca, categoría, cantidad y precio.
 • Marca la elegibilidad para SNAP como elegible, no elegible o incierta.
 • Asigna SNAP/PAN, WIC, efectivo o un pago dividido antes de finalizar.
@@ -126,10 +128,11 @@ No sign-in or demo account is required. On first launch, choose English or Spani
 
 To test the core workflow:
 1. Open Cards & Budgets and enter a manual SNAP/PAN balance, WIC benefit or shopping budget.
-2. Open Shop, add a grocery item, choose SNAP/PAN, WIC, Cash or a supported split allocation, and complete checkout.
-3. Review the resulting local record in History and Reports.
-4. Reports can be exported as PDF, XLSX or CSV. History can be transferred with an encrypted or unencrypted user-initiated backup.
-5. Optional local notifications are requested only after the user explicitly enables a reminder.
+2. Open Shop and tap Scan. Camera permission is requested only at that point. Scan a supported UPC/EAN barcode, or cancel/deny camera access and enter the item manually. A recognized code may be matched locally against the bundled offline USDA FoodData Central-derived index.
+3. Choose SNAP/PAN, WIC, Cash or a supported split allocation, and complete checkout.
+4. Review the resulting local record in History and Reports.
+5. Reports can be exported as PDF, XLSX or CSV. History can be transferred with an encrypted or unencrypted user-initiated backup.
+6. Optional local notifications are requested only after the user explicitly enables a reminder.
 
 In-app purchase: `remove_ads_lifetime` is a one-time non-consumable. Open Remove Ads in the sidebar to purchase. Use Settings → Restore Purchase to restore a verified prior purchase. There is no subscription. StoreKit supplies the localized price.
 
