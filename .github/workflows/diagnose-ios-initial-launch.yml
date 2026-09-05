@@ -8,7 +8,7 @@ permissions:
 
 env:
   CI: "1"
-  DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+  DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
   EXPO_NO_TELEMETRY: "1"
   EXPO_PUBLIC_AD_PROFILE: test
   EXPO_PUBLIC_IOS_ADMOB_BANNER_ID: ""
