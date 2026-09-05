@@ -1,8 +1,4 @@
 import { Directory, File, Paths } from "expo-file-system";
-import type {
-  BarcodeScanningResult,
-  BarcodeType,
-} from "expo-camera";
 import {
   getTrackingPermissionsAsync,
   requestTrackingPermissionsAsync,
@@ -261,6 +257,12 @@ type NativeReminderSpec = {
   locale: ReminderLocale;
 };
 
+type BarcodeType = "ean13" | "ean8" | "upc_a" | "upc_e";
+type BarcodeScanningResult = {
+  data: string;
+  type: string;
+};
+
 type BarcodeScannerRequest = {
   barcodeTypes: BarcodeType[];
   locale: "en-US" | "es-PR";
@@ -283,6 +285,10 @@ type WebViewHandle = {
 const NativeWebView = PackageWebView as unknown as React.ForwardRefExoticComponent<
   IOSWebViewProps & React.RefAttributes<WebViewHandle>
 >;
+
+const LazyBarcodeScannerCamera = React.lazy(
+  () => import("./src/BarcodeScannerCamera"),
+);
 
 type BridgeMessage =
   | { type: "bridge-ready" }
@@ -1008,8 +1014,6 @@ export default function App() {
   const removeAdsDeliveryQueueRef = useRef<Promise<void>>(Promise.resolve());
   const removeAdsReconcileQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [webReady, setWebReady] = useState(false);
-  const [cameraModule, setCameraModule] =
-    useState<typeof import("expo-camera") | null>(null);
   const [barcodeScannerRequest, setBarcodeScannerRequest] =
     useState<BarcodeScannerRequest | null>(null);
   const [appLocale, setAppLocale] =
@@ -2435,50 +2439,19 @@ export default function App() {
   }, [finishBarcodeScanner]);
 
   const openBarcodeScanner = useCallback(
-    async (message: Extract<BridgeMessage, { type: "open-barcode-scanner" }>) => {
+    (message: Extract<BridgeMessage, { type: "open-barcode-scanner" }>) => {
       if (barcodeScannerOpenRef.current) return;
       barcodeScannerOpenRef.current = true;
       barcodeResultConsumedRef.current = false;
       const locale = message.locale === "es-PR" ? "es-PR" : "en-US";
-      const copy = SCANNER_COPY[locale];
       setAppLocale(locale);
       setBarcodeScannerRequest({
         barcodeTypes: requestedGroceryBarcodeTypes(message.formats),
         locale,
-        permissionGranted: false,
+        permissionGranted: true,
       });
-
-      try {
-        // Expo Camera is intentionally loaded only after the user opens Scan.
-        // This keeps an unavailable or incompatible camera module from taking
-        // down the app before the main interface is visible.
-        const loadedCameraModule = await import("expo-camera");
-        if (!barcodeScannerOpenRef.current) return;
-        setCameraModule(loadedCameraModule);
-        const currentPermission =
-          await loadedCameraModule.getCameraPermissionsAsync();
-        const permission = currentPermission.granted
-          ? currentPermission
-          : await loadedCameraModule.requestCameraPermissionsAsync();
-        if (!barcodeScannerOpenRef.current) return;
-        if (!permission.granted) {
-          cancelBarcodeScanner();
-          Alert.alert(copy.cameraPermissionTitle, copy.cameraPermissionBody, [
-            { text: copy.notNow, style: "cancel" },
-            { text: copy.settings, onPress: () => void Linking.openSettings() },
-          ]);
-          return;
-        }
-        setBarcodeScannerRequest((current) =>
-          current ? { ...current, permissionGranted: true } : current,
-        );
-      } catch (error) {
-        console.error("Camera permission request failed", error);
-        cancelBarcodeScanner();
-        Alert.alert(copy.cameraUnavailableTitle, copy.cameraOpenFailedBody);
-      }
     },
-    [cancelBarcodeScanner],
+    [],
   );
 
   const handleBarcodeScanned = useCallback(
@@ -2635,7 +2608,6 @@ export default function App() {
     nativeAdState === "loaded" &&
     webAdState === "AD_LOADED";
   const scannerCopy = SCANNER_COPY[barcodeScannerRequest?.locale || appLocale];
-  const CameraView = cameraModule?.CameraView;
 
   return (
     <SafeAreaProvider style={styles.root}>
@@ -2717,25 +2689,47 @@ export default function App() {
             importantForAccessibility="yes"
             style={styles.scannerOverlay}
           >
-            {barcodeScannerRequest.permissionGranted && CameraView ? (
-              <CameraView
-                accessible={false}
-                barcodeScannerSettings={{
-                  barcodeTypes: barcodeScannerRequest.barcodeTypes,
-                }}
-                facing="back"
+            <React.Suspense
+              fallback={
+                <View style={styles.scannerLoading}>
+                  <ActivityIndicator color="#ffffff" size="large" />
+                  <Text style={styles.scannerLoadingText}>
+                    {scannerCopy.scannerPreparing}
+                  </Text>
+                </View>
+              }
+            >
+              <LazyBarcodeScannerCamera
+                barcodeTypes={barcodeScannerRequest.barcodeTypes}
                 onBarcodeScanned={handleBarcodeScanned}
                 onMountError={handleBarcodeCameraError}
-                style={styles.scannerCamera}
+                onPermissionDenied={() => {
+                  if (!barcodeScannerOpenRef.current) return;
+                  cancelBarcodeScanner();
+                  Alert.alert(
+                    scannerCopy.cameraPermissionTitle,
+                    scannerCopy.cameraPermissionBody,
+                    [
+                      { text: scannerCopy.notNow, style: "cancel" },
+                      {
+                        text: scannerCopy.settings,
+                        onPress: () => void Linking.openSettings(),
+                      },
+                    ],
+                  );
+                }}
+                onPermissionError={(error) => {
+                  console.error("Camera permission request failed", error);
+                  if (!barcodeScannerOpenRef.current) return;
+                  cancelBarcodeScanner();
+                  Alert.alert(
+                    scannerCopy.cameraUnavailableTitle,
+                    scannerCopy.cameraOpenFailedBody,
+                  );
+                }}
+                preparingText={scannerCopy.scannerPreparing}
               />
-            ) : (
-              <View style={styles.scannerLoading}>
-                <ActivityIndicator color="#ffffff" size="large" />
-                <Text style={styles.scannerLoadingText}>
-                  {scannerCopy.scannerPreparing}
-                </Text>
-              </View>
-            )}
+            </React.Suspense>
             <View pointerEvents="box-none" style={styles.scannerChrome}>
               <View style={styles.scannerHeader}>
                 <Pressable
