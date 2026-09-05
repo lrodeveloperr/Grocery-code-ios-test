@@ -1,0 +1,161 @@
+name: Audit live App Store listing
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type AUDIT LISTING to read the current App Store record
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: grocery-ios-app-store-listing-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Read current iOS metadata from App Store Connect
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: app-store-internal
+    env:
+      APP_STORE_ID: "6799562282"
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+
+    steps:
+      - name: Validate protected inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${{ inputs.confirmation }}" == "AUDIT LISTING" ]] || {
+            echo "Confirmation did not match AUDIT LISTING." >&2
+            exit 1
+          }
+          for key in ASC_KEY_ID ASC_ISSUER_ID ASC_PRIVATE_KEY; do
+            [[ -n "${!key:-}" ]] || { echo "Missing protected $key input." >&2; exit 1; }
+          done
+
+      - name: Read version and localization records
+        shell: bash
+        run: |
+          set -euo pipefail
+          key_path="$RUNNER_TEMP/AuthKey_$ASC_KEY_ID.p8"
+          printf '%s' "$ASC_PRIVATE_KEY" > "$key_path"
+          chmod 600 "$key_path"
+          export ASC_KEY_PATH="$key_path"
+          trap 'rm -f "$ASC_KEY_PATH"' EXIT
+
+          ruby <<'RUBY'
+          require "base64"
+          require "json"
+          require "net/http"
+          require "openssl"
+          require "uri"
+
+          app_id = ENV.fetch("APP_STORE_ID")
+          key_id = ENV.fetch("ASC_KEY_ID")
+          issuer_id = ENV.fetch("ASC_ISSUER_ID")
+          private_key = OpenSSL::PKey.read(File.binread(ENV.fetch("ASC_KEY_PATH")))
+
+          def base64url(value)
+            Base64.urlsafe_encode64(value, padding: false)
+          end
+
+          issued_at = Time.now.to_i
+          header = { alg: "ES256", kid: key_id, typ: "JWT" }
+          payload = { iss: issuer_id, iat: issued_at, exp: issued_at + 900, aud: "appstoreconnect-v1" }
+          signing_input = [header, payload].map { |value| base64url(JSON.generate(value)) }.join(".")
+          signature = private_key.sign(OpenSSL::Digest::SHA256.new, signing_input)
+          components = OpenSSL::ASN1.decode(signature).value
+          raw_signature = components.map do |component|
+            [component.value.to_i.to_s(16).rjust(64, "0")].pack("H*")
+          end.join
+          token = "#{signing_input}.#{base64url(raw_signature)}"
+
+          def get_json(token, path, params = {})
+            uri = URI("https://api.appstoreconnect.apple.com#{path}")
+            uri.query = URI.encode_www_form(params) unless params.empty?
+            request = Net::HTTP::Get.new(uri)
+            request["Authorization"] = "Bearer #{token}"
+            request["Accept"] = "application/json"
+            response = Net::HTTP.start(
+              uri.host,
+              uri.port,
+              use_ssl: true,
+              open_timeout: 15,
+              read_timeout: 45,
+            ) { |http| http.request(request) }
+            unless response.is_a?(Net::HTTPSuccess)
+              abort "App Store Connect GET #{uri.path} failed (HTTP #{response.code}): #{response.body.to_s.byteslice(0, 700)}"
+            end
+            JSON.parse(response.body)
+          end
+
+          versions = get_json(
+            token,
+            "/v1/apps/#{app_id}/appStoreVersions",
+            { "filter[platform]" => "IOS", "limit" => "50" },
+          ).fetch("data", [])
+
+          version_records = versions.map do |version|
+            localizations = get_json(
+              token,
+              "/v1/appStoreVersions/#{version.fetch("id")}/appStoreVersionLocalizations",
+              { "limit" => "50" },
+            ).fetch("data", []).map do |localization|
+              attributes = localization.fetch("attributes", {})
+              attributes.slice(
+                "locale",
+                "description",
+                "keywords",
+                "marketingUrl",
+                "promotionalText",
+                "supportUrl",
+                "whatsNew",
+              )
+            end
+            attributes = version.fetch("attributes", {})
+            {
+              "id" => version.fetch("id"),
+              "versionString" => attributes["versionString"],
+              "appStoreState" => attributes["appStoreState"],
+              "releaseType" => attributes["releaseType"],
+              "createdDate" => attributes["createdDate"],
+              "localizations" => localizations,
+            }
+          end
+
+          app_infos = get_json(
+            token,
+            "/v1/apps/#{app_id}/appInfos",
+            { "limit" => "10" },
+          ).fetch("data", []).map do |app_info|
+            localizations = get_json(
+              token,
+              "/v1/appInfos/#{app_info.fetch("id")}/appInfoLocalizations",
+              { "limit" => "50" },
+            ).fetch("data", []).map do |localization|
+              localization.fetch("attributes", {}).slice(
+                "locale",
+                "name",
+                "subtitle",
+                "privacyPolicyUrl",
+                "privacyChoicesUrl",
+                "privacyPolicyText",
+              )
+            end
+            {
+              "id" => app_info.fetch("id"),
+              "state" => app_info.dig("attributes", "appStoreState"),
+              "localizations" => localizations,
+            }
+          end
+
+          puts JSON.pretty_generate({ "versions" => version_records, "appInfo" => app_infos })
+          RUBY
