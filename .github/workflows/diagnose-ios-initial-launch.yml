@@ -1,0 +1,162 @@
+name: Diagnose iOS initial launch
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CI: "1"
+  DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+  EXPO_NO_TELEMETRY: "1"
+  EXPO_PUBLIC_AD_PROFILE: test
+  EXPO_PUBLIC_IOS_ADMOB_BANNER_ID: ""
+  EXPO_PUBLIC_BUILD_PROFILE: qa
+  SOURCE_ZIP: SNAP-EBT-Grocery-Tracker-iOS-QA-Source-v1.0.0.zip
+  SOURCE_ZIP_SHA256: 23d938c18df0e185e54946759a3075ef42ce2a6cbc3a0bff99b3a085387e4fcd
+  SCHEME: SNAPEBTGroceryTrackerQA
+
+jobs:
+  diagnose:
+    name: Release-mode simulator launch diagnostics
+    runs-on: macos-26
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Assemble the TestFlight application
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_sha="$(shasum -a 256 "$SOURCE_ZIP" | awk '{print $1}')"
+          [[ "$actual_sha" == "$SOURCE_ZIP_SHA256" ]]
+
+          extraction_root="$RUNNER_TEMP/ios-launch-diagnostics"
+          mkdir -p "$extraction_root"
+          /usr/bin/ditto -x -k "$SOURCE_ZIP" "$extraction_root"
+          app_root="$extraction_root/grocery-benefits-tracker"
+          test -f "$app_root/ios/$SCHEME.xcodeproj/project.pbxproj"
+
+          cp release-overlay/App.tsx "$app_root/App.tsx"
+          cp release-overlay/app.html "$app_root/app.html"
+          cp release-overlay/app.config.js "$app_root/app.config.js"
+          cp release-overlay/package.json "$app_root/package.json"
+          cp release-overlay/package-lock.json "$app_root/package-lock.json"
+          cp release-overlay/ios/AppDelegate.swift "$app_root/ios/$SCHEME/AppDelegate.swift"
+          cp release-overlay/ios/skadnetwork-ids.txt "$app_root/ios/skadnetwork-ids.txt"
+          cp release-overlay/ios/en.lproj/InfoPlist.strings "$app_root/ios/$SCHEME/Supporting/en.lproj/InfoPlist.strings"
+          cp release-overlay/ios/es-PR.lproj/InfoPlist.strings "$app_root/ios/$SCHEME/Supporting/es-PR.lproj/InfoPlist.strings"
+          cp release-overlay/assets/app-icon.png.base64 "$app_root/assets/app-icon.png.base64"
+          cp release-overlay/assets/brand-logo-ui.png "$app_root/assets/brand-logo-ui.png"
+          cp release-overlay/assets/brand-logo-master.jpeg "$app_root/assets/brand-logo-master.jpeg"
+          mkdir -p "$app_root/assets/upc-db-parts"
+          cp release-overlay/assets/upc-db-parts/gbt-usda-upc-2026-04.db.part-* "$app_root/assets/upc-db-parts/"
+          cp release-overlay/scripts/embed-web-app.mjs "$app_root/scripts/embed-web-app.mjs"
+          cp release-overlay/scripts/assemble-usda-upc-db.mjs "$app_root/scripts/assemble-usda-upc-db.mjs"
+          cp release-overlay/scripts/configure-ios-test.sh "$app_root/scripts/configure-ios-test.sh"
+          cp release-overlay/scripts/verify-test-release.mjs "$app_root/scripts/verify-test-release.mjs"
+          cp release-overlay/scripts/finalize-ios-notices.mjs "$app_root/scripts/finalize-ios-notices.mjs"
+          cp release-overlay/scripts/verify-ios-privacy-manifests.mjs "$app_root/scripts/verify-ios-privacy-manifests.mjs"
+          cp release-overlay/tests/App.ui.test.tsx "$app_root/tests/App.ui.test.tsx"
+          cp release-overlay/tests/shared-core.test.mjs "$app_root/tests/shared-core.test.mjs"
+          cp release-overlay/tests/usda-upc-db.test.mjs "$app_root/tests/usda-upc-db.test.mjs"
+
+          rm -f "$app_root/src/billing.ts"
+          cp release-overlay/src/removeAdsPurchase.ts "$app_root/src/removeAdsPurchase.ts"
+          cp release-overlay/src/BarcodeScannerCamera.tsx "$app_root/src/BarcodeScannerCamera.tsx"
+
+          cd "$app_root"
+          node scripts/embed-web-app.mjs app.html src/appHtml.ts
+          bash scripts/configure-ios-test.sh "$app_root"
+          echo "APP_ROOT=$app_root" >> "$GITHUB_ENV"
+
+      - name: Run unit and source-level regression suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$APP_ROOT"
+          npm ci --no-audit --no-fund
+          npm run generate:notices
+          npm run typecheck
+          npm run test:logic
+          npm run test:core
+          npm run test:ui
+          node scripts/verify-test-release.mjs
+
+      - name: Install iOS dependencies
+        shell: bash
+        env:
+          LANG: en_US.UTF-8
+        run: |
+          set -euo pipefail
+          cd "$APP_ROOT/ios"
+          pod install --repo-update
+
+      - name: Build the release app for iOS Simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          derived_data="$RUNNER_TEMP/gbt-simulator-derived-data"
+          xcodebuild \
+            -workspace "$APP_ROOT/ios/$SCHEME.xcworkspace" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath "$derived_data" \
+            CODE_SIGNING_ALLOWED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            clean build
+          app_path="$(find "$derived_data/Build/Products/Release-iphonesimulator" -maxdepth 1 -type d -name '*.app' -print -quit)"
+          test -n "$app_path"
+          echo "SIMULATOR_APP_PATH=$app_path" >> "$GITHUB_ENV"
+
+      - name: Launch and hold the app on a clean simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          udid="$(xcrun simctl list devices available -j | ruby -rjson -e '
+            devices = JSON.parse(STDIN.read).fetch("devices").values.flatten
+            phone = devices.find { |device| device.fetch("isAvailable", false) && device.fetch("name").start_with?("iPhone") }
+            abort "No available iPhone simulator was found." unless phone
+            puts phone.fetch("udid")
+          ')"
+          xcrun simctl boot "$udid" 2>/dev/null || true
+          xcrun simctl bootstatus "$udid" -b
+
+          plist="$SIMULATOR_APP_PATH/Info.plist"
+          bundle_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist")"
+          executable="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$plist")"
+          crash_marker="$RUNNER_TEMP/launch-marker"
+          touch "$crash_marker"
+
+          xcrun simctl install "$udid" "$SIMULATOR_APP_PATH"
+          xcrun simctl privacy "$udid" reset all "$bundle_id" || true
+          launch_output="$(xcrun simctl launch --terminate-running-process "$udid" "$bundle_id" 2>&1)"
+          echo "$launch_output"
+          pid="$(sed -nE 's/.*: ([0-9]+)$/\1/p' <<< "$launch_output" | tail -1)"
+          test -n "$pid"
+
+          sleep 20
+
+          echo "## Process check"
+          process_table="$(xcrun simctl spawn "$udid" ps -A -o pid=,comm=)"
+          echo "$process_table"
+          if ! grep -Eq "^[[:space:]]*$pid[[:space:]]" <<< "$process_table"; then
+            echo "The application process exited during the first 20 seconds." >&2
+            echo "## Recent application logs" >&2
+            xcrun simctl spawn "$udid" log show --last 3m --style compact \
+              --predicate "process == '$executable' OR eventMessage CONTAINS '$bundle_id'" >&2 || true
+            echo "## Crash reports" >&2
+            find "$HOME/Library/Logs/DiagnosticReports" -type f -newer "$crash_marker" \
+              \( -name "$executable*.ips" -o -name "$executable*.crash" \) -print -exec cat {} \; >&2 || true
+            exit 1
+          fi
+
+          echo "Application remained alive for 20 seconds after a clean first launch."
+          echo "## Recent application logs"
+          xcrun simctl spawn "$udid" log show --last 1m --style compact \
+            --predicate "process == '$executable' OR eventMessage CONTAINS '$bundle_id'" || true
