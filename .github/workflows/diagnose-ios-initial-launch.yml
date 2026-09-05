@@ -87,14 +87,14 @@ jobs:
           npm run test:ui
           node scripts/verify-test-release.mjs
 
-      - name: Apply simulator-only Swift 6.2 compatibility annotation
+      - name: Apply simulator-only Swift 6.2 compatibility patch
         shell: bash
         run: |
           set -euo pipefail
           source_file="$APP_ROOT/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Coding/JavaScriptCodable+Date.swift"
           test -f "$source_file"
-          perl -0pi -e 's/(let maxJavaScriptDateMilliseconds)\s*=/$1: Double =/' "$source_file"
-          grep -q 'maxJavaScriptDateMilliseconds: Double =' "$source_file"
+          perl -0pi -e 's/(?<!Swift\.)abs\(milliseconds\)/Swift.abs(milliseconds)/g' "$source_file"
+          grep -q 'Swift.abs(milliseconds) <= maxJavaScriptDateMilliseconds' "$source_file"
 
       - name: Install iOS dependencies
         shell: bash
