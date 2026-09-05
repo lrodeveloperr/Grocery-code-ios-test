@@ -67,11 +67,19 @@ export default function BarcodeScannerCamera({
 
 const styles = StyleSheet.create({
   camera: {
-    ...StyleSheet.absoluteFillObject,
+    bottom: 0,
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
   },
   loading: {
-    ...StyleSheet.absoluteFillObject,
     alignItems: "center",
+    bottom: 0,
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
     backgroundColor: "#0b0b0c",
     justifyContent: "center",
   },
